@@ -1,6 +1,6 @@
 # Demo data (screenshots only)
 
-Early-stage sample: **Osama Badr** prepping for a **Product Quality Analyst** role at a fictional company (**Northwind Software**). Only **recruiter-call notes** are filled in; other context files are still placeholders. Interviewer names are from *The Office*:
+Early-stage sample: **Osama Badr** prepping for a **Product Quality Analyst** role at a fictional company (**Dunder Mifflin Co**). Only **recruiter-call notes** are filled in; other context files are still placeholders. Interviewer names are from *The Office*:
 
 | Stage | Character |
 |-------|-----------|

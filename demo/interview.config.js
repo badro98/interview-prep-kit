@@ -1,4 +1,4 @@
-// Demo config — early-stage prep: Osama Badr, Product Quality Analyst @ Northwind Software.
+// Demo config — early-stage prep: Osama Badr, Product Quality Analyst @ Dunder Mifflin Co.
 // Only recruiter-call notes are filled in; other context is still placeholder.
 // Interviewer names are The Office characters. Install with: npm run demo:setup
 
@@ -6,7 +6,7 @@ export const APP = {
   title: "Interview Prep — Product Quality Analyst",
   subtitle: "Product Quality Analyst · Osama Badr",
   role: "Product Quality Analyst",
-  company: "Northwind Software",
+  company: "Dunder Mifflin Co",
   candidateName: "Osama Badr",
 };
 
@@ -88,7 +88,7 @@ export const TRANSCRIBE_STAGE_INSTRUCTIONS = {
   hm: `Hiring manager with Jim Halpert — behavioral round, STAR stories, role fit.`,
   takehome: `Take-home debrief — async case study (format TBD).`,
   onsite: `Virtual onsite — Dwight Schrute (team/culture) + Oscar Martinez (work sample review).`,
-  final: `Final with Michael Scott, head of user ops — values/fit, why Northwind, first 90 days.`,
+  final: `Final with Michael Scott, head of user ops — values/fit, why Dunder Mifflin, first 90 days.`,
 };
 
 export const ADVISOR_STARTERS = [

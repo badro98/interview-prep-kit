@@ -6,7 +6,7 @@ A **local-first** interview prep app. Add your resume, job description, notes, a
 
 ## Demo & screenshots
 
-Early-stage demo: **Osama Badr** · **Product Quality Analyst** at fictional **Northwind Software**. Only recruiter-call notes are filled in; interviewer names are *The Office* characters (Pam, Jim, Dwight, Oscar, Michael Scott). Install it locally:
+Early-stage demo: **Osama Badr** · **Product Quality Analyst** at fictional **Dunder Mifflin Co**. Only recruiter-call notes are filled in; interviewer names are *The Office* characters (Pam, Jim, Dwight, Oscar, Michael Scott). Install it locally:
 
 ```bash
 npm run demo:setup

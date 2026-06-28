@@ -6,13 +6,13 @@
 
 - Role fit for **Product Quality Analyst** (analysis, quality workflows, cross-team work)
 - Clear, concise background story
-- Genuine interest in Northwind and this team — not a generic job search
+- Genuine interest in Dunder Mifflin and this team — not a generic job search
 - Logistics: timeline, work auth, rough comp alignment
 
 ## Likely questions
 
 - Walk me through your background.
-- Why Northwind Software? Why this role?
+- Why Dunder Mifflin Co? Why this role?
 - Tell me about a time you worked with engineering or support on a quality issue.
 - What are you looking for in your next role?
 - Timeline and salary expectations?
@@ -28,7 +28,7 @@
 ## Sharpen before Jim Halpert (Pam's feedback)
 
 - **Elevator pitch:** ~90 seconds, then stop.
-- **Why Northwind:** one company-specific detail + one role-specific detail (research before HM).
+- **Why Dunder Mifflin:** one company-specific detail + one role-specific detail (research before HM).
 - **Comp:** pick a defensible range before Pam's async follow-up.
 
 ## Pipeline intel

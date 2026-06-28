@@ -11,14 +11,14 @@ Recruiter: Pam Beesly (People Operations). First-round screen, ~25 min.
 ## Things to sharpen for Jim Halpert
 
 - **Shorten "tell me about yourself."** Aim for ~90 seconds; I went closer to three minutes.
-- **Prepare a sharper "why Northwind" answer.** Pam said HM rounds often probe company fit harder than recruiters do.
+- **Prepare a sharper "why Dunder Mifflin" answer.** Pam said HM rounds often probe company fit harder than recruiters do.
 - **Have a comp range in mind.** She may follow up async before scheduling Jim; I gave a broad range but nothing anchored.
 
 ## Key intel from the call
 
 - **Product Quality Analyst** sits on a small team under User Operations — mix of ticket analysis, reporting, and process improvement.
 - Team is **growing** (2 open roles); Jim Halpert is the hiring manager and still hands-on with day-to-day work.
-- Northwind is **mid-size B2B SaaS** — established product, steady customer base, not early-stage chaos.
+- Dunder Mifflin is **mid-size B2B SaaS** — established product, steady customer base, not early-stage chaos.
 - Culture signals: async-friendly, documentation-heavy, prefers written follow-ups after customer-facing work.
 
 ## Interview process (as Pam described it)
