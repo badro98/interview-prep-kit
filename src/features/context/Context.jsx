@@ -1,0 +1,274 @@
+import { useMemo, useState } from "react";
+import { getActiveContextBlocks, getContextFiles } from "../../lib/context.js";
+import {
+  setContextFileEnabled,
+  setContextOverride,
+  clearContextOverride,
+  addCustomContextEntry,
+  updateCustomContextEntry,
+  removeCustomContextEntry,
+} from "../../lib/store.js";
+
+export default function Context({ onChange }) {
+  const [tick, setTick] = useState(0);
+  const bump = () => {
+    setTick((t) => t + 1);
+    onChange?.();
+  };
+  const blocks = useMemo(() => getActiveContextBlocks(), [tick]);
+  const enabledCount = blocks.filter((b) => b.enabled).length;
+
+  return (
+    <div className="h-full min-h-0 overflow-y-auto px-6 py-6">
+      <div className="mx-auto max-w-2xl">
+        <header className="mb-6">
+          <h2 className="text-lg font-semibold text-white">Context sources</h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Control what the advisor and all coaching features can see. Built-in files
+            come from <code className="text-slate-300">context/</code>; edits are saved
+            locally in your browser, not to disk.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            {enabledCount} of {blocks.length} sources active
+          </p>
+        </header>
+
+        <ContextManager blocks={blocks} onChange={bump} />
+      </div>
+    </div>
+  );
+}
+
+function ContextManager({ blocks, onChange }) {
+  const [adding, setAdding] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [editing, setEditing] = useState(null);
+
+  const builtin = blocks.filter((b) => b.source === "builtin");
+  const custom = blocks.filter((b) => b.source === "custom");
+
+  function openEditBuiltin(block) {
+    const original = getContextFiles().find((f) => f.name === block.name);
+    setEditing({
+      type: "builtin",
+      name: block.name,
+      label: block.label,
+      content: block.content,
+      originalContent: original?.content || block.content,
+    });
+  }
+
+  function openEditCustom(block) {
+    setEditing({
+      type: "custom",
+      customId: block.customId,
+      label: block.label,
+      content: block.content,
+    });
+  }
+
+  function saveEdit() {
+    if (!editing) return;
+    if (editing.type === "builtin") {
+      setContextOverride(editing.name, editing.content);
+    } else {
+      updateCustomContextEntry(editing.customId, {
+        name: editing.label,
+        content: editing.content,
+      });
+    }
+    setEditing(null);
+    onChange();
+  }
+
+  function handleAddCustom() {
+    if (!newName.trim() || !newContent.trim()) return;
+    addCustomContextEntry({ name: newName, content: newContent });
+    setNewName("");
+    setNewContent("");
+    setAdding(false);
+    onChange();
+  }
+
+  return (
+    <>
+      <section className="mb-8">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Built-in
+        </h3>
+        <div className="space-y-1 rounded-xl border border-ink-700 bg-ink-800/40 p-2">
+          {builtin.map((b) => (
+            <ContextRow
+              key={b.name}
+              label={b.label}
+              sub={b.name}
+              enabled={b.enabled}
+              badge={b.hasOverride ? "edited" : null}
+              onToggle={(on) => {
+                setContextFileEnabled(b.name, on);
+                onChange();
+              }}
+              onEdit={() => openEditBuiltin(b)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Custom
+        </h3>
+        <div className="space-y-1 rounded-xl border border-ink-700 bg-ink-800/40 p-2">
+          {custom.length === 0 && !adding && (
+            <p className="px-2 py-3 text-sm text-slate-500">No custom notes yet.</p>
+          )}
+          {custom.map((b) => (
+            <ContextRow
+              key={b.name}
+              label={b.label}
+              enabled={b.enabled}
+              onToggle={(on) => {
+                updateCustomContextEntry(b.customId, { enabled: on });
+                onChange();
+              }}
+              onEdit={() => openEditCustom(b)}
+              onRemove={() => {
+                if (window.confirm(`Remove "${b.label}"?`)) {
+                  removeCustomContextEntry(b.customId);
+                  onChange();
+                }
+              }}
+            />
+          ))}
+        </div>
+
+        {adding ? (
+          <div className="mt-3 space-y-2 rounded-xl border border-ink-600 bg-ink-900 p-4">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Title (e.g. Recruiter follow-up 6/25)"
+              className="w-full rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+            />
+            <textarea
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              rows={6}
+              placeholder="Markdown notes…"
+              className="w-full resize-none rounded-lg border border-ink-600 bg-ink-800 p-3 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAdding(false)}
+                className="text-sm text-slate-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAddCustom}
+                className="rounded-lg bg-accent-500 px-3 py-1.5 text-sm font-semibold text-white"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setAdding(true)}
+            className="mt-3 w-full rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white"
+          >
+            + Add custom context
+          </button>
+        )}
+      </section>
+
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-xl border border-ink-600 bg-ink-800 shadow-2xl">
+            <div className="border-b border-ink-600 px-4 py-3">
+              <h3 className="text-sm font-semibold text-white">Edit — {editing.label}</h3>
+              {editing.type === "builtin" && (
+                <p className="text-[11px] text-slate-400">
+                  Override saved locally. Use Reset to restore the original file.
+                </p>
+              )}
+            </div>
+            <textarea
+              value={editing.content}
+              onChange={(e) => setEditing({ ...editing, content: e.target.value })}
+              className="min-h-[240px] flex-1 resize-none border-0 bg-ink-900 p-4 font-mono text-xs leading-relaxed text-slate-200 focus:outline-none"
+            />
+            <div className="flex items-center justify-between border-t border-ink-600 px-4 py-3">
+              {editing.type === "builtin" ? (
+                <button
+                  onClick={() => {
+                    clearContextOverride(editing.name);
+                    setEditing({
+                      ...editing,
+                      content: editing.originalContent,
+                    });
+                    onChange();
+                  }}
+                  className="text-xs text-slate-400 hover:text-white"
+                >
+                  Reset to file original
+                </button>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setEditing(null)}
+                  className="rounded px-3 py-1.5 text-xs text-slate-300 hover:bg-ink-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveEdit}
+                  className="rounded bg-accent-500 px-3 py-1.5 text-xs font-semibold text-white"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ContextRow({ label, sub, enabled, badge, onToggle, onEdit, onRemove }) {
+  return (
+    <div className="flex items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-ink-700/50">
+      <input
+        type="checkbox"
+        checked={enabled}
+        onChange={(e) => onToggle(e.target.checked)}
+        className="mt-1 accent-indigo-500"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-slate-200">{label}</p>
+        {sub && <p className="text-xs text-slate-500">{sub}</p>}
+        {badge && <span className="text-xs text-emerald-400">{badge}</span>}
+      </div>
+      <div className="flex shrink-0 gap-1">
+        <button
+          onClick={onEdit}
+          className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-ink-600 hover:text-white"
+        >
+          Edit
+        </button>
+        {onRemove && (
+          <button
+            onClick={onRemove}
+            className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-ink-600 hover:text-red-400"
+          >
+            Delete
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

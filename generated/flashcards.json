@@ -1,0 +1,96 @@
+{
+  "meta": {
+    "note": "Template deck — replace with role-specific cards after filling context/. Use Regenerate or PROMPT.md for a full deck.",
+    "confidenceScale": "1 = shaky, 5 = interview-ready"
+  },
+  "cards": [
+    {
+      "id": "b01",
+      "category": "behavioral",
+      "question": "Walk me through your background.",
+      "referenceAnswer": "I've spent [X years] in [domain], most recently at [COMPANY] where I [core responsibility]. The through-line is [your theme — e.g. building systems, shipping fast, customer focus]. I'm looking for [specific next step] at a company where [why this type of org].",
+      "keyPoints": ["years + domain", "current role scope", "through-line theme", "why this next move"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "b02",
+      "category": "behavioral",
+      "question": "Tell me about a time you had to influence without authority.",
+      "referenceAnswer": "At [COMPANY], [situation]. I didn't own the roadmap but [action — data, prototype, coalition]. Result: [metric]. The key was [what made influence work].",
+      "keyPoints": ["clear situation", "specific actions", "measurable result", "lesson learned"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "b03",
+      "category": "behavioral",
+      "question": "Describe a failure or mistake and what you learned.",
+      "referenceAnswer": "On [project], I [what went wrong]. I [what you did to fix it]. Since then I [process change]. It taught me [honest lesson].",
+      "keyPoints": ["own the mistake", "fix not blame", "systemic improvement", "growth mindset"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "s01",
+      "category": "situational",
+      "question": "How would you prioritize when you have three urgent requests from different stakeholders?",
+      "referenceAnswer": "I'd clarify impact and deadline for each, surface conflicts early, and propose an explicit order with tradeoffs. I'd communicate the plan to all stakeholders and revisit if assumptions change.",
+      "keyPoints": ["clarify impact", "explicit tradeoffs", "communicate proactively", "revisit if needed"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "s02",
+      "category": "situational",
+      "question": "Why do you want this role at this company?",
+      "referenceAnswer": "Three reasons: [specific product/mission fit], [role scope matches your strengths], [team/stage of company]. I've already [evidence you care — side project, usage, research].",
+      "keyPoints": ["company-specific", "role-specific", "evidence of genuine interest", "not generic"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "r01",
+      "category": "role-specific",
+      "question": "What's your approach to [core skill from the JD]?",
+      "referenceAnswer": "I start with [framework]. At [COMPANY] I applied this when [example], which led to [metric]. For this role I'd [how you'd adapt the approach].",
+      "keyPoints": ["framework", "past example with metric", "adaptation to this role"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "r02",
+      "category": "role-specific",
+      "question": "How do you stay current in [domain / tools relevant to role]?",
+      "referenceAnswer": "I [habits — build side projects, read X, use Y daily]. Recently I [concrete example]. That maps directly to [something about this role].",
+      "keyPoints": ["concrete habits", "recent example", "tie to role"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "b04",
+      "category": "behavioral",
+      "question": "Tell me about a time you received difficult feedback.",
+      "referenceAnswer": "[Manager/peer] told me [feedback]. Initially I [honest reaction]. I [what you changed]. Outcome: [improvement with metric if possible].",
+      "keyPoints": ["specific feedback", "non-defensive response", "behavior change", "outcome"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    }
+  ]
+}
