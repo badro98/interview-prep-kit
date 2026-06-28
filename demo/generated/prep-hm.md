@@ -1,42 +1,38 @@
-# Stage 2 — Hiring Manager · Jim Halpert · 45 min
+# Stage 2 — Hiring Manager · 45-min Behavioral
 
-> Best behavioral screenshot — Jim is assessing fit, not tricks.
+> **Template doc** — replace with content grounded in your context and `intel.md` (HM name, team, what they care about).
 
 ## What they're assessing
 
-- Staff IC scope without becoming Dwight's boss
-- Sustainable on-call — Jim hates fire-drill culture
-- Cross-squad influence (SDK story)
-- Whether Ryan is "cool" under pressure (Jim's words, probably)
+- **Team fit:** Would they want you on their team day-to-day?
+- **Ownership & scope:** Can you operate at the level this role requires?
+- **Stakeholder skills:** How you work with PM, eng, and cross-functional partners
+- **Motivation:** Why this team and manager — not just the company logo
 
 ## Likely questions
 
-- Why do you want to work for me specifically?
-- Tell me about influencing teams without authority.
-- How do you prioritize platform vs sales deadlines?
-- What would you do in your first 90 days?
+- Tell me about yourself (deeper than recruiter version — more technical/scope).
+- Why this role on my team?
+- Tell me about a time you [owned a project / influenced without authority / handled conflict].
+- What are you looking for in a manager?
 - What questions do you have for me?
 
-## Stories mapped
+## Your strongest stories mapped to each
 
-| Question | Story | Metric |
-|----------|-------|--------|
-| Influence | sabre-device-ingest SDK | 9 teams, 55% less bespoke code |
-| Prioritization | Printer sync phased rollout | 14h→4min, zero bricked devices |
-| First 90 days | Listen → map drift pain → one RFC | Tie to outage week |
+| Theme | Story to lead with | Metric to land |
+|-------|-------------------|----------------|
+| Ownership | [From experiences.md] | [Concrete result] |
+| Cross-team influence | [Story] | [Result] |
+| Why this team | [From intel.md] | [Specific to HM's mission] |
 
 ## Talking points
 
-- Ask Jim how he protects the team from "reactive sales mode"
-- SDK story — pilot teams, not mandate
-- Acknowledge Sabre return head-on with platform mission answer
+- Research the HM on LinkedIn — reference something specific they’ve built or written
+- Ask about team priorities for the next 6 months and how success is measured
+- Connect your best story directly to a responsibility from the JD
 
-## Pitfalls
+## Pitfalls to avoid
 
-- Trying to prank Jim (do not)
-- Rehashing Pam screen at same depth — go deeper on craft
-
-## My notes
-
-- [x] Practice "why Jim's team" answer  
-- [ ] Prepare 90-day plan one-pager  
+- Treating this like a second recruiter screen — go deeper on craft and scope
+- Not asking the HM anything — show you’re evaluating fit too
+- Generic praise of the company without tying to their team’s problem

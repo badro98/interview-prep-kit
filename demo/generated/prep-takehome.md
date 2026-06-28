@@ -1,27 +1,35 @@
-# Stage 3 — Take-home · System Design Doc
+# Stage 3 — Take-home · Practical Exercise
 
-## Assignment (from Pam)
+> **Template doc** — customize after filling in `context/`. Regenerate once your job description and portfolio are loaded.
 
-Design cloud sync for **500 new device types/quarter** with schema evolution, multi-tenant isolation, **p99 freshness < 30s**. ~3 pages + diagram.
+## What they're assessing
 
-## Angles from Ryan's background
+- **Problem-solving under time pressure:** Do you prioritize and ship?
+- **Communication:** Can you explain your reasoning clearly?
+- **Role-specific skills:** [Map to JD — e.g. debugging, system design, writing, analysis]
+- **Judgment:** Do you ask clarifying questions or assume?
 
-| Requirement | Proof point |
-|-------------|-------------|
-| Schema evolution | Printer sync dual-write playbook |
-| Multi-tenant | Regional rollout flags |
-| Freshness SLA | 14h → 4min migration |
-| Field team DX | sabre-device-ingest SDK |
+## Likely format
 
-## Structure
+- [Describe expected format: timed exercise, async assignment, live pairing, etc.]
+- **Time box:** [e.g. 2 hours, 48-hour window]
+- **Deliverables:** [Code, write-up, recording, slides]
 
-1. Requirements & assumptions  
-2. Diagram (Kafka + registry + sync workers)  
-3. Rollout phases — no big-bang  
-4. Failure modes + on-call  
-5. Tradeoffs section (Jim will read this)
+## Your strongest stories mapped to each
 
-## Pitfalls
+| Evaluation area | Your relevant experience | Proof point |
+|-----------------|-------------------------|-------------|
+| [Criterion 1] | [Project from portfolio.md] | [Metric or outcome] |
+| [Criterion 2] | [Story from experiences.md] | [Result] |
 
-- Designing Dundies notification system by accident
-- Skipping on-call implications — Dwight will ask later
+## Talking points
+
+- Structure your work: clarify → plan → execute → summarize.
+- If recording is required, narrate your thinking aloud.
+- Leave time for a short README or summary of tradeoffs.
+
+## Pitfalls to avoid
+
+- Over-engineering beyond the time box.
+- Skipping a written summary of assumptions and next steps.
+- Not testing your deliverable before submitting.

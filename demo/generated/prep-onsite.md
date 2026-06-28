@@ -1,30 +1,45 @@
-# Stage 4 — Onsite · Dwight · Oscar · Angela
+# Stage 4 — Onsite · Behavioral + Technical Loop
 
-## Round 1 — Dwight Schrute (Architecture)
+> **Template doc** — replace with stage-specific intel from `recruiter-call.md` and `intel.md`.
 
-- Expects preparedness, loyalty to correct process, bear-level intensity
-- Deep dive: printer sync dual-write, rollback, beet-farm-level redundancy jokes optional
-- Story: migration **14h → 4min**, zero bricked devices
-- Pitfall: underestimating his technical depth — he knows the Schrute Buck protocol AND Kafka
+## What they're assessing
 
-## Round 2 — Oscar Martinez (Technical)
+### Behavioral rounds
+- Collaboration, conflict resolution, ownership under ambiguity
+- Customer or stakeholder empathy
+- Values alignment with the team
 
-- Actually smart — accounting brain + logical rigor
-- Likely: idempotency, edge cases in OTA updates, cost tradeoffs
-- Story: WUPHF queue backpressure at **2M msgs/month**
+### Technical / case rounds (if applicable)
+- [Role-specific: live coding, system design, troubleshooting, case study]
+- Thinking aloud and incorporating feedback
+- Depth vs. breadth tradeoffs
 
-## Round 3 — Angela Martin (Cross-functional)
+## Likely questions
 
-- Process, standards, saying no politely
-- Story: SDK semver + office hours; Angela appreciates rules
-- Ask about compliance requirements for device telemetry
+**Behavioral:**
+- Tell me about a time you disagreed with a teammate.
+- Describe a project where requirements changed mid-flight.
+- How do you prioritize when everything is urgent?
 
-## Pitfalls
+**Technical / situational:**
+- [Add role-specific questions from JD and intel]
 
-- Calling Dwight "assistant to the regional manager" in architecture round
-- Skipping questions for each interviewer
+## Your strongest stories mapped to each
 
-## My notes
+| Theme | Story | Key metric |
+|-------|-------|------------|
+| Collaboration | [Story title] | [Result] |
+| Technical depth | [Story title] | [Result] |
+| Ambiguity / ownership | [Story title] | [Result] |
 
-- [ ] Whiteboard dual-write diagram  
-- [ ] Review Oscar's likely idempotency questions  
+## Talking points
+
+- Use STAR but land the **result** in one sentence, then stop.
+- For live technical: state assumptions, invite the interviewer in, narrate severity.
+- Prepare 2–3 thoughtful questions per interviewer.
+
+## Pitfalls to avoid
+
+- Generic answers without metrics from your real experience.
+- Not asking clarifying questions in live exercises.
+- Forgetting to connect answers back to this role's responsibilities.

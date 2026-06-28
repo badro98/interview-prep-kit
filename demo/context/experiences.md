@@ -1,43 +1,56 @@
+<!-- Long-form brain dump of stories, metrics, and STAR outlines. The more detail here, the better AI outputs. -->
+
 # Experiences — Story Bank
 
-## Story: Printer sync migration
-
-**Situation:** Nightly batch firmware checks; sales demos showed stale device state.  
-**Task:** Lead real-time sync without bricking 120K units.  
-**Action:** Phased rollout, feature flags per region, dual-write validation.  
-**Result:** Stale window **14h → 4 min**; **zero** bricked devices during cutover.
-
-**Best for:** Jim, Dwight (architecture), Michael (ownership).
+Use this file as a raw dump. Include numbers, names (first name OK), timelines, and tradeoffs. Every AI feature reads this for grounding.
 
 ---
 
-## Story: SDK adoption (sabre-device-ingest)
+## Story: [Short title, e.g. "Led migration to new auth system"]
 
-**Situation:** Nine field teams maintained forked ingestion scripts.  
-**Task:** One supported path without blocking velocity.  
-**Action:** Pilot with 3 teams, office hours, semver discipline.  
-**Result:** **9 teams onboarded**, ~**55%** less bespoke code.
+**Situation:** [Context — team, scale, stakes]  
+**Task:** [What you were responsible for]  
+**Action:** [What you did — be specific about decisions and collaboration]  
+**Result:** [Metric: e.g. "Reduced latency 40%", "Unblocked 3 teams", "Shipped in 6 weeks"]
 
-**Best for:** Jim (HM), Angela (process).
+**Best for questions like:**
+- "Tell me about a time you…"
+- [Other question types this story fits]
 
----
-
-## Story: WUPHF scale lesson
-
-**Situation:** Notification spike took down manual ops.  
-**Task:** Stabilize without funding for proper infra.  
-**Action:** Queue backpressure, paging, postmortem.  
-**Result:** **2M msgs/month** handled; learned to design for failure upfront.
-
-**Best for:** "Tell me about failure" — Michael Scott final.
+**Key metrics to cite:** [Bullet list of numbers]
 
 ---
 
-## Metrics cheat sheet
+## Story: [Short title]
 
-| Metric | Value |
-|--------|-------|
-| Active devices | 120K |
-| SDK teams | 9 |
-| Uptime | 99.95% |
-| Stale config fix | 14h → 4min |
+**Situation:**  
+**Task:**  
+**Action:**  
+**Result:**
+
+**Best for questions like:**
+- [Question type]
+
+---
+
+## Story: [Short title]
+
+**Situation:**  
+**Task:**  
+**Action:**  
+**Result:**
+
+---
+
+## Misc metrics cheat sheet
+
+| Metric | Value | Context |
+|--------|-------|---------|
+| [e.g. Users impacted] | [N] | [Project] |
+| [e.g. Bugs reduced] | [X%] | [Timeframe] |
+| [e.g. Team size led] | [N] | [Scope] |
+
+## Weak areas / gaps to address honestly
+
+- [Skill or experience gap and how you're closing it]
+- [Story that still needs tightening]

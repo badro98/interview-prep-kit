@@ -1,33 +1,44 @@
 # Stage 1 — Recruiter Screen · Pam Beesly
 
+> First-round recruiter screen with Pam Beesly (~25 min). Generated from `recruiter-call.md` only — upload resume, JD, and stories in Context for later stages.
+
 ## What they're assessing
 
-- Can Ryan tell his story without the WUPHF pitch-deck energy?
-- Why Sabre **again** — credible, not nostalgic
-- Staff-level signals without overselling
-- Business school dropout — handled honestly
+- Role fit for **Product Quality Analyst** (analysis, quality workflows, cross-team work)
+- Clear, concise background story
+- Genuine interest in Northwind and this team — not a generic job search
+- Logistics: timeline, work auth, rough comp alignment
 
 ## Likely questions
 
 - Walk me through your background.
-- Why Sabre? Why staff? Why now?
-- Tell me about leaving business school.
-- Timeline and comp expectations?
+- Why Northwind Software? Why this role?
+- Tell me about a time you worked with engineering or support on a quality issue.
+- What are you looking for in your next role?
+- Timeline and salary expectations?
 
-## Stories mapped
+## What landed on the call
 
-| Question | Lead with | Metric |
-|----------|-----------|--------|
-| Background | Printer sync + SDK arc | 120K devices, 9 teams |
-| Why Sabre | Platform guild / outage prevention | 72-hr outage context |
-| Failure / growth | WUPHF scale lesson | 2M msgs/month |
+| Theme | What you said | Why it worked |
+|-------|---------------|---------------|
+| Background | Recent roles in chronological order | Easy to follow; Pam didn't need to re-orient |
+| Collaboration | Cross-functional quality issue example | Specific roles and outcome, not abstract "team player" talk |
+| Motivation | Ownership in quality workflows | Tied to the JD themes Pam mentioned |
 
-## Talking points
+## Sharpen before Jim Halpert (Pam's feedback)
 
-- Open with printer sync hook — not WUPHF
-- Pam is ally — ask what Jim cares about most
+- **Elevator pitch:** ~90 seconds, then stop.
+- **Why Northwind:** one company-specific detail + one role-specific detail (research before HM).
+- **Comp:** pick a defensible range before Pam's async follow-up.
 
-## Pitfalls
+## Pipeline intel
 
-- Dundies jokes in recruiter screen
-- Badmouthing Michael Scott's old branch management style
+- Small, growing team under User Ops; Jim Halpert is HM and still close to the work.
+- Mid-size B2B SaaS — stable product, documentation/async culture.
+- Next steps: Jim (behavioral) → take-home (async) → onsite panel (Dwight + Oscar) → final (Michael Scott).
+
+## Pitfalls to avoid
+
+- Three-minute monologue on "tell me about yourself"
+- "I'm open to anything" energy on motivation
+- Negotiating hard on comp before you've met the HM

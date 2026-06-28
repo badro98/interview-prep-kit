@@ -1,27 +1,28 @@
-# Job Description — Staff Software Engineer, Sabre
+<!-- Paste the job description and add notes on how your background maps to each requirement. -->
+
+# Job Description — [ROLE TITLE] at [COMPANY]
 
 ## Role summary
 
-Sabre's **Connected Devices Platform** team owns cloud sync, firmware orchestration, and the SDK internal product teams use to ship printer and smart-device features. Staff SWE hire to unblock multi-tenant scale as Sabre expands beyond paper into connected hardware.
+[Paste or summarize the official JD here.]
 
-## Responsibilities
+## Key responsibilities
 
-- Architecture for device telemetry ingestion (target: **500K+ active devices**)
-- Partner with 6 product squads on schema design and SLAs
-- Mentor senior engineers; lead platform guild RFCs
-- Shared on-call for tier-1 device plane
+- [Responsibility 1]
+- [Responsibility 2]
+- [Responsibility 3]
 
-## Requirements → Ryan's fit
+## Requirements
 
-- 8+ years backend/platform → **7 years** (address staff-level scope via impact, not tenure alone)
-- Distributed systems → printer sync migration, WUPHF scale
-- Written communication → postmortems after Scranton outage week
-- Mentoring → informal mentor for 2 seniors at Vance Refrigeration Cloud
+- [Requirement 1] → **Your fit:** [How your experience maps]
+- [Requirement 2] → **Your fit:** [Story or metric that proves it]
+- [Requirement 3] → **Your fit:** [Gap or strength note]
 
-## Why Sabre (again)
+## Why this role / company
 
-Platform is the product now — not the Dundies intranet. Ryan wants staff IC scope where the bottleneck is real.
+[What excites you — be specific to the company and team, not generic.]
 
-## Comp (from Pam)
+## Red flags or open questions
 
-Staff band $195–225k + equity; hybrid 2 days Scranton corporate.
+- [Anything unclear from the JD]
+- [Comp structure, team size, on-call expectations, etc.]

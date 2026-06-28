@@ -18,4 +18,4 @@ cp "$DEMO/context/"*.md "$TARGET/context/"
 cp "$DEMO/generated/"* "$TARGET/generated/"
 
 echo "Done. From $TARGET run: npm run dev"
-echo "Demo persona: Jordan Lee · Staff SWE @ Northwind Analytics"
+echo "Demo persona loaded from demo/interview.config.js"

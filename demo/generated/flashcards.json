@@ -1,6 +1,6 @@
 {
   "meta": {
-    "note": "Demo deck — Ryan Howard @ Sabre (The Office characters)",
+    "note": "Template deck — replace with role-specific cards after filling context/. Use Regenerate or PROMPT.md for a full deck.",
     "confidenceScale": "1 = shaky, 5 = interview-ready"
   },
   "cards": [
@@ -8,55 +8,88 @@
       "id": "b01",
       "category": "behavioral",
       "question": "Walk me through your background.",
-      "referenceAnswer": "Seven years in platform engineering — started at Dunder Mifflin IT, founded WUPHF where I learned scale the hard way, then Vance Refrigeration Cloud where I led printer sync migration cutting stale config from fourteen hours to four minutes across a hundred twenty thousand devices, and built an SDK nine teams adopted. I'm here for staff scope on Sabre's connected devices platform because I don't want another seventy-two-hour outage on my watch.",
-      "keyPoints": ["7 yrs platform", "printer sync metrics", "SDK 9 teams", "why Sabre / outage"],
-      "myAnswer": "I've done platform work at Vance and WUPHF, led a sync migration, built an SDK. I want staff scope at Sabre.",
-      "aiCoaching": "**Strong bones.** Lead with **14h → 4min** and **120K devices** in sentence one. Name the **72-hour outage** as why Sabre now. Drop filler — Pam said tighten the opener.\n\n**Model opener:** \"Seven years building device platforms — most recently I cut config staleness from fourteen hours to four minutes on a hundred twenty thousand units and shipped an SDK nine field teams adopted. I'm back at Sabre for staff scope on the guild that prevents another multi-day outage.\"",
-      "confidence": 4,
-      "lastReviewed": 1719504000000
+      "referenceAnswer": "I've spent [X years] in [domain], most recently at [COMPANY] where I [core responsibility]. The through-line is [your theme — e.g. building systems, shipping fast, customer focus]. I'm looking for [specific next step] at a company where [why this type of org].",
+      "keyPoints": ["years + domain", "current role scope", "through-line theme", "why this next move"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
     },
     {
       "id": "b02",
       "category": "behavioral",
-      "question": "Why do you want to work for Jim Halpert specifically?",
-      "referenceAnswer": "Jim runs the team the way good platform teams should run — sustainable on-call, clarity over fire drills, and he actually uses the SDK we built for field teams. I want a manager who protects deep work while still shipping. His team owns the problem I care about: config drift at scale.",
-      "keyPoints": ["Jim's sustainable culture", "SDK connection", "config drift mission", "not generic praise"],
+      "question": "Tell me about a time you had to influence without authority.",
+      "referenceAnswer": "At [COMPANY], [situation]. I didn't own the roadmap but [action — data, prototype, coalition]. Result: [metric]. The key was [what made influence work].",
+      "keyPoints": ["clear situation", "specific actions", "measurable result", "lesson learned"],
       "myAnswer": "",
       "aiCoaching": "",
-      "confidence": 3,
-      "lastReviewed": null
-    },
-    {
-      "id": "s01",
-      "category": "situational",
-      "question": "Michael Scott asks what 'world's best printer cloud' means to you. What do you say?",
-      "referenceAnswer": "One metric: p99 config freshness under thirty seconds fleet-wide, with rollback that doesn't brick devices. Culture-wise: field teams adopt the platform because it's easier than scripts — nine teams on the SDK proved that. I'd ask Michael which part of that vision he wants staff to own first.",
-      "keyPoints": ["concrete metric", "SDK adoption proof", "tie to his phrase", "ask him back"],
-      "myAnswer": "I'd say reliable sync and happy developers.",
-      "aiCoaching": "**Too vague for Michael's final.** Give a **number** (p99 < 30s) and **proof** (9 teams, zero bricked rollout). Echo his phrase then land substance — he respects sincerity plus specifics.",
-      "confidence": 3,
-      "lastReviewed": 1719417600000
-    },
-    {
-      "id": "r01",
-      "category": "role-specific",
-      "question": "Dwight asks you to whiteboard the printer sync migration.",
-      "referenceAnswer": "Dual-write phase: devices report to old batch path and new stream; compare counts per region; feature-flag cutover by geography; rollback keeps last-known-good firmware pointer. Result: fourteen hours to four minutes, zero bricked devices. Idempotent workers because Dwight will ask twice.",
-      "keyPoints": ["dual-write", "regional flags", "rollback", "metrics"],
-      "myAnswer": "",
-      "aiCoaching": "",
-      "confidence": 4,
+      "confidence": null,
       "lastReviewed": null
     },
     {
       "id": "b03",
       "category": "behavioral",
-      "question": "Tell me about a failure.",
-      "referenceAnswer": "WUPHF — we hit two million messages a month without queue backpressure or paging. We went down during a demo. I wrote the postmortem, added backpressure and dashboards, and I've started every platform design since with failure modes first. That's why Sabre's outage week resonates — I won't skip observability again.",
-      "keyPoints": ["WUPHF", "2M msgs", "postmortem culture", "link to Sabre outage"],
+      "question": "Describe a failure or mistake and what you learned.",
+      "referenceAnswer": "On [project], I [what went wrong]. I [what you did to fix it]. Since then I [process change]. It taught me [honest lesson].",
+      "keyPoints": ["own the mistake", "fix not blame", "systemic improvement", "growth mindset"],
       "myAnswer": "",
       "aiCoaching": "",
-      "confidence": 3,
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "s01",
+      "category": "situational",
+      "question": "How would you prioritize when you have three urgent requests from different stakeholders?",
+      "referenceAnswer": "I'd clarify impact and deadline for each, surface conflicts early, and propose an explicit order with tradeoffs. I'd communicate the plan to all stakeholders and revisit if assumptions change.",
+      "keyPoints": ["clarify impact", "explicit tradeoffs", "communicate proactively", "revisit if needed"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "s02",
+      "category": "situational",
+      "question": "Why do you want this role at this company?",
+      "referenceAnswer": "Three reasons: [specific product/mission fit], [role scope matches your strengths], [team/stage of company]. I've already [evidence you care — side project, usage, research].",
+      "keyPoints": ["company-specific", "role-specific", "evidence of genuine interest", "not generic"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "r01",
+      "category": "role-specific",
+      "question": "What's your approach to [core skill from the JD]?",
+      "referenceAnswer": "I start with [framework]. At [COMPANY] I applied this when [example], which led to [metric]. For this role I'd [how you'd adapt the approach].",
+      "keyPoints": ["framework", "past example with metric", "adaptation to this role"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "r02",
+      "category": "role-specific",
+      "question": "How do you stay current in [domain / tools relevant to role]?",
+      "referenceAnswer": "I [habits — build side projects, read X, use Y daily]. Recently I [concrete example]. That maps directly to [something about this role].",
+      "keyPoints": ["concrete habits", "recent example", "tie to role"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
+      "lastReviewed": null
+    },
+    {
+      "id": "b04",
+      "category": "behavioral",
+      "question": "Tell me about a time you received difficult feedback.",
+      "referenceAnswer": "[Manager/peer] told me [feedback]. Initially I [honest reaction]. I [what you changed]. Outcome: [improvement with metric if possible].",
+      "keyPoints": ["specific feedback", "non-defensive response", "behavior change", "outcome"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": null,
       "lastReviewed": null
     }
   ]

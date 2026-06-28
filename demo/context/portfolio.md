@@ -1,21 +1,26 @@
+<!-- Side projects, open-source work, and how you use relevant tools (including AI coding assistants). -->
+
 # Portfolio & Side Projects
 
-## WUPHF (founding era)
+## [Project name]
 
-- Multi-channel notification router — peak **2M msgs/month**
-- Lesson: velocity without observability burns you; now Ryan leads with dashboards first
+- **What it is:** [One-line description]
+- **Why it matters for this role:** [Connect to JD requirements]
+- **Stack / tools:** [Tech used]
+- **Impact or demo:** [Link, metric, or outcome]
 
-## sabre-device-ingest (internal SDK)
+## [Project name 2]
 
-- TypeScript SDK for device telemetry at Vance Refrigeration Cloud
-- **9 teams adopted**; Ryan primary author
-- Talking point for Jim: "I build tools people actually use"
+- **What it is:** [Description]
+- **Why it matters:** [Relevance to interview]
+- **Stack / tools:** [Tech used]
 
-## Dundies RSVP bot (archived)
+## Tools you use daily
 
-- Do not lead with this in the Michael Scott final. Maybe never mention it.
+- **AI / dev tools:** [Cursor, Copilot, Claude Code, etc. — how you actually use them]
+- **Other:** [Relevant tooling for the role]
 
-## Tools
+## Talking points
 
-- Cursor for SDK refactors and test generation
-- Datadog for fleet lag — built template Jim's team copied
+- [Short anecdote about building something end-to-end]
+- [Example of debugging, shipping, or learning fast]
