@@ -1,0 +1,74 @@
+{
+  "meta": {
+    "note": "Demo deck — Jordan Lee @ Northwind Analytics",
+    "confidenceScale": "1 = shaky, 5 = interview-ready"
+  },
+  "cards": [
+    {
+      "id": "b01",
+      "category": "behavioral",
+      "question": "Walk me through your background.",
+      "referenceAnswer": "Nine years in backend and data engineering. Last four at Relay Commerce where I led our streaming migration — cut data freshness from 18 hours to under five minutes — and built an ingestion SDK that twelve product teams adopted. Before that, CDC pipelines at DataFlow. I'm looking for staff-level platform scope; Northwind's ingestion challenge is exactly the kind of multi-team architecture work I want to own.",
+      "keyPoints": ["9 yrs", "streaming migration metrics", "SDK 12 teams", "why Northwind specific"],
+      "myAnswer": "I've been doing data eng for about 9 years. At Relay I led the move from batch to streaming and built our SDK. I want staff scope on platform.",
+      "aiCoaching": "**Strong:** Clear arc and real metrics.\n\n**Tighten:** Open with the 18h→5min hook in sentence one. Name Northwind's ingestion mission explicitly. Drop \"about\" — say nine years.\n\n**Model opener:** \"Nine years building data platforms — most recently I led Relay's streaming migration, cutting freshness from 18 hours to five minutes, then an SDK twelve teams adopted. I'm here because Northwind's platform guild is the product, not a sidecar.\"",
+      "confidence": 4,
+      "lastReviewed": 1719504000000
+    },
+    {
+      "id": "b02",
+      "category": "behavioral",
+      "question": "Tell me about a time you influenced without authority.",
+      "referenceAnswer": "Twelve teams had copy-pasted ingestion code causing drift and outages. I couldn't mandate a single SDK. I ran a pilot with three friendly teams, shipped semver and changelogs, held weekly office hours. Within eight months twelve teams migrated voluntarily. Platform NPS went from 42 to 71.",
+      "keyPoints": ["problem: drift/outages", "pilot not mandate", "12 teams", "NPS 42→71"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": 2,
+      "lastReviewed": null
+    },
+    {
+      "id": "s01",
+      "category": "situational",
+      "question": "How would you safely roll out a new event type to production?",
+      "referenceAnswer": "Schema review with producers, contract tests in CI, shadow traffic or dual-write to validate counts, feature flag per tenant, dashboard on lag and error rate, rollback path documented before cutover. Phased rollout — never big-bang all tenants.",
+      "keyPoints": ["schema review", "contract tests", "phased rollout", "observability + rollback"],
+      "myAnswer": "I'd add schema validation, test in staging, roll out gradually with feature flags and watch dashboards.",
+      "aiCoaching": "**Good skeleton.** Add contract tests between producer/consumer, dual-write validation period, and explicit rollback criteria. Mention tenant-scoped flags — matches Northwind multi-tenant context.",
+      "confidence": 3,
+      "lastReviewed": 1719417600000
+    },
+    {
+      "id": "r01",
+      "category": "role-specific",
+      "question": "Describe your streaming migration — hardest tradeoff?",
+      "referenceAnswer": "Hardest tradeoff was exactly-once vs operational complexity. We chose at-least-once with idempotent sinks and reconciliation jobs — simpler ops, acceptable for our SLA. Dual-write for six weeks let us validate counts before cutover; zero customer incidents during Black Friday.",
+      "keyPoints": ["exactly-once vs at-least-once", "dual-write 6 weeks", "zero incidents", "Black Friday timing"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": 4,
+      "lastReviewed": null
+    },
+    {
+      "id": "b03",
+      "category": "behavioral",
+      "question": "Why Northwind? Why leave Relay?",
+      "referenceAnswer": "Relay was the right place to grow into senior scope. Northwind is where the platform IS the bottleneck the company is hiring staff to fix — VP's blog post matched problems I've already solved at smaller scale. I want staff IC scope shaping guild direction, not to jump for a title alone.",
+      "keyPoints": ["positive framing on Relay", "specific Northwind homework", "staff IC not manager", "platform mission"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": 3,
+      "lastReviewed": null
+    },
+    {
+      "id": "s02",
+      "category": "situational",
+      "question": "Product wants a shortcut that breaks schema standards. What do you do?",
+      "referenceAnswer": "Understand the deadline and user impact. Propose a time-boxed exception path with explicit tech debt ticket, narrower scope, and sunset date. Escalate to EM if it's a pattern. Document in RFC so guild sees precedent — never silent one-offs.",
+      "keyPoints": ["empathy for deadline", "time-boxed exception", "RFC visibility", "no silent debt"],
+      "myAnswer": "",
+      "aiCoaching": "",
+      "confidence": 2,
+      "lastReviewed": null
+    }
+  ]
+}

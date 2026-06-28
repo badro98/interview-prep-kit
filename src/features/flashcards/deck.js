@@ -47,10 +47,10 @@ export function getDeck() {
       referenceAnswer: mo?.referenceAnswer ?? c.referenceAnswer ?? "",
       keyPoints: mo?.keyPoints ?? (Array.isArray(c.keyPoints) ? c.keyPoints : []),
       referenceIsCustom: !!mo,
-      myAnswer: p.myAnswer || "",
-      aiCoaching: p.aiCoaching || "",
-      confidence: p.confidence ?? null,
-      lastReviewed: p.lastReviewed ?? null,
+      myAnswer: p.myAnswer ?? c.myAnswer ?? "",
+      aiCoaching: p.aiCoaching ?? c.aiCoaching ?? "",
+      confidence: p.confidence ?? c.confidence ?? null,
+      lastReviewed: p.lastReviewed ?? c.lastReviewed ?? null,
     };
   });
 }

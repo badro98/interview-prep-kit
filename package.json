@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "concurrently -k -n vite,proxy -c blue,magenta \"vite\" \"node server/index.js\"",
     "dev:frontend": "vite",
+    "demo:setup": "bash scripts/setup-demo.sh",
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js"

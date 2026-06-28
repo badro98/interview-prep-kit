@@ -4,9 +4,26 @@ A **local-first** interview prep app. Add your resume, job description, notes, a
 
 **You bring your own API keys.** This repo does not include any. Coaching runs through a small local proxy on your machine; by default it calls **Google Gemini** using a `GEMINI_API_KEY` you add to `.env`. Optional **AssemblyAI** for long recording transcription. Keys never leave your machine and are never committed to git.
 
----
+## Demo & screenshots
 
-## Features
+Fictional sample data (Jordan Lee · Staff SWE @ Northwind Analytics) lives in [`demo/`](demo/). Install it locally:
+
+```bash
+npm run demo:setup
+npm run dev
+```
+
+For a separate folder (keeps the template clean):
+
+```bash
+cp -R . ~/Desktop/interview-prep-demo && cd ~/Desktop/interview-prep-demo
+npm install && cp /path/to/your/.env .env
+npm run demo:setup && npm run dev
+```
+
+See [`demo/DEMO.md`](demo/DEMO.md) for suggested tabs to screenshot for the README.
+
+---
 
 | Tab | What it does |
 |-----|--------------|
