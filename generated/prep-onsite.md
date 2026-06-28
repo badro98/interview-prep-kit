@@ -1,4 +1,4 @@
-# Stage 3 — Onsite · Behavioral + Technical Loop
+# Stage 4 — Onsite · Behavioral + Technical Loop
 
 > **Template doc** — replace with stage-specific intel from `recruiter-call.md` and `intel.md`.
 

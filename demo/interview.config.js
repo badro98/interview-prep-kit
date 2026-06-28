@@ -47,25 +47,32 @@ export const STAGES = [
     regenTask: `Produce a focused interview-prep doc for STAGE 1 — recruiter screen with Maya Chen.\n\n${SECTIONS_SPEC}`,
   },
   {
+    id: "hm",
+    title: "Hiring Manager",
+    subtitle: "45-min behavioral · Sam Rivera",
+    file: "prep-hm.md",
+    regenTask: `Produce a focused interview-prep doc for STAGE 2 — hiring manager interview with Sam Rivera (Director, Data Platform).\n\n${SECTIONS_SPEC}`,
+  },
+  {
     id: "takehome",
     title: "Take-home",
     subtitle: "System design doc · 48-hr window",
     file: "prep-takehome.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 2 — system design take-home.\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 3 — system design take-home.\n\n${SECTIONS_SPEC}`,
   },
   {
     id: "onsite",
     title: "Onsite",
-    subtitle: "Behavioral + architecture · 4 interviews",
+    subtitle: "Architecture + cross-func · 3 interviews",
     file: "prep-onsite.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 3 — onsite loop.\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 4 — onsite loop.\n\n${SECTIONS_SPEC}`,
   },
   {
     id: "final",
     title: "Final Round",
     subtitle: "VP Engineering · values & scope",
     file: "prep-final.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 4 — final with VP Eng.\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 5 — final with VP Eng.\n\n${SECTIONS_SPEC}`,
   },
 ];
 
@@ -77,8 +84,9 @@ export const TRANSCRIBE_STAGES = STAGES.map(({ id, title, subtitle }) => ({
 
 export const TRANSCRIBE_STAGE_INSTRUCTIONS = {
   recruiter: `Recruiter screen with Maya Chen — role fit, motivation, comp band, timeline.`,
+  hm: `Hiring manager with Sam Rivera — team fit, staff scope, platform guild, behavioral depth.`,
   takehome: `Take-home debrief — system design doc for real-time pipeline, tradeoffs, clarity.`,
-  onsite: `Onsite — behavioral with EM, architecture deep-dive, cross-functional, coding.`,
+  onsite: `Onsite — architecture deep-dive, cross-functional, coding.`,
   final: `Final with VP Eng — staff scope, leadership, why Northwind, first 90 days.`,
 };
 

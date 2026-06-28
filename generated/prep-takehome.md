@@ -1,4 +1,4 @@
-# Stage 2 — Take-home · Practical Exercise
+# Stage 3 — Take-home · Practical Exercise
 
 > **Template doc** — customize after filling in `context/`. Regenerate once your job description and portfolio are loaded.
 

@@ -1,4 +1,4 @@
-# Stage 2 — Take-home · System Design Doc
+# Stage 3 — Take-home · System Design Doc
 
 ## What they're assessing
 

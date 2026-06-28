@@ -49,25 +49,32 @@ export const STAGES = [
     regenTask: `Produce a focused interview-prep doc for STAGE 1 — the recruiter screen. Cover what they're assessing (role fit, motivation, salary/timeline logistics), likely questions, the candidate's strongest stories mapped to each, talking points, and pitfalls. Emphasize a crisp "walk me through your background" answer and why this role/company.\n\n${SECTIONS_SPEC}`,
   },
   {
+    id: "hm",
+    title: "Hiring Manager",
+    subtitle: "45-min behavioral · team fit · scope",
+    file: "prep-hm.md",
+    regenTask: `Produce a focused interview-prep doc for STAGE 2 — the hiring manager interview. Cover what they're assessing (team fit, ownership, role scope, how you work with stakeholders), likely behavioral questions, the candidate's strongest stories mapped to each, talking points, and pitfalls. This is often the first deep dive with the person you'd report to.\n\n${SECTIONS_SPEC}`,
+  },
+  {
     id: "takehome",
     title: "Take-home",
     subtitle: "Practical exercise · timed window",
     file: "prep-takehome.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 2 — the take-home or practical exercise. Cover what they're assessing, how to structure the work under time pressure, likely evaluation criteria, the candidate's relevant experience to highlight, and pitfalls (over-engineering, skipping communication).\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 3 — the take-home or practical exercise. Cover what they're assessing, how to structure the work under time pressure, likely evaluation criteria, the candidate's relevant experience to highlight, and pitfalls (over-engineering, skipping communication).\n\n${SECTIONS_SPEC}`,
   },
   {
     id: "onsite",
     title: "Onsite",
     subtitle: "Behavioral + technical · multiple interviewers",
     file: "prep-onsite.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 3 — the onsite loop. Cover behavioral rounds (collaboration, conflict, ownership), technical or case rounds if applicable, stories mapped to likely questions, and pitfalls (rambling, not asking clarifying questions).\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 4 — the onsite loop. Cover behavioral rounds (collaboration, conflict, ownership), technical or case rounds if applicable, stories mapped to likely questions, and pitfalls (rambling, not asking clarifying questions).\n\n${SECTIONS_SPEC}`,
   },
   {
     id: "final",
     title: "Final Round",
     subtitle: "Values · leadership · mutual fit",
     file: "prep-final.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 4 — the final round. Cover values/fit, why this role/company, first-90-days narrative, questions the candidate should ask, and pitfalls. The technical bar is largely cleared by now — focus on leadership readiness and mutual fit.\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 5 — the final round. Cover values/fit, why this role/company, first-90-days narrative, questions the candidate should ask, and pitfalls. The technical bar is largely cleared by now — focus on leadership readiness and mutual fit.\n\n${SECTIONS_SPEC}`,
   },
 ];
 
@@ -79,6 +86,7 @@ export const TRANSCRIBE_STAGES = STAGES.map(({ id, title, subtitle }) => ({
 
 export const TRANSCRIBE_STAGE_INSTRUCTIONS = {
   recruiter: `This was the recruiter screen. Focus on role-fit questions, motivation, logistics, and any pipeline intel shared.`,
+  hm: `This was the hiring manager interview. Focus on behavioral questions, team fit, role scope, ownership stories, and how the candidate asks about the team and priorities.`,
   takehome: `This was a take-home debrief or walkthrough. Focus on approach, time management, communication, and feedback on the deliverable.`,
   onsite: `This was the onsite loop. Separate behavioral vs technical threads if both appear. Note follow-up questions and collaboration signals.`,
   final: `This was the final round — values, fit, leadership readiness. Focus on why this role/company, first-90-days, and mutual fit.`,
@@ -87,6 +95,7 @@ export const TRANSCRIBE_STAGE_INSTRUCTIONS = {
 export const ADVISOR_STARTERS = [
   "How prepared am I overall for this interview loop?",
   "What behavioral questions is my hiring manager most likely to ask?",
+  "What questions should I ask my hiring manager about team scope?",
   "What questions should I ask in my recruiter screen?",
   "Help me brainstorm questions to ask in the final round.",
   "I have new intel from the recruiter — I'll paste it below.",
