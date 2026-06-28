@@ -2,7 +2,7 @@
 
 A **local-first** interview prep app. Add your resume, job description, notes, and stories — it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a prep advisor chat, and interview recording transcription. All grounded in **your** materials, not generic advice.
 
-Coaching runs through a **local API proxy** (Gemini by default). Keys stay in `.env` on your machine.
+**You bring your own API keys.** This repo does not include any. Coaching runs through a small local proxy on your machine; by default it calls **Google Gemini** using a `GEMINI_API_KEY` you add to `.env`. Optional **AssemblyAI** for long recording transcription. Keys never leave your machine and are never committed to git.
 
 ---
 
@@ -20,12 +20,14 @@ Coaching runs through a **local API proxy** (Gemini by default). Keys stay in `.
 
 ## Quick start
 
+**Before you run the app:** create a free [Gemini API key](https://aistudio.google.com/apikey) (required). AssemblyAI is optional — see below.
+
 ```bash
 git clone https://github.com/badro98/interview-prep-kit.git
 cd interview-prep-kit
 npm install
 cp .env.example .env
-# Add GEMINI_API_KEY — https://aistudio.google.com/apikey
+# Paste YOUR Gemini key into .env — the app will not work without it (unless you use Paste mode)
 npm run dev
 ```
 
@@ -37,7 +39,7 @@ Verify the proxy: http://localhost:3001/api/health
 
 ## API keys & free tiers
 
-Both providers below offer **generous free tiers** — enough for interview prep without paying.
+**No keys are bundled with this repo.** Sign up with the providers below and paste your keys into `.env`. Both offer **generous free tiers** — enough for interview prep without paying.
 
 | Variable | Required? | Get a key | Purpose |
 |----------|-----------|-----------|---------|
@@ -50,7 +52,7 @@ Both providers below offer **generous free tiers** — enough for interview prep
 
 ### Other LLM providers (Claude, ChatGPT, etc.)
 
-The app ships with **Gemini** in [`server/gemini.js`](server/gemini.js), but the proxy pattern is small (~30 lines in [`server/index.js`](server/index.js)). You can swap in:
+Out of the box, the **server code** is wired for **Gemini** ([`server/gemini.js`](server/gemini.js)) — you still supply your own key (or swap providers). The proxy pattern is small (~30 lines in [`server/index.js`](server/index.js)). To use a different API:
 
 - **Anthropic Claude** — `@anthropic-ai/sdk`, point `/api/chat` at Claude
 - **OpenAI ChatGPT** — `openai` package, point `/api/chat` at `gpt-4o` or similar
@@ -101,7 +103,7 @@ interview-prep-kit/
 ├── context/              # Optional starter templates + README (not required as-is)
 ├── generated/            # Seed prep docs + flashcards (customize via PROMPT.md)
 ├── interview.config.js   # App title, stages, advisor prompt
-├── server/               # Express proxy (Gemini + optional AssemblyAI)
+├── server/               # Local proxy — calls YOUR Gemini key (or swap for Claude/OpenAI)
 ├── src/                  # React app
 ├── .env.example
 └── PROMPT.md
