@@ -138,12 +138,12 @@ export default function Audio() {
       setProxy(status);
       if (!status.reachable) {
         throw new Error(
-          "Audio scoring needs the local API server. Run `npm run dev:api` (instead of `npm run dev`)."
+          "Audio scoring needs the local API server. Run `npm run dev` (not `npm run dev:frontend`)."
         );
       }
       if (!status.configured) {
         throw new Error(
-          "Add GEMINI_API_KEY to your .env, then restart `npm run dev:api`."
+          "Add GEMINI_API_KEY to your .env, then restart `npm run dev`."
         );
       }
       const text = await scoreAttemptAudio(attempt);
@@ -502,7 +502,7 @@ function AttemptDetail({
           <button
             onClick={onScoreText}
             disabled={busy}
-            title="Score from the transcript only (works in paste mode, no key)"
+            title="Score from transcript only (works in Paste mode when proxy is off)"
             className="rounded-md border border-ink-600 bg-ink-800 px-3.5 py-2 text-xs font-semibold text-slate-200 transition hover:border-ink-500 disabled:opacity-50"
           >
             {busy && busyKind === "text" ? "Working…" : "From transcript (paste)"}
@@ -517,7 +517,7 @@ function AttemptDetail({
         {!proxy?.reachable && (
           <p className="mt-2 text-[11px] text-slate-500">
             Tone scoring needs the local API server — run{" "}
-            <code className="rounded bg-ink-700 px-1 text-slate-300">npm run dev:api</code>{" "}
+            <code className="rounded bg-ink-700 px-1 text-slate-300">npm run dev</code>{" "}
             with a <code className="rounded bg-ink-700 px-1 text-slate-300">GEMINI_API_KEY</code>{" "}
             in <code className="rounded bg-ink-700 px-1 text-slate-300">.env</code>. Until then, use transcript (paste) scoring.
           </p>

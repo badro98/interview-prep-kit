@@ -4,7 +4,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { CONTEXT_LABELS, CONTEXT_ORDER } from "../interview.config.js";
+import { CONTEXT_LABELS, CONTEXT_ORDER, CONTEXT_SKIP } from "../interview.config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CONTEXT_DIR = path.join(__dirname, "..", "context");
@@ -17,7 +17,7 @@ export function getServerContext() {
 
   const files = fs
     .readdirSync(CONTEXT_DIR)
-    .filter((f) => f.endsWith(".md"))
+    .filter((f) => f.endsWith(".md") && !CONTEXT_SKIP.has(f))
     .sort((a, b) => {
       const ia = CONTEXT_ORDER.indexOf(a);
       const ib = CONTEXT_ORDER.indexOf(b);

@@ -1,7 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-// Paste mode (default) needs only Vite.
+// Default dev runs Vite + Express proxy (npm run dev). Frontend-only: npm run dev:frontend
 // API mode: the proxy below forwards /api -> the local Express server (server/index.js).
 export default defineConfig({
   plugins: [react()],

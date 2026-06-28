@@ -1,6 +1,6 @@
 # Stage 1 — Recruiter Screen · 30-min Intro
 
-> **Template doc** — replace with content grounded in your `context/` files. Use the "Regenerate" button (paste or API mode) after filling in your materials, or run the prompt in `PROMPT.md`.
+> **Template doc** — replace with content grounded in your context. Use **Regenerate** after adding materials, or run [PROMPT.md](../PROMPT.md).
 
 ## What they're assessing
 

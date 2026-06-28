@@ -127,7 +127,7 @@ export default function Flashcards() {
       const msg = e.message || "Coaching failed.";
       setErr(
         msg.includes("Proxy error") || msg.includes("fetch")
-          ? `${msg} — use http://localhost:5175 with npm run dev:api, or switch header to Paste mode.`
+          ? `${msg} — run npm run dev with .env keys, or switch header to Paste mode.`
           : msg
       );
     } finally {

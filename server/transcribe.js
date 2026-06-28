@@ -66,7 +66,7 @@ export async function transcribeInterview({
 }) {
   if (!geminiConfigured()) {
     throw new Error(
-      "GEMINI_API_KEY is not set. Add it to .env and restart with `npm run dev:api`."
+      "GEMINI_API_KEY is not set. Add it to .env and restart with `npm run dev`."
     );
   }
   if (buffer.length > MAX_BYTES) {
@@ -87,7 +87,7 @@ export async function transcribeInterview({
     } catch (e) {
       if (buffer.length > GEMINI_DIARIZE_MAX) {
         throw new Error(
-          `AssemblyAI failed (${e.message}). Your file is ${mb}MB — restart \`npm run dev:api\` and confirm assemblyai set ✓ in the terminal.`
+          `AssemblyAI failed (${e.message}). Your file is ${mb}MB — restart \`npm run dev\` and confirm assemblyai set ✓ in the terminal.`
         );
       }
       console.warn("AssemblyAI failed, falling back to Gemini:", e.message);
@@ -96,7 +96,7 @@ export async function transcribeInterview({
     }
   } else if (buffer.length > GEMINI_DIARIZE_MAX) {
     throw new Error(
-      `File is ${mb}MB. Add ASSEMBLYAI_API_KEY to .env and restart \`npm run dev:api\` — Gemini cannot diarize long recordings reliably.`
+      `File is ${mb}MB. Add ASSEMBLYAI_API_KEY to .env and restart \`npm run dev\` — Gemini cannot diarize long recordings reliably.`
     );
   } else {
     report(onProgress, "Transcribing with Gemini", 25);

@@ -52,7 +52,7 @@ function assertCanTranscribe(fileBytes, proxy) {
   assertUploadSize(fileBytes);
   if (fileBytes > ASSEMBLYAI_REQUIRED_BYTES && !proxy.assemblyai) {
     throw new Error(
-      `File is ${fmtFileSize(fileBytes)} — recordings over 25MB need AssemblyAI. Add ASSEMBLYAI_API_KEY to .env and restart \`npm run dev:api\` (terminal must show assemblyai set ✓).`
+      `File is ${fmtFileSize(fileBytes)} — recordings over 25MB need AssemblyAI. Add ASSEMBLYAI_API_KEY to .env and restart \`npm run dev\` (terminal must show assemblyai set ✓).`
     );
   }
 }
@@ -605,7 +605,7 @@ export default function InterviewRecording({ stageId, onChange }) {
         </p>
         {!proxy.reachable && (
           <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            Run <code className="text-amber-100">npm run dev:api</code> and open{" "}
+            Run <code className="text-amber-100">npm run dev</code> and open{" "}
             <code className="text-amber-100">http://localhost:5175</code> to transcribe.
           </p>
         )}
@@ -618,7 +618,7 @@ export default function InterviewRecording({ stageId, onChange }) {
           <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
             AssemblyAI is off — files over 25MB cannot transcribe. Add{" "}
             <code className="text-amber-100">ASSEMBLYAI_API_KEY</code> to .env and restart{" "}
-            <code className="text-amber-100">npm run dev:api</code> (terminal must show{" "}
+            <code className="text-amber-100">npm run dev</code> (terminal must show{" "}
             <code className="text-amber-100">assemblyai set ✓</code>).
           </p>
         )}

@@ -1,6 +1,6 @@
 // Minimal local proxy for API mode.
 //
-// Paste mode needs none of this. Run with `npm run dev:api` (vite + this together).
+// Run with `npm run dev` (vite + this together). Use `npm run dev:frontend` for UI-only.
 // Vite proxies /api -> http://localhost:3001 (see vite.config.js).
 
 import "dotenv/config";

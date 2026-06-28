@@ -4,12 +4,11 @@
 // take-home brainstorm later) goes through THIS function. Flipping between paste mode
 // and API mode is a one-line change here — no feature code changes.
 //
-//   PASTE MODE (default, zero setup): we assemble the full prompt (context + task)
-//   and hand it back so the UI can copy it to the clipboard. You paste it into Cursor
-//   chat, then paste the reply back into the app. Uses your existing subscription.
+//   API MODE (default): routes through the local Express proxy (Gemini out of the box;
+//   swap server/gemini.js for Claude, OpenAI, etc.). Requires npm run dev + .env keys.
 //
-//   API MODE (optional upgrade): if the local Express proxy is running with a
-//   GEMINI_API_KEY in .env, coach() routes through it and returns the model text directly.
+//   PASTE MODE (fallback): assembles the prompt for clipboard copy/paste into an external
+//   chat when the proxy is unavailable or you prefer not to use API keys.
 
 import { getContext } from "./context.js";
 import { askClaude } from "./claude.js";
@@ -23,9 +22,9 @@ export const MODE_API = "api";
 
 const MODE_KEY = "settings:aiMode";
 
-/** Current AI mode. Defaults to paste — no key, no cost, works out of the box. */
+/** Current AI mode. Defaults to API — set up .env and npm run dev. */
 export function getMode() {
-  return get(MODE_KEY, MODE_PASTE);
+  return get(MODE_KEY, MODE_API);
 }
 
 export function setMode(mode) {
@@ -76,7 +75,7 @@ export async function coach({ task, includeContext = true, system }) {
     return { mode: MODE_API, text };
   }
 
-  // Default: paste mode.
+  // Paste fallback when API / tone scoring unavailable.
   return { mode: MODE_PASTE, prompt: buildPrompt({ task, includeContext }) };
 }
 

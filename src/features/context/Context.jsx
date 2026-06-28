@@ -24,9 +24,9 @@ export default function Context({ onChange }) {
         <header className="mb-6">
           <h2 className="text-lg font-semibold text-white">Context sources</h2>
           <p className="mt-1 text-sm text-slate-400">
-            Control what the advisor and all coaching features can see. Built-in files
-            come from <code className="text-slate-300">context/</code>; edits are saved
-            locally in your browser, not to disk.
+            Grounding material for prep docs, flashcards, advisor, and audio scoring.
+            Use the optional files in <code className="text-slate-300">context/</code>, paste
+            notes, or upload a file — you do not need every starter template.
           </p>
           <p className="mt-2 text-xs text-slate-500">
             {enabledCount} of {blocks.length} sources active
@@ -91,11 +91,24 @@ function ContextManager({ blocks, onChange }) {
     onChange();
   }
 
+  function handleUploadFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base = file.name.replace(/\.(md|txt)$/i, "") || file.name;
+      addCustomContextEntry({ name: base, content: String(reader.result) });
+      onChange();
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
   return (
     <>
       <section className="mb-8">
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          Built-in
+          From context/ (optional templates)
         </h3>
         <div className="space-y-1 rounded-xl border border-ink-700 bg-ink-800/40 p-2">
           {builtin.map((b) => (
@@ -174,12 +187,23 @@ function ContextManager({ blocks, onChange }) {
             </div>
           </div>
         ) : (
-          <button
-            onClick={() => setAdding(true)}
-            className="mt-3 w-full rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white"
-          >
-            + Add custom context
-          </button>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={() => setAdding(true)}
+              className="flex-1 rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white"
+            >
+              + Paste custom context
+            </button>
+            <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white">
+              Upload .md / .txt
+              <input
+                type="file"
+                accept=".md,.txt,text/markdown,text/plain"
+                className="hidden"
+                onChange={handleUploadFile}
+              />
+            </label>
+          </div>
         )}
       </section>
 

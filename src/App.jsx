@@ -95,8 +95,8 @@ function ModeToggle({ mode, onToggle }) {
       onClick={onToggle}
       title={
         isApi
-          ? "API mode — routes through the local proxy (needs GEMINI_API_KEY + npm run dev:api)"
-          : "Paste mode — copy prompt into Cursor, paste reply back (no key)"
+          ? "API mode — automated coaching via local proxy (npm run dev + .env keys)"
+          : "Paste mode — copy prompts to an external chat when the proxy is off (no API key)"
       }
       className="flex items-center gap-2 rounded-full border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-ink-500"
     >

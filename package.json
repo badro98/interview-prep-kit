@@ -10,8 +10,8 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "dev:api": "concurrently -k -n vite,proxy -c blue,magenta \"vite\" \"node server/index.js\"",
+    "dev": "concurrently -k -n vite,proxy -c blue,magenta \"vite\" \"node server/index.js\"",
+    "dev:frontend": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server/index.js"

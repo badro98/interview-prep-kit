@@ -65,7 +65,7 @@ export default function CoachPasteModal({
           <div>
             <h3 className="text-base font-semibold text-white">{title}</h3>
             <p className="mt-0.5 text-xs text-slate-400">
-              Paste mode — uses your Cursor subscription, no API key.
+              Paste mode fallback — use when the proxy is off. Copy prompt, paste reply back.
             </p>
           </div>
           <button

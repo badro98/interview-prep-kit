@@ -4,6 +4,7 @@
 import {
   CONTEXT_LABELS,
   CONTEXT_ORDER,
+  CONTEXT_SKIP,
 } from "../../interview.config.js";
 import {
   getDisabledContextFiles,
@@ -23,10 +24,13 @@ function fileName(path) {
 
 /** Raw built-in files from /context (build time). */
 export function getContextFiles() {
-  const entries = Object.entries(FILES).map(([path, content]) => {
-    const name = fileName(path);
-    return { name, label: CONTEXT_LABELS[name] || name, content: String(content).trim() };
-  });
+  const entries = Object.entries(FILES)
+    .map(([path, content]) => {
+      const name = fileName(path);
+      if (CONTEXT_SKIP.has(name)) return null;
+      return { name, label: CONTEXT_LABELS[name] || name, content: String(content).trim() };
+    })
+    .filter(Boolean);
 
   return entries.sort((a, b) => {
     const ia = CONTEXT_ORDER.indexOf(a.name);

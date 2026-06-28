@@ -9,6 +9,8 @@ export const APP = {
   candidateName: "Your Name",
 };
 
+// Optional starter files in context/ — see context/README.md.
+// Users can delete, rename, or add files; labels are display names only.
 export const CONTEXT_ORDER = [
   "resume.md",
   "job-description.md",
@@ -19,13 +21,15 @@ export const CONTEXT_ORDER = [
 ];
 
 export const CONTEXT_LABELS = {
-  "resume.md": "RESUME",
-  "job-description.md": "JOB DESCRIPTION",
-  "portfolio.md": "PORTFOLIO & SIDE PROJECTS",
-  "recruiter-call.md": "RECRUITER CALL — notes, feedback, intel",
-  "intel.md": "ROLE INTEL & HIRING-MANAGER PREP",
-  "experiences.md": "EXPERIENCES — long-form brain dump",
+  "resume.md": "Resume / background",
+  "job-description.md": "Job description",
+  "portfolio.md": "Portfolio & projects",
+  "recruiter-call.md": "Recruiter & pipeline notes",
+  "intel.md": "Role & company intel",
+  "experiences.md": "Stories & metrics",
 };
+
+export const CONTEXT_SKIP = new Set(["README.md"]);
 
 const SECTIONS_SPEC = `Structure the doc with these sections:
 1. **What they're assessing** for this stage

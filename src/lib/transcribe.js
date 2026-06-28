@@ -285,15 +285,15 @@ export async function transcribeInterview({
   const status = await getTranscribeStatus();
   if (!status.reachable) {
     throw new Error(
-      "Interview transcription needs the local API server. Run `npm run dev:api` (instead of `npm run dev`)."
+      "Interview transcription needs the local API server. Run `npm run dev` (not `npm run dev:frontend`)."
     );
   }
   if (!status.configured) {
-    throw new Error("Add GEMINI_API_KEY to your .env, then restart `npm run dev:api`.");
+    throw new Error("Add GEMINI_API_KEY to your .env, then restart `npm run dev`.");
   }
   if (file.size > ASSEMBLYAI_REQUIRED_BYTES && !status.assemblyai) {
     throw new Error(
-      `File is ${(file.size / (1024 * 1024)).toFixed(1)}MB — recordings over 25MB need AssemblyAI. Add ASSEMBLYAI_API_KEY to .env and restart \`npm run dev:api\` (terminal must show assemblyai set ✓).`
+      `File is ${(file.size / (1024 * 1024)).toFixed(1)}MB — recordings over 25MB need AssemblyAI. Add ASSEMBLYAI_API_KEY to .env and restart \`npm run dev\` (terminal must show assemblyai set ✓).`
     );
   }
 

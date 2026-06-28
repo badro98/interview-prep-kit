@@ -85,7 +85,7 @@ export default function Advisor({ onContextChange }) {
     if (!proxyOk) {
       return (
         text +
-        "\n\n(Note: URL fetch needs npm run dev:api — paste the page text directly if fetch fails.)"
+        "\n\n(Note: URL fetch needs npm run dev — paste the page text directly if fetch fails.)"
       );
     }
 
@@ -135,7 +135,7 @@ export default function Advisor({ onContextChange }) {
           const ok = await isProxyReachable();
           if (!ok) {
             throw new Error(
-              "Proxy not reachable. Run npm run dev:api and open http://localhost:5175"
+              "Proxy not reachable. Run npm run dev and open http://localhost:5175"
             );
           }
         }
@@ -239,7 +239,7 @@ export default function Advisor({ onContextChange }) {
           </h2>
           <p className="text-xs text-slate-400">
             {ctx.count} context sources · {deck.length} flashcards ·{" "}
-            {getMode() === MODE_API ? "Gemini API" : "paste mode"}
+            {getMode() === MODE_API ? "API" : "Paste (fallback)"}
           </p>
         </div>
 

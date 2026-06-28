@@ -1,7 +1,7 @@
 ## Summary
 
-- [ ] Tested locally with `npm run dev` (paste mode)
-- [ ] If API changes: tested with `npm run dev:api` and `.env` keys
+- [ ] Tested locally with `npm run dev` (API mode + `.env`)
+- [ ] If API changes: tested with `npm run dev` and `.env` keys
 - [ ] No secrets or personal context committed
 
 ## What changed
