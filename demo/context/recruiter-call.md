@@ -1,26 +1,27 @@
-# Recruiter Call — Notes
+# Recruiter Call — Pam Beesly
 
 **Date:** June 12, 2026  
-**Recruiter:** Maya Chen  
-**Role:** Staff SWE, Data Platform
+**Recruiter:** Pam Beesly  
+**Role:** Staff SWE, Connected Devices Platform
 
 ## Process
 
 | Stage | Format | Interviewer | Notes |
 |-------|--------|-------------|-------|
-| 1 | 30 min phone | Maya (recruiter) | Done ✓ — moving forward |
-| 2 | 45 min video | Sam Rivera (HM) | Behavioral · team fit · staff scope |
-| 3 | Take-home | — | System design doc, 48 hrs, ~3 pages |
-| 4 | Onsite | 3 × 45 min | Arch deep-dive, cross-func, coding |
-| 5 | 45 min | VP Eng (Pat Okonkwo) | Staff scope, leadership, mutual fit |
+| 1 | 30 min phone | Pam Beesly | Done ✓ — she's rooting for you |
+| 2 | 45 min video | Jim Halpert (HM) | Behavioral · team fit · staff scope |
+| 3 | Take-home | — | System design doc, 48 hrs |
+| 4 | Onsite | Dwight, Oscar, Angela | Arch, technical, cross-func |
+| 5 | 45 min | Michael Scott (VP Eng) | Values, leadership, mutual fit |
 
-## Maya's feedback
+## Pam's feedback
 
-- **Landed well:** streaming migration story, specific metrics
-- **Tighten:** "Why leave Relay?" — focus on staff scope, not negative about current role
-- **Emphasize:** mentoring examples before HM screen with Sam
+- **Landed well:** printer sync metrics, SDK adoption story
+- **Tighten:** "Why Sabre again?" — focus on platform mission, not Dunder nostalgia
+- **Watch:** business school dropout — have crisp answer ready
+- **Emphasize:** mentoring before Jim screen
 
 ## Logistics
 
-- Onsite week of July 7; travel covered from Portland
-- Team is 14 engineers, 2 open staff roles
+- Onsite week of July 7; Scranton corporate campus
+- Jim is "chill but sharp" — Pam's words

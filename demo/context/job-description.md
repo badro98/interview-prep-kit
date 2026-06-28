@@ -1,27 +1,27 @@
-# Job Description — Staff Software Engineer, Northwind Analytics
+# Job Description — Staff Software Engineer, Sabre
 
 ## Role summary
 
-Northwind Analytics builds real-time analytics for mid-market retailers. The Staff SWE role owns the **core ingestion platform** — schema registry, stream processing, and the developer experience for internal product teams shipping new event types weekly.
+Sabre's **Connected Devices Platform** team owns cloud sync, firmware orchestration, and the SDK internal product teams use to ship printer and smart-device features. Staff SWE hire to unblock multi-tenant scale as Sabre expands beyond paper into connected hardware.
 
 ## Responsibilities
 
-- Define architecture for multi-tenant event ingestion (10B+ events/day trajectory)
-- Partner with 8 product squads on schema design and SLAs
-- Mentor 2–3 senior engineers; set technical direction for platform guild
-- Own production on-call rotation for tier-1 data plane (shared, not solo)
+- Architecture for device telemetry ingestion (target: **500K+ active devices**)
+- Partner with 6 product squads on schema design and SLAs
+- Mentor senior engineers; lead platform guild RFCs
+- Shared on-call for tier-1 device plane
 
-## Requirements
+## Requirements → Ryan's fit
 
-- 8+ years backend/data engineering → **Jordan:** 9 years, streaming + platform
-- Distributed systems at scale → **Jordan:** Kafka/Flink migration, 40M events/day
-- Strong written communication (RFCs, postmortems) → **Jordan:** led 6 postmortems, SDK docs
-- Experience mentoring seniors → **Jordan:** informal mentor for 2 seniors at Relay
+- 8+ years backend/platform → **7 years** (address staff-level scope via impact, not tenure alone)
+- Distributed systems → printer sync migration, WUPHF scale
+- Written communication → postmortems after Scranton outage week
+- Mentoring → informal mentor for 2 seniors at Vance Refrigeration Cloud
 
-## Why Northwind
+## Why Sabre (again)
 
-Product-led company (~220 eng); ingestion is the bottleneck they're hiring staff to unblock. Public blog posts on exactly-once semantics match Jordan's Flink work.
+Platform is the product now — not the Dundies intranet. Ryan wants staff IC scope where the bottleneck is real.
 
-## Comp / level (from recruiter)
+## Comp (from Pam)
 
-Staff band $210–240k base + equity; hybrid 2 days/week Portland office.
+Staff band $195–225k + equity; hybrid 2 days Scranton corporate.

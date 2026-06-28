@@ -1,22 +1,24 @@
-# Role Intel — Northwind Analytics
+# Role Intel — Sabre
 
 ## Why this hire exists
 
-Ingestion lag spiked Q1 when 3 new product lines onboarded without schema review. VP Eng blog post (May 2026) called out need for **staff owner** of platform guild.
+Device fleet doubled after Sabre Smart Printer launch; config drift caused a **72-hour outage** in Northeast region. VP blog post (Michael Scott, surprisingly coherent) called for staff owner of platform guild.
 
-## Hiring manager — Sam Rivera (Director, Data Platform)
+## Hiring manager — Jim Halpert
 
-- Ex-Confluent; talks publicly about schema registry patterns
-- Likely cares about: operability, clear RFC process, not over-engineering v1
-- **Questions for Sam:**
-  - How do you decide build vs buy for new event sources?
-  - What does success look like for the platform guild in 6 months?
+- Former sales, now runs Connected Devices eng — values clarity over jargon
+- Cares about: sustainable on-call, not burning team on pranks or fire drills
+- **Questions for Jim:**
+  - How do you balance platform roadmap vs sales-driven deadlines?
+  - What broke in the outage week and what would you fix first?
 
-## VP final — Pat Okonkwo
+## VP Engineering — Michael Scott
 
-- Values written communication; reviews RFCs personally for staff+ hires
-- Ask about on-call sustainability and how staff ICs split deep work vs firefighting
+- Regional manager energy at corporate scale; surprisingly protective of eng culture
+- Final round is values/fit — expects you to "get" Sabre's mission
+- Do not mention Dundies RSVP bot unless he brings up parties first
+- Ask about his vision for "world's best printer cloud" (his phrase, not yours)
 
-## Jordan's narrative
+## Ryan's narrative
 
-Relay was the right growth stage; Northwind is where platform is the product, not a cost center — matches career arc toward staff scope and multi-team influence.
+Left corporate once for WUPHF; learned scale and failure. Vance Refrigeration Cloud proved platform chops. Sabre staff role = own the guild that prevents another 72-hour outage.

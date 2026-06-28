@@ -1,35 +1,35 @@
 # Experiences — Story Bank
 
-## Story: Streaming migration (Relay)
+## Story: Printer sync migration
 
-**Situation:** Nightly batch pipeline; product wanted near-real-time dashboards.  
-**Task:** Lead migration without downtime for Black Friday traffic.  
-**Action:** Dual-write → validate → cutover over 6 weeks; feature flags per event type.  
-**Result:** Freshness **18h → <5 min**; **zero** customer incidents; team of 4.
+**Situation:** Nightly batch firmware checks; sales demos showed stale device state.  
+**Task:** Lead real-time sync without bricking 120K units.  
+**Action:** Phased rollout, feature flags per region, dual-write validation.  
+**Result:** Stale window **14h → 4 min**; **zero** bricked devices during cutover.
 
-**Best for:** Technical leadership, ambiguity, scale, tradeoffs.
-
----
-
-## Story: SDK adoption (Relay)
-
-**Situation:** 12 teams copy-pasted ingestion boilerplate; drift caused outages.  
-**Task:** One supported path without blocking team velocity.  
-**Action:** Paired with 3 pilot teams; semver + changelog; office hours.  
-**Result:** **12 teams onboarded**, ~**60%** less bespoke code; NPS 42 → 71 on platform survey.
-
-**Best for:** Developer experience, influence without authority, staff scope.
+**Best for:** Jim, Dwight (architecture), Michael (ownership).
 
 ---
 
-## Story: CDC pipeline (DataFlow)
+## Story: SDK adoption (sabre-device-ingest)
 
-**Situation:** 4-hour Snowflake lag blocking finance close.  
-**Task:** Reduce lag without doubling infra cost.  
-**Action:** Debezium + incremental sync; partitioned by tenant size.  
-**Result:** Lag **4h → 22 min**; infra cost **+8%** only.
+**Situation:** Nine field teams maintained forked ingestion scripts.  
+**Task:** One supported path without blocking velocity.  
+**Action:** Pilot with 3 teams, office hours, semver discipline.  
+**Result:** **9 teams onboarded**, ~**55%** less bespoke code.
 
-**Best for:** Data depth, cost awareness, debugging production.
+**Best for:** Jim (HM), Angela (process).
+
+---
+
+## Story: WUPHF scale lesson
+
+**Situation:** Notification spike took down manual ops.  
+**Task:** Stabilize without funding for proper infra.  
+**Action:** Queue backpressure, paging, postmortem.  
+**Result:** **2M msgs/month** handled; learned to design for failure upfront.
+
+**Best for:** "Tell me about failure" — Michael Scott final.
 
 ---
 
@@ -37,7 +37,7 @@
 
 | Metric | Value |
 |--------|-------|
-| Daily events (Relay) | 40M |
-| SDK teams onboarded | 12 |
-| Pipeline uptime | 99.97% |
-| streambench stars | 380 |
+| Active devices | 120K |
+| SDK teams | 9 |
+| Uptime | 99.95% |
+| Stale config fix | 14h → 4min |

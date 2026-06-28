@@ -6,7 +6,7 @@ A **local-first** interview prep app. Add your resume, job description, notes, a
 
 ## Demo & screenshots
 
-Fictional sample data (Jordan Lee · Staff SWE @ Northwind Analytics) lives in [`demo/`](demo/). Install it locally:
+Fictional sample data (Ryan Howard · Staff SWE @ Sabre — *The Office* characters) lives in [`demo/`](demo/). Install it locally:
 
 ```bash
 npm run demo:setup

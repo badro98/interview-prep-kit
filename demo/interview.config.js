@@ -1,12 +1,12 @@
-// Demo config — fictional candidate for README screenshots.
+// Demo config — The Office characters (fictional interview loop for screenshots).
 // Install with: npm run demo:setup
 
 export const APP = {
-  title: "Interview Prep — Northwind",
-  subtitle: "Staff SWE loop · Jordan Lee",
+  title: "Interview Prep — Sabre",
+  subtitle: "Staff SWE loop · Ryan Howard",
   role: "Staff Software Engineer",
-  company: "Northwind Analytics",
-  candidateName: "Jordan Lee",
+  company: "Sabre",
+  candidateName: "Ryan Howard",
 };
 
 export const CONTEXT_ORDER = [
@@ -21,7 +21,7 @@ export const CONTEXT_ORDER = [
 export const CONTEXT_LABELS = {
   "resume.md": "Resume / background",
   "job-description.md": "Job description",
-  "portfolio.md": "Portfolio & projects",
+  "portfolio.md": "Portfolio & side projects",
   "recruiter-call.md": "Recruiter & pipeline notes",
   "intel.md": "Role & company intel",
   "experiences.md": "Stories & metrics",
@@ -42,16 +42,16 @@ export const STAGES = [
   {
     id: "recruiter",
     title: "Recruiter Screen",
-    subtitle: "30-min intro · Maya Chen",
+    subtitle: "30-min intro · Pam Beesly",
     file: "prep-recruiter.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 1 — recruiter screen with Maya Chen.\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 1 — recruiter screen with Pam Beesly.\n\n${SECTIONS_SPEC}`,
   },
   {
     id: "hm",
     title: "Hiring Manager",
-    subtitle: "45-min behavioral · Sam Rivera",
+    subtitle: "45-min behavioral · Jim Halpert",
     file: "prep-hm.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 2 — hiring manager interview with Sam Rivera (Director, Data Platform).\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 2 — hiring manager interview with Jim Halpert.\n\n${SECTIONS_SPEC}`,
   },
   {
     id: "takehome",
@@ -63,16 +63,16 @@ export const STAGES = [
   {
     id: "onsite",
     title: "Onsite",
-    subtitle: "Architecture + cross-func · 3 interviews",
+    subtitle: "Dwight · Oscar · Angela",
     file: "prep-onsite.md",
     regenTask: `Produce a focused interview-prep doc for STAGE 4 — onsite loop.\n\n${SECTIONS_SPEC}`,
   },
   {
     id: "final",
     title: "Final Round",
-    subtitle: "VP Engineering · values & scope",
+    subtitle: "Michael Scott · VP Engineering",
     file: "prep-final.md",
-    regenTask: `Produce a focused interview-prep doc for STAGE 5 — final with VP Eng.\n\n${SECTIONS_SPEC}`,
+    regenTask: `Produce a focused interview-prep doc for STAGE 5 — final with Michael Scott, VP Engineering.\n\n${SECTIONS_SPEC}`,
   },
 ];
 
@@ -83,19 +83,19 @@ export const TRANSCRIBE_STAGES = STAGES.map(({ id, title, subtitle }) => ({
 }));
 
 export const TRANSCRIBE_STAGE_INSTRUCTIONS = {
-  recruiter: `Recruiter screen with Maya Chen — role fit, motivation, comp band, timeline.`,
-  hm: `Hiring manager with Sam Rivera — team fit, staff scope, platform guild, behavioral depth.`,
-  takehome: `Take-home debrief — system design doc for real-time pipeline, tradeoffs, clarity.`,
-  onsite: `Onsite — architecture deep-dive, cross-functional, coding.`,
-  final: `Final with VP Eng — staff scope, leadership, why Northwind, first 90 days.`,
+  recruiter: `Recruiter screen with Pam Beesly — role fit, motivation, comp band, timeline.`,
+  hm: `Hiring manager with Jim Halpert — team fit, staff scope, behavioral depth, pranks optional.`,
+  takehome: `Take-home debrief — printer cloud sync system design, tradeoffs, clarity.`,
+  onsite: `Onsite — Dwight (architecture), Oscar (technical), Angela (cross-functional).`,
+  final: `Final with Michael Scott, VP Engineering — staff scope, leadership, why Sabre, first 90 days.`,
 };
 
 export const ADVISOR_STARTERS = [
-  "How prepared am I for the onsite architecture round?",
-  "What should I ask the hiring manager about on-call expectations?",
-  "Help me tighten my 'tell me about yourself' for Northwind.",
+  "How prepared am I for Dwight's architecture round?",
+  "What should I ask Jim about on-call expectations?",
+  "Help me tighten my 'tell me about yourself' for Sabre.",
   "Which flashcards am I weakest on?",
-  "Draft 3 questions for the VP final round.",
+  "Draft 3 questions for Michael Scott's final round.",
 ];
 
 export function buildAdvisorSystem() {

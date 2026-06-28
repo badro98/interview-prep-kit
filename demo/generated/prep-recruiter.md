@@ -1,35 +1,33 @@
-# Stage 1 — Recruiter Screen · Maya Chen
+# Stage 1 — Recruiter Screen · Pam Beesly
 
 ## What they're assessing
 
-- Crisp background narrative (90 seconds max)
-- Motivation for Northwind specifically — not generic "better opportunity"
-- Staff-level scope signals without overselling management
-- Comp band alignment and timeline
+- Can Ryan tell his story without the WUPHF pitch-deck energy?
+- Why Sabre **again** — credible, not nostalgic
+- Staff-level signals without overselling
+- Business school dropout — handled honestly
 
 ## Likely questions
 
 - Walk me through your background.
-- Why Northwind? Why now?
-- What are you looking for in a staff role?
-- What's your timeline?
+- Why Sabre? Why staff? Why now?
+- Tell me about leaving business school.
+- Timeline and comp expectations?
 
-## Your strongest stories mapped to each
+## Stories mapped
 
 | Question | Lead with | Metric |
 |----------|-----------|--------|
-| Background | Relay streaming + SDK arc | 40M events/day, 12 teams |
-| Why Northwind | Platform-as-product + VP blog on ingestion | Specific to their bottleneck |
-| Staff scope | SDK + migration leadership | Team of 4, zero-incident cutover |
+| Background | Printer sync + SDK arc | 120K devices, 9 teams |
+| Why Sabre | Platform guild / outage prevention | 72-hr outage context |
+| Failure / growth | WUPHF scale lesson | 2M msgs/month |
 
 ## Talking points
 
-- Open with: data platforms → streaming at Relay → want staff scope shaping architecture
-- Name Northwind's schema registry blog post — shows homework
-- Ask Maya about onsite format and Pat's final focus
+- Open with printer sync hook — not WUPHF
+- Pam is ally — ask what Jim cares about most
 
-## Pitfalls to avoid
+## Pitfalls
 
-- Badmouthing Relay — frame as growth, not escape
-- Rambling past 3 minutes on background
-- Vague "I like analytics" — tie to their ingestion mission
+- Dundies jokes in recruiter screen
+- Badmouthing Michael Scott's old branch management style

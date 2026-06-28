@@ -1,35 +1,27 @@
 # Stage 3 — Take-home · System Design Doc
 
-## What they're assessing
+## Assignment (from Pam)
 
-- Can you structure ambiguous platform problems?
-- Written clarity — Pat reviews RFCs for staff hires
-- Tradeoff reasoning (latency, cost, operability)
-- Scope control in 48 hours (~3 pages, not a novel)
+Design cloud sync for **500 new device types/quarter** with schema evolution, multi-tenant isolation, **p99 freshness < 30s**. ~3 pages + diagram.
 
-## Assignment (from Maya)
+## Angles from Ryan's background
 
-Design ingestion path for **new retailer onboarding 500 event types/week** with schema evolution, multi-tenant isolation, and **p99 < 30s** freshness. Document API, storage, failure modes.
+| Requirement | Proof point |
+|-------------|-------------|
+| Schema evolution | Printer sync dual-write playbook |
+| Multi-tenant | Regional rollout flags |
+| Freshness SLA | 14h → 4min migration |
+| Field team DX | sabre-device-ingest SDK |
 
-## Your angles from experience
-
-| Requirement | Your proof point |
-|-------------|------------------|
-| Schema evolution | Relay dual-write migration; contract tests at DataFlow |
-| Multi-tenant | CDC partitioning by tenant size |
-| Freshness SLA | 18h → 5min migration playbook |
-| DX for squads | relay-ingest SDK adoption story |
-
-## Structure to use
+## Structure
 
 1. Requirements & assumptions  
-2. High-level diagram (Kafka + registry + Flink — align with their stack if known)  
-3. Schema versioning strategy  
-4. Failure modes + on-call implications  
-5. Rollout phases — don't big-bang  
+2. Diagram (Kafka + registry + sync workers)  
+3. Rollout phases — no big-bang  
+4. Failure modes + on-call  
+5. Tradeoffs section (Jim will read this)
 
-## Pitfalls to avoid
+## Pitfalls
 
-- Designing for 10B/day on day one without phased rollout
-- Skipping operability / on-call section
-- No explicit tradeoffs section
+- Designing Dundies notification system by accident
+- Skipping on-call implications — Dwight will ask later
