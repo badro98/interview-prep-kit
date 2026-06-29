@@ -1,121 +1,106 @@
 # Interview Prep Kit
 
-A **local-first** interview prep app. Add your resume, job description, notes, and stories — it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a prep advisor chat, and interview recording transcription. All grounded in **your** materials, not generic advice.
+Hi. I built this because I was tired of generic interview advice.
 
-**You bring your own API keys.** This repo does not include any. Coaching runs through a small local proxy on your machine; by default it calls **Google Gemini** using a `GEMINI_API_KEY` you add to `.env`. Optional **AssemblyAI** for long recording transcription. Keys never leave your machine and are never committed to git.
+This is a **local-first** interview prep app. You add your resume, the job description, your stories and notes — and it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a chat advisor, and interview recording transcription. All grounded in **your** materials.
+
+You bring your own API keys. Nothing gets stored externally. Keys never leave your machine.
 
 ## Demo
 
-Early-stage demo: **Osama Badr** · **Product Quality Analyst** at **Dunder Mifflin Co**. Only recruiter-call notes are filled in; interviewer names are *The Office* characters (Pam, Jim, Dwight, Oscar, Michael Scott).
+Here's the app in action — persona is a Product Quality Analyst role (with *The Office* characters as interviewers because why not).
 
-<video src="https://github.com/badro98/interview-prep-kit/raw/main/demo/demo-walkthrough.mp4" controls width="100%">
-  <a href="demo/demo-walkthrough.mp4">Download demo walkthrough</a>
-</video>
+<video src="https://github.com/user-attachments/assets/02873ec3-0298-4550-b8a3-9a59603ed658" controls width="100%"></video>
 
-Install the sample data locally:
+Try it with sample data:
 
 ```bash
 npm run demo:setup
 npm run dev
 ```
 
-For a separate folder (keeps the template clean):
-
-```bash
-cp -R . ~/Desktop/interview-prep-demo && cd ~/Desktop/interview-prep-demo
-npm install && cp /path/to/your/.env .env
-npm run demo:setup && npm run dev
-```
-
-See [`demo/DEMO.md`](demo/DEMO.md) for sample data details.
+See [`demo/DEMO.md`](demo/DEMO.md) for what's pre-loaded.
 
 ---
 
+## What's in the app
+
 | Tab | What it does |
 |-----|--------------|
-| **Prep Docs** | One doc per interview stage; editable notes; regenerate on demand |
-| **Flashcards** | Behavioral / situational deck with AI coaching on your answers |
-| **Audio** | Record answers out loud → transcribe → score structure and content |
-| **Advisor** | Multi-turn chat; proposes flashcards and context updates you confirm |
-| **Context** | Paste, upload, toggle, and edit grounding sources for every AI call |
+| **Prep Docs** | One doc per interview stage — editable, regeneratable on demand |
+| **Flashcards** | Behavioral deck with AI coaching on your answers |
+| **Audio** | Record answers → transcribe → score your structure and delivery |
+| **Advisor** | Multi-turn chat that proposes flashcards and context updates |
+| **Context** | Paste, upload, or toggle your grounding materials |
 
 ---
 
 ## Quick start
 
-**Before you run the app:** create a free [Gemini API key](https://aistudio.google.com/apikey) (required). AssemblyAI is optional — see below.
+Get a free [Gemini API key](https://aistudio.google.com/apikey) first (required). AssemblyAI is optional.
 
 ```bash
 git clone https://github.com/badro98/interview-prep-kit.git
 cd interview-prep-kit
 npm install
 cp .env.example .env
-# Paste YOUR Gemini key into .env — the app will not work without it (unless you use Paste mode)
+# Paste your Gemini key into .env
 npm run dev
 ```
 
 Open **http://localhost:5173** in **Chrome** (required for Web Speech API in the Audio tab).
 
-Verify the proxy: http://localhost:3001/api/health
+Check the proxy is up: http://localhost:3001/api/health
 
 ---
 
-## API keys & free tiers
+## API keys
 
-**No keys are bundled with this repo.** Sign up with the providers below and paste your keys into `.env`. Both offer **generous free tiers** — enough for interview prep without paying.
+No keys are included. Sign up with the providers below and paste them into `.env`.
 
 | Variable | Required? | Get a key | Purpose |
 |----------|-----------|-----------|---------|
-| `GEMINI_API_KEY` | **Yes** (default) | [Google AI Studio](https://aistudio.google.com/apikey) | Chat, coaching, audio scoring, transcription fallback. Free tier available. |
-| `GEMINI_MODEL` | Optional | — | Default `gemini-2.5-flash` — must support audio for tone scoring |
-| `ASSEMBLYAI_API_KEY` | Optional | [AssemblyAI signup](https://www.assemblyai.com/dashboard/signup) | Speaker labels on large interview recordings (>25 MB). Free credits for new accounts. |
-| `PORT` | Optional | — | Express proxy port (default `3001`) |
+| `GEMINI_API_KEY` | **Yes** | [Google AI Studio](https://aistudio.google.com/apikey) | Chat, coaching, audio scoring, transcription fallback |
+| `GEMINI_MODEL` | Optional | — | Default: `gemini-2.5-flash` |
+| `ASSEMBLYAI_API_KEY` | Optional | [AssemblyAI](https://www.assemblyai.com/dashboard/signup) | Speaker labels on large interview recordings (>25 MB) |
+| `PORT` | Optional | — | Proxy port (default `3001`) |
+
+Both offer generous free tiers — more than enough for interview prep.
 
 **Never commit `.env`** — it's gitignored.
 
-### Other LLM providers (Claude, ChatGPT, etc.)
+### Swap providers (Claude, ChatGPT, etc.)
 
-Out of the box, the **server code** is wired for **Gemini** ([`server/gemini.js`](server/gemini.js)) — you still supply your own key (or swap providers). The proxy pattern is small (~30 lines in [`server/index.js`](server/index.js)). To use a different API:
-
-- **Anthropic Claude** — `@anthropic-ai/sdk`, point `/api/chat` at Claude
-- **OpenAI ChatGPT** — `openai` package, point `/api/chat` at `gpt-4o` or similar
-
-All coaching flows go through one `coach()` function ([`src/lib/coach.js`](src/lib/coach.js)) — change the server client, not every feature.
-
-For transcription, see [`server/assemblyai.js`](server/assemblyai.js) and [`server/transcribe.js`](server/transcribe.js).
+The server is wired for Gemini by default ([`server/gemini.js`](server/gemini.js)), but it's a small proxy (~30 lines in [`server/index.js`](server/index.js)). All coaching flows through one `coach()` function in [`src/lib/coach.js`](src/lib/coach.js) — change the server client, not every feature.
 
 ---
 
-## Context — your materials (flexible)
+## Adding your context
 
-You **do not** need a fixed set of files. The repo includes optional starter templates in `context/` — use, rename, delete, or ignore them.
+You don't need a fixed set of files. Three ways to add your materials:
 
-**Three ways to add context today:**
-
-1. **Context tab** — paste notes, **upload a `.md` / `.txt` file**, or add custom entries (saved in your browser)
+1. **Context tab** — paste notes, upload `.md` / `.txt`, or add custom entries (saved in your browser)
 2. **Edit `context/`** — any markdown files; restart `npm run dev` after changes
-3. **See [`context/README.md`](context/README.md)** — full guide to what each starter file is for
+3. See [`context/README.md`](context/README.md) for a full guide to the starter templates
 
-**Roadmap:** first-run flow to use the app with zero context files and upload everything from the UI.
-
-Every AI feature prepends your active context. More metrics and concrete stories → better coaching.
+Every AI feature prepends your active context. Better stories → better coaching.
 
 ---
 
-## Customize for your interview
+## Customizing for your interview
 
-1. **Add context** — Context tab and/or `context/` (see above)
-2. **Edit `interview.config.js`** — app title, role, company, your name, interview stages
-3. **Run the drop-in prompt** — [PROMPT.md](./PROMPT.md) in Cursor, Claude Code, Codex, etc. to regenerate `generated/` prep docs and flashcards
-4. **Restart dev server** after editing files in `context/` or `generated/` (Vite bundles them at build time)
+1. Add your context (see above)
+2. Edit [`interview.config.js`](interview.config.js) — set the app title, role, company, your name, and interview stages
+3. Run the drop-in prompt in [PROMPT.md](./PROMPT.md) inside Cursor, Claude Code, or Codex to regenerate prep docs and flashcards
+4. Restart `npm run dev` after editing files in `context/` or `generated/` (Vite bundles them at build time)
 
 ---
 
-## Paste mode (optional fallback)
+## Paste mode
 
-If the proxy is off or you prefer not to use API keys, toggle **AI: Paste mode** in the header. The app copies a full prompt to your clipboard; paste it into an external chat and paste the reply back. Most people will want API mode.
+If you don't want to run the proxy or use API keys, toggle **AI: Paste mode** in the header. It copies a full prompt to your clipboard — paste it into any chat, paste the response back. Most people will use API mode.
 
-Frontend-only (no proxy): `npm run dev:frontend`
+Frontend only (no proxy): `npm run dev:frontend`
 
 ---
 
@@ -123,10 +108,10 @@ Frontend-only (no proxy): `npm run dev:frontend`
 
 ```
 interview-prep-kit/
-├── context/              # Optional starter templates + README (not required as-is)
+├── context/              # Optional starter templates + README
 ├── generated/            # Seed prep docs + flashcards (customize via PROMPT.md)
 ├── interview.config.js   # App title, stages, advisor prompt
-├── server/               # Local proxy — calls YOUR Gemini key (or swap for Claude/OpenAI)
+├── server/               # Local proxy — calls your Gemini key
 ├── src/                  # React app
 ├── .env.example
 └── PROMPT.md
@@ -134,21 +119,16 @@ interview-prep-kit/
 
 ---
 
-## Drop-in prompt
-
-See [PROMPT.md](./PROMPT.md) for the full customization prompt to paste into your AI coding assistant.
-
----
-
 ## npm scripts
 
-| Script | Command | When to use |
-|--------|---------|-------------|
-| `dev` | Vite + Express proxy | **Default** — API coaching with `.env` keys |
-| `dev:frontend` | Vite only | UI without proxy (paste mode fallback) |
-| `build` | `vite build` | Production bundle → `dist/` |
-| `preview` | `vite preview` | Preview production build |
-| `server` | `node server/index.js` | Proxy only |
+| Script | What it does |
+|--------|--------------|
+| `dev` | Vite + Express proxy (default — use this) |
+| `dev:frontend` | Vite only, no proxy (paste mode fallback) |
+| `demo:setup` | Load sample data |
+| `build` | Production bundle → `dist/` |
+| `preview` | Preview production build |
+| `server` | Run proxy only |
 
 ---
 
