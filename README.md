@@ -1,10 +1,14 @@
 # Interview Prep Kit
 
-Hi. I built this because I was tired of generic interview advice.
+Hi. I built this to fix my own interview prep workflow.
 
-This is a **local-first** interview prep app. You add your resume, the job description, your stories and notes — and it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a chat advisor, and interview recording transcription. All grounded in **your** materials.
+I was juggling notes in Google Docs, practice questions in Claude, prep docs somewhere else — and constantly context-switching between all of it. Every Claude session I had to re-explain which job I was interviewing for and hope I was in the right project.
 
-You bring your own API keys. Nothing gets stored externally. Keys never leave your machine.
+So I built this instead. One place for everything, always grounded in your resume and the actual job. I put it together in under 24 hours on Cursor to prep for an interview and found it genuinely useful — so here it is.
+
+This is a **local-first** interview prep app. Add your resume, job description, notes, and stories — it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a chat advisor, and interview recording transcription.
+
+You bring your own API keys. Nothing leaves your machine. Feel free to build it out locally and try it for yourself.
 
 ## Demo
 
@@ -48,7 +52,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open **http://localhost:5173** in **Chrome** (required for Web Speech API in the Audio tab).
+Open the local URL printed in your terminal in **Chrome** (required for Web Speech API in the Audio tab).
 
 Check the proxy is up: http://localhost:3001/api/health
 
