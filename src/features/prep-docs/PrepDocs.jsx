@@ -268,17 +268,9 @@ function StageView({ stageId, onRecordingChange }) {
               onDone={() => setEditing(false)}
             />
           ) : (
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              title="Click to edit"
-              className="group relative block w-full cursor-text rounded-lg border border-transparent px-4 py-3 text-left transition hover:border-ink-700 hover:bg-ink-800/30"
-            >
-              <span className="pointer-events-none absolute right-3 top-3 rounded-md bg-ink-700 px-2 py-1 text-[11px] font-medium text-slate-300 opacity-0 transition group-hover:opacity-100">
-                Click to edit
-              </span>
+            <div className="rounded-lg px-4 py-3">
               <Markdown>{markdown}</Markdown>
-            </button>
+            </div>
           )}
         </article>
         </div>

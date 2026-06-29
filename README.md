@@ -4,9 +4,13 @@ A **local-first** interview prep app. Add your resume, job description, notes, a
 
 **You bring your own API keys.** This repo does not include any. Coaching runs through a small local proxy on your machine; by default it calls **Google Gemini** using a `GEMINI_API_KEY` you add to `.env`. Optional **AssemblyAI** for long recording transcription. Keys never leave your machine and are never committed to git.
 
-## Demo & screenshots
+## Demo
 
-Early-stage demo: **Osama Badr** · **Product Quality Analyst** at fictional **Dunder Mifflin Co**. Only recruiter-call notes are filled in; interviewer names are *The Office* characters (Pam, Jim, Dwight, Oscar, Michael Scott). Install it locally:
+Early-stage demo: **Osama Badr** · **Product Quality Analyst** at **Dunder Mifflin Co**. Only recruiter-call notes are filled in; interviewer names are *The Office* characters (Pam, Jim, Dwight, Oscar, Michael Scott).
+
+<video src="demo/demo-walkthrough.mp4" controls width="100%"></video>
+
+Install the sample data locally:
 
 ```bash
 npm run demo:setup
@@ -21,7 +25,7 @@ npm install && cp /path/to/your/.env .env
 npm run demo:setup && npm run dev
 ```
 
-See [`demo/DEMO.md`](demo/DEMO.md) for suggested tabs to screenshot for the README.
+See [`demo/DEMO.md`](demo/DEMO.md) for sample data details.
 
 ---
 

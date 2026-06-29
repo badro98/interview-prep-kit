@@ -2,6 +2,7 @@
 // per-card progress, and build the coach() prompts.
 
 import seed from "../../../generated/flashcards.json";
+import { APP } from "../../../interview.config.js";
 import {
   getProgressMap,
   getCustomCards,
@@ -11,7 +12,7 @@ import {
 export const CATEGORIES = [
   { id: "behavioral", label: "Behavioral" },
   { id: "situational", label: "Situational" },
-  { id: "cursor-specific", label: "Cursor-specific" },
+  { id: "role-specific", label: "Role-specific" },
 ];
 
 export const categoryLabel = (id) =>
@@ -94,7 +95,7 @@ ${keyPointsBlock}
       ? `\nI previously scored this card ${confidence}/5. ADJUST from that baseline based on this attempt — nudge it up or down, don't overwrite it blind. A big improvement or regression can move it more than one point.`
       : `\nThis is my first scored attempt at this card.`;
 
-  return `I'm preparing for the Cursor Product Quality Engineer interview. Coach my answer to this ${categoryLabel(
+  return `I'm preparing for the ${APP.role} role at ${APP.company}. Coach my answer to this ${categoryLabel(
     category
   )} question by comparing it against the gold-standard reference and key points below.
 
@@ -188,9 +189,9 @@ export function buildGenerateTask({ count = 8, existingQuestions = [] }) {
           .join("\n- ")}`
       : "";
 
-  return `Generate ${count} additional interview flashcard QUESTIONS (questions only, no answers) for the Cursor Product Quality Engineer role, tailored to my background.
+  return `Generate ${count} additional interview flashcard QUESTIONS (questions only, no answers) for the ${APP.role} role at ${APP.company}, tailored to my background.
 
-Spread them across these categories: "behavioral", "situational", "cursor-specific". Focus on escalation judgment, customer communication, ambiguity, prioritization, AI-native workflows, and the QA->support pivot.
+Spread them across these categories: "behavioral", "situational", "role-specific". Focus on skills and scenarios grounded in the job description and my context materials.
 
 Return ONLY a JSON array, no prose, no code fences, in exactly this shape:
 [

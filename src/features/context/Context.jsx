@@ -142,7 +142,7 @@ function ContextManager({ blocks, onChange }) {
               label={b.label}
               enabled={b.enabled}
               onToggle={(on) => {
-                updateCustomContextEntry(b.customId, { enabled: on });
+                setContextFileEnabled(b.name, on);
                 onChange();
               }}
               onEdit={() => openEditCustom(b)}

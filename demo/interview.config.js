@@ -10,6 +10,11 @@ export const APP = {
   candidateName: "Osama Badr",
 };
 
+/** Bump localStateVersion to wipe stale browser custom context and advisor chats after demo:setup. */
+export const DEMO = {
+  localStateVersion: 3,
+};
+
 export const CONTEXT_ORDER = [
   "resume.md",
   "job-description.md",

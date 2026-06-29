@@ -9,6 +9,9 @@ export const APP = {
   candidateName: "Your Name",
 };
 
+/** Optional demo flag — demo/interview.config.js sets localStateVersion to clear stale custom context. */
+export const DEMO = null;
+
 // Optional starter files in context/ — see context/README.md.
 // Users can delete, rename, or add files; labels are display names only.
 export const CONTEXT_ORDER = [

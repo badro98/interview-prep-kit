@@ -61,6 +61,7 @@ export function getActiveContextBlocks() {
 
   const customBlocks = custom.map((entry) => ({
     name: entry.id,
+    customId: entry.id,
     label: entry.name,
     content: entry.content,
     source: "custom",

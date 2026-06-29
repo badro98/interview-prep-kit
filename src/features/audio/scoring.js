@@ -4,6 +4,10 @@
 // buildAudioScoreTask → sent WITH the audio to an audio-native model (Gemini), so it
 //   can also judge VOCAL tone: pace, pauses, filler words, confidence, warmth, energy.
 
+import { APP } from "../../../interview.config.js";
+
+const roleLabel = () => `${APP.role} role at ${APP.company}`;
+
 export function buildAudioScoreTask({
   questionText,
   referenceAnswer,
@@ -21,7 +25,7 @@ export function buildAudioScoreTask({
     ? `\nKey points a strong answer covers:\n${keyPointsBlock}\n`
     : "";
 
-  return `LISTEN to the attached audio of me answering an interview question out loud, then judge BOTH my vocal delivery and my content. This is delivery practice for the Cursor Product Quality Engineer interview.
+  return `LISTEN to the attached audio of me answering an interview question out loud, then judge BOTH my vocal delivery and my content. This is delivery practice for the ${roleLabel()} interview.
 
 You can hear the actual audio — use it. Judge tone and delivery from how I sound, not just the words.
 
@@ -60,7 +64,7 @@ ${keyPointsBlock ? `\nKey points a strong answer covers:\n${keyPointsBlock}` : "
 
   return `Score my SPOKEN interview answer below. It was recorded out loud and auto-transcribed, so ignore minor transcription artifacts, punctuation, and filler-word spelling — judge the DELIVERY, not the transcription.
 
-This is delivery practice for the Cursor Product Quality Engineer interview. Focus on how I framed and delivered the answer.
+This is delivery practice for the ${roleLabel()} interview. Focus on how I framed and delivered the answer.
 
 QUESTION:
 ${questionText}

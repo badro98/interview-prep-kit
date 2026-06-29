@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PrepDocs from "./features/prep-docs/PrepDocs.jsx";
 import Flashcards from "./features/flashcards/Flashcards.jsx";
 import Audio from "./features/audio/Audio.jsx";
 import Advisor from "./features/advisor/Advisor.jsx";
 import Context from "./features/context/Context.jsx";
-import { APP } from "../interview.config.js";
+import { APP, DEMO } from "../interview.config.js";
 import { getContextSummary } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
+import { applyDemoLocalReset } from "./lib/store.js";
 
 const TABS = [
   { id: "prep", label: "Prep Docs", sub: "Stage-by-stage" },
@@ -20,6 +21,10 @@ export default function App() {
   const [ctx, setCtx] = useState(getContextSummary());
   const [mode, setModeState] = useState(getMode());
   const [tab, setTab] = useState("prep");
+
+  useEffect(() => {
+    if (applyDemoLocalReset(DEMO?.localStateVersion)) refreshCtx();
+  }, []);
 
   function refreshCtx() {
     setCtx(getContextSummary());
