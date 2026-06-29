@@ -8,7 +8,9 @@ A **local-first** interview prep app. Add your resume, job description, notes, a
 
 Early-stage demo: **Osama Badr** · **Product Quality Analyst** at **Dunder Mifflin Co**. Only recruiter-call notes are filled in; interviewer names are *The Office* characters (Pam, Jim, Dwight, Oscar, Michael Scott).
 
-<video src="demo/demo-walkthrough.mp4" controls width="100%"></video>
+<video src="https://github.com/badro98/interview-prep-kit/raw/main/demo/demo-walkthrough.mp4" controls width="100%">
+  <a href="demo/demo-walkthrough.mp4">Download demo walkthrough</a>
+</video>
 
 Install the sample data locally:
 
