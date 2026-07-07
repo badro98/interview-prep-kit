@@ -21,11 +21,13 @@ export default function PrepDocs() {
   const [recordingFlags, setRecordingFlags] = useState(() => getRecordingFlags());
 
   useEffect(() => {
-    // Only backfill flags for stages that still exist — otherwise this
-    // resurrects recording flags updateJobStages already deleted for a
-    // stage removed in Job Settings before this fetch resolved.
-    const currentIds = new Set(stages.map((s) => s.id));
     getAllRecordings().then((recs) => {
+      // Only backfill flags for stages that still exist — otherwise this
+      // resurrects recording flags updateJobStages already deleted for a
+      // stage removed in Job Settings before this fetch resolved. Read
+      // getStages() fresh HERE (not the mount-time `stages` memo): the
+      // removal can happen while the fetch is in flight.
+      const currentIds = new Set(getStages().map((s) => s.id));
       const flags = {};
       for (const r of recs) {
         if (r.status === "done" && currentIds.has(r.stageId)) flags[r.stageId] = true;
