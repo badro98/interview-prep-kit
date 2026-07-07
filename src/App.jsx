@@ -4,10 +4,14 @@ import Flashcards from "./features/flashcards/Flashcards.jsx";
 import Audio from "./features/audio/Audio.jsx";
 import Advisor from "./features/advisor/Advisor.jsx";
 import Context from "./features/context/Context.jsx";
+import JobSwitcher from "./components/JobSwitcher.jsx";
+import ManageJobsModal from "./components/ManageJobsModal.jsx";
 import { APP, DEMO } from "../interview.config.js";
 import { getContextSummary } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
 import { applyDemoLocalReset } from "./lib/store.js";
+import { getActiveJobId } from "./lib/jobs.js";
+import { onQuotaError } from "./lib/storage.js";
 
 const TABS = [
   { id: "prep", label: "Prep Docs", sub: "Stage-by-stage" },
@@ -21,13 +25,26 @@ export default function App() {
   const [ctx, setCtx] = useState(getContextSummary());
   const [mode, setModeState] = useState(getMode());
   const [tab, setTab] = useState("prep");
+  const [activeJobId, setActiveJobIdState] = useState(getActiveJobId());
+  const [manageOpen, setManageOpen] = useState(false);
+  const [quotaWarning, setQuotaWarning] = useState(false);
 
   useEffect(() => {
     if (applyDemoLocalReset(DEMO?.localStateVersion)) refreshCtx();
   }, []);
 
+  useEffect(() => {
+    onQuotaError(() => setQuotaWarning(true));
+    return () => onQuotaError(null);
+  }, []);
+
   function refreshCtx() {
     setCtx(getContextSummary());
+  }
+
+  function handleJobChange(id) {
+    setActiveJobIdState(id ?? getActiveJobId());
+    refreshCtx();
   }
 
   function toggleMode() {
@@ -38,9 +55,9 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between border-b border-ink-700 bg-ink-900/80 px-6 py-3 backdrop-blur">
-        <div className="flex items-center gap-5">
-          <div className="flex items-center gap-3">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-ink-700 bg-ink-900/80 px-6 py-3 backdrop-blur">
+        <div className="flex min-w-0 items-center gap-5">
+          <div className="flex shrink-0 items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-500 text-sm font-extrabold text-white">
               IP
             </div>
@@ -52,7 +69,12 @@ export default function App() {
             </div>
           </div>
 
-          <nav className="flex items-center gap-1 rounded-lg bg-ink-800 p-1">
+          <JobSwitcher
+            onJobChange={handleJobChange}
+            onManageJobs={() => setManageOpen(true)}
+          />
+
+          <nav className="flex shrink-0 items-center gap-1 rounded-lg bg-ink-800 p-1">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -70,7 +92,7 @@ export default function App() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-4">
           <span
             title={ctx.names.join(", ")}
             className="hidden items-center gap-1.5 text-xs text-slate-400 sm:flex"
@@ -82,13 +104,35 @@ export default function App() {
         </div>
       </header>
 
-      <main className="min-h-0 flex-1">
+      {quotaWarning && (
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-6 py-2 text-xs text-amber-200">
+          <span>
+            Browser storage is full — your latest change may not have saved. Export
+            your jobs from Manage jobs, then clear old data.
+          </span>
+          <button
+            onClick={() => setQuotaWarning(false)}
+            className="shrink-0 rounded px-1.5 py-0.5 text-amber-200/80 hover:bg-amber-500/20 hover:text-amber-100"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <main key={activeJobId} className="min-h-0 flex-1">
         {tab === "prep" && <PrepDocs />}
         {tab === "cards" && <Flashcards />}
         {tab === "audio" && <Audio />}
         {tab === "advisor" && <Advisor onContextChange={refreshCtx} />}
         {tab === "context" && <Context onChange={refreshCtx} />}
       </main>
+
+      <ManageJobsModal
+        open={manageOpen}
+        onClose={() => setManageOpen(false)}
+        onJobChange={handleJobChange}
+      />
     </div>
   );
 }

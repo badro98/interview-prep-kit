@@ -3,6 +3,7 @@
 
 import seed from "../../../generated/flashcards.json";
 import { APP } from "../../../interview.config.js";
+import { getActiveJob, isSeedBacked } from "../../lib/jobs.js";
 import {
   getProgressMap,
   getCustomCards,
@@ -18,11 +19,13 @@ export const CATEGORIES = [
 export const categoryLabel = (id) =>
   CATEGORIES.find((c) => c.id === id)?.label || id;
 
-export const deckMeta = seed.meta || {};
+function seedCards() {
+  return isSeedBacked(getActiveJob()) ? seed.cards || [] : [];
+}
 
 /** Original model answer from the seed/custom deck (before local overrides). */
 export function getOriginalModel(cardId) {
-  const c = [...(seed.cards || []), ...getCustomCards()].find((x) => x.id === cardId);
+  const c = [...seedCards(), ...getCustomCards()].find((x) => x.id === cardId);
   if (!c) return null;
   return {
     referenceAnswer: c.referenceAnswer || "",
@@ -31,13 +34,13 @@ export function getOriginalModel(cardId) {
 }
 
 /**
- * Returns the full deck: seed cards + custom cards, each merged with progress
- * and any model-answer overrides you've saved.
+ * Returns the full deck: seed cards (only for the seed-backed job) + custom
+ * cards, each merged with progress and any model-answer overrides you've saved.
  */
 export function getDeck() {
   const progress = getProgressMap();
   const modelOverrides = getModelOverrides();
-  const all = [...(seed.cards || []), ...getCustomCards()];
+  const all = [...seedCards(), ...getCustomCards()];
   return all.map((c) => {
     const p = progress[c.id] || {};
     const mo = modelOverrides[c.id];

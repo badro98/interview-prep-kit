@@ -1,7 +1,8 @@
 // Stage definitions — loads build-time generated markdown from /generated.
-// Stage metadata lives in interview.config.js at the project root.
+// Stage metadata lives per-job (job.stages), seeded from interview.config.js
+// at job creation.
 
-import { STAGES } from "../../../interview.config.js";
+import { getActiveJob } from "../../lib/jobs.js";
 
 const DOCS = import.meta.glob("../../../generated/prep-*.md", {
   eager: true,
@@ -9,16 +10,22 @@ const DOCS = import.meta.glob("../../../generated/prep-*.md", {
   import: "default",
 });
 
+const NO_DOC_PLACEHOLDER =
+  "# No prep doc yet\n\nUse **Regenerate** to draft this stage from your context.";
+
 function loadDoc(fileName) {
   const match = Object.entries(DOCS).find(([path]) => path.endsWith(fileName));
   return match ? String(match[1]) : `# Missing\n\nCould not find /generated/${fileName}.`;
 }
 
-export { STAGES };
+/** Returns the active job's stage list (empty if no active job). */
+export function getStages() {
+  return getActiveJob()?.stages || [];
+}
 
-/** Returns the stage object plus its build-time markdown. */
+/** Returns the stage object plus its markdown (bundled doc if seed-backed, placeholder otherwise). */
 export function getStageDoc(stageId) {
-  const stage = STAGES.find((s) => s.id === stageId);
+  const stage = getStages().find((s) => s.id === stageId);
   if (!stage) return null;
-  return { ...stage, markdown: loadDoc(stage.file) };
+  return { ...stage, markdown: stage.file ? loadDoc(stage.file) : NO_DOC_PLACEHOLDER };
 }

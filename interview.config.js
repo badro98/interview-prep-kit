@@ -81,6 +81,9 @@ export const STAGES = [
   },
 ];
 
+/** Stage presets for new jobs — same shape as STAGES but with no seed file, since a new job has no bundled prep doc yet. */
+export const STAGE_PRESETS = STAGES.map(({ file, ...rest }) => rest);
+
 export const TRANSCRIBE_STAGES = STAGES.map(({ id, title, subtitle }) => ({
   id,
   title,
@@ -105,11 +108,14 @@ export const ADVISOR_STARTERS = [
   "Create flashcards from a link or doc I'll paste — ask before adding them.",
 ];
 
-export function buildAdvisorSystem() {
-  const { candidateName, role, company } = APP;
-  const stageList = STAGES.map(
-    (s, i) => `${i + 1}. ${s.title} — ${s.subtitle}`
-  ).join("\n");
+export function buildAdvisorSystem(job) {
+  const { candidateName } = APP;
+  const role = job.role;
+  const company = job.company;
+  const stages = job.stages;
+  const stageList = stages
+    .map((s, i) => `${i + 1}. ${s.title} — ${s.subtitle}`)
+    .join("\n");
 
   return `You are ${candidateName}'s interview prep advisor for the ${role} role at ${company}.
 
@@ -163,7 +169,12 @@ ${stageList}
 Tone: supportive but honest. Flag gaps without being discouraging.`;
 }
 
-export function buildSpeakerMappingPrompt() {
-  const { candidateName, role, company } = APP;
+// `job` stays optional here (unlike buildAdvisorSystem above): server/transcribe.js
+// calls this via src/lib/transcribePrompt.js's `candidateLine()` alias without a
+// job argument, so this fallback must remain until the server call site is updated.
+export function buildSpeakerMappingPrompt(job) {
+  const { candidateName } = APP;
+  const role = job?.role || APP.role;
+  const company = job?.company || APP.company;
   return `The candidate is ${candidateName} (interviewing for ${role} at ${company}).`;
 }

@@ -13,7 +13,7 @@
 import { getContext } from "./context.js";
 import { askClaude } from "./claude.js";
 import { get, set } from "./store.js";
-import { ADVISOR_SYSTEM } from "../features/advisor/systemPrompt.js";
+import { getAdvisorSystem } from "../features/advisor/systemPrompt.js";
 import { getDeck } from "../features/flashcards/deck.js";
 import { formatFlashcardsForAdvisor } from "../features/advisor/actions.js";
 
@@ -90,7 +90,7 @@ function advisorMessagesForModel(messages) {
 function buildAdvisorSystem() {
   const deck = getDeck();
   return [
-    ADVISOR_SYSTEM,
+    getAdvisorSystem(),
     getContext(),
     formatFlashcardsForAdvisor(deck),
   ]

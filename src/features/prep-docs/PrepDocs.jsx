@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { STAGES, getStageDoc } from "./stages.js";
+import { getStages, getStageDoc } from "./stages.js";
 import InterviewRecording from "./InterviewRecording.jsx";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { getAllRecordings } from "../../lib/db.js";
+import { getActiveJobId } from "../../lib/jobs.js";
 import {
   getDocOverride,
   setDocOverride,
@@ -15,7 +16,8 @@ import {
 } from "../../lib/store.js";
 
 export default function PrepDocs() {
-  const [activeId, setActiveId] = useState(STAGES[0].id);
+  const stages = useMemo(() => getStages(), []);
+  const [activeId, setActiveId] = useState(stages[0]?.id);
   const [recordingFlags, setRecordingFlags] = useState(() => getRecordingFlags());
 
   useEffect(() => {
@@ -36,6 +38,7 @@ export default function PrepDocs() {
   return (
     <div className="flex h-full min-h-0">
       <StageNav
+        stages={stages}
         activeId={activeId}
         onSelect={setActiveId}
         recordingFlags={recordingFlags}
@@ -50,13 +53,13 @@ export default function PrepDocs() {
   );
 }
 
-function StageNav({ activeId, onSelect, recordingFlags }) {
+function StageNav({ stages, activeId, onSelect, recordingFlags }) {
   return (
     <nav className="flex w-64 shrink-0 flex-col gap-1 border-r border-ink-700 bg-ink-800/50 p-3">
       <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
         Interview stages
       </p>
-      {STAGES.map((s, i) => {
+      {stages.map((s, i) => {
         const active = s.id === activeId;
         const hasOverride = !!getDocOverride(s.id);
         const hasRec = recordingFlags[s.id] || hasRecording(s.id);
@@ -120,23 +123,30 @@ function StageView({ stageId, onRecordingChange }) {
   const [editing, setEditing] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
 
+  // Stage may briefly not exist (job switching mid-render / empty stage list) —
+  // getStageDoc returns null then. Bail after hooks are called so hook order stays stable.
+  if (!base) return null;
+
   const markdown = override?.markdown ?? base.markdown;
   const isEdited = !!override;
 
   async function handleRegenerate() {
     setErr("");
     setBusy(true);
+    const jobId = getActiveJobId();
     try {
       const result = await coach({ task: base.regenTask });
+      if (jobId !== getActiveJobId()) return; // job switched mid-flight — drop the result
       if (result.mode === MODE_PASTE) {
         setModal({ open: true, prompt: result.prompt });
       } else {
         saveOverride(result.text);
       }
     } catch (e) {
+      if (jobId !== getActiveJobId()) return;
       setErr(e.message || "Regenerate failed.");
     } finally {
-      setBusy(false);
+      if (jobId === getActiveJobId()) setBusy(false);
     }
   }
 

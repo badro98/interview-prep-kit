@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
+import { getActiveJobId } from "../../lib/jobs.js";
 import { setCardProgress, addCustomCards, setModelOverride, clearModelOverride } from "../../lib/store.js";
 import { useSpeechRecognition } from "../audio/useSpeechRecognition.js";
 import {
@@ -109,9 +110,11 @@ export default function Flashcards() {
     setCardProgress(selected.id, { myAnswer: answer });
     setErr("");
     setBusy(true);
+    const jobId = getActiveJobId();
     try {
       const task = buildCoachTask({ ...selected, myAnswer: answer });
       const result = await coach({ task });
+      if (jobId !== getActiveJobId()) return; // job switched mid-flight — drop the result
       if (result.mode === MODE_PASTE) {
         setModal({
           kind: "coach",
@@ -124,6 +127,7 @@ export default function Flashcards() {
         saveCoaching(result.text);
       }
     } catch (e) {
+      if (jobId !== getActiveJobId()) return;
       const msg = e.message || "Coaching failed.";
       setErr(
         msg.includes("Proxy error") || msg.includes("fetch")
@@ -131,7 +135,7 @@ export default function Flashcards() {
           : msg
       );
     } finally {
-      setBusy(false);
+      if (jobId === getActiveJobId()) setBusy(false);
     }
   }
 
@@ -147,12 +151,14 @@ export default function Flashcards() {
   async function handleGenerate() {
     setErr("");
     setBusy(true);
+    const jobId = getActiveJobId();
     try {
       const task = buildGenerateTask({
         count: 8,
         existingQuestions: deck.map((c) => c.question),
       });
       const result = await coach({ task });
+      if (jobId !== getActiveJobId()) return; // job switched mid-flight — drop the result
       if (result.mode === MODE_PASTE) {
         setModal({
           kind: "generate",
@@ -165,9 +171,10 @@ export default function Flashcards() {
         saveGenerated(result.text);
       }
     } catch (e) {
+      if (jobId !== getActiveJobId()) return;
       setErr(e.message || "Generation failed.");
     } finally {
-      setBusy(false);
+      if (jobId === getActiveJobId()) setBusy(false);
     }
   }
 
