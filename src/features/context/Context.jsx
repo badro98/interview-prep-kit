@@ -8,6 +8,9 @@ import {
   updateCustomContextEntry,
   removeCustomContextEntry,
 } from "../../lib/store.js";
+import { fetchUrlContent, normalizeUrlInput } from "../../lib/fetchUrl.js";
+import { readEntryFile, entryNameFromUrl } from "../../lib/entryFile.js";
+import { isProxyReachable } from "../../lib/claude.js";
 
 export default function Context({ onChange }) {
   const [tick, setTick] = useState(0);
@@ -26,7 +29,8 @@ export default function Context({ onChange }) {
           <p className="mt-1 text-sm text-slate-400">
             Grounding material for prep docs, flashcards, advisor, and audio scoring.
             Use the optional files in <code className="text-slate-300">context/</code>, paste
-            notes, or upload a file — you do not need every starter template.
+            notes, upload a file (.md/.txt/.pdf), or pull in a page by URL — you do not
+            need every starter template.
           </p>
           <p className="mt-2 text-xs text-slate-500">
             {enabledCount} of {blocks.length} sources active
@@ -43,6 +47,11 @@ function ContextManager({ blocks, onChange }) {
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [urlBusy, setUrlBusy] = useState(false);
+  const [urlError, setUrlError] = useState("");
   const [editing, setEditing] = useState(null);
 
   const builtin = blocks.filter((b) => b.source === "builtin");
@@ -92,17 +101,46 @@ function ContextManager({ blocks, onChange }) {
     onChange();
   }
 
-  function handleUploadFile(e) {
+  async function handleUploadFile(e) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base = file.name.replace(/\.(md|txt)$/i, "") || file.name;
-      addCustomContextEntry({ name: base, content: String(reader.result) });
-      onChange();
-    };
-    reader.readAsText(file);
     e.target.value = "";
+    if (!file) return;
+    setUploadBusy(true);
+    setUploadError("");
+    try {
+      const entry = await readEntryFile(file);
+      addCustomContextEntry(entry);
+      onChange();
+    } catch (err) {
+      setUploadError(err.message || "Could not read that file.");
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  async function handleAddFromUrl() {
+    const url = normalizeUrlInput(sourceUrl);
+    if (!url) {
+      setUrlError("Enter a URL to fetch.");
+      return;
+    }
+    setUrlBusy(true);
+    setUrlError("");
+    try {
+      const proxyOk = await isProxyReachable();
+      if (!proxyOk) {
+        setUrlError("Proxy is offline (run npm run dev) — paste the content manually instead.");
+        return;
+      }
+      const { title, text } = await fetchUrlContent(url);
+      addCustomContextEntry({ name: entryNameFromUrl(url, title), content: text });
+      setSourceUrl("");
+      onChange();
+    } catch (e) {
+      setUrlError(e.message || "Could not fetch that URL.");
+    } finally {
+      setUrlBusy(false);
+    }
   }
 
   return (
@@ -218,15 +256,35 @@ function ContextManager({ blocks, onChange }) {
               + Paste custom context
             </button>
             <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white">
-              Upload .md / .txt
+              {uploadBusy ? "Converting…" : "Upload .md / .txt / .pdf"}
               <input
                 type="file"
-                accept=".md,.txt,text/markdown,text/plain"
+                accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
                 className="hidden"
+                disabled={uploadBusy}
                 onChange={handleUploadFile}
               />
             </label>
           </div>
+        )}
+
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            value={sourceUrl}
+            onChange={(e) => setSourceUrl(e.target.value)}
+            placeholder="https://... page to pull in (portfolio, docs, posting)"
+            className="min-w-0 flex-1 rounded-lg border border-ink-600 bg-ink-900 px-3 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+          />
+          <button
+            onClick={handleAddFromUrl}
+            disabled={urlBusy}
+            className="shrink-0 rounded-md border border-ink-600 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-ink-500 disabled:opacity-50"
+          >
+            {urlBusy ? "Fetching…" : "Add from URL"}
+          </button>
+        </div>
+        {(uploadError || urlError) && (
+          <p className="mt-1 text-xs text-red-300">{uploadError || urlError}</p>
         )}
       </section>
 
