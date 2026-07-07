@@ -261,20 +261,6 @@ export function removeCustomContextEntry(id) {
   );
 }
 
-const DEMO_STATE_KEY = "demo:localStateVersion";
-
-/** Clears demo-local browser state once per demo localStateVersion (e.g. after demo:setup). */
-export function applyDemoLocalReset(version) {
-  if (version == null) return false;
-  if (get(DEMO_STATE_KEY, null) === version) return false;
-  jset(CONTEXT_CUSTOM_KEY, []);
-  jremove(ADVISOR_THREADS_KEY);
-  jremove(ADVISOR_ACTIVE_KEY);
-  jremove(LEGACY_CHAT_KEY);
-  set(DEMO_STATE_KEY, version);
-  return true;
-}
-
 // ---- Interview recording flags (nav dots; blobs live in IndexedDB) ------------
 
 const RECORDING_FLAGS_KEY = "recordings:hasByStage";

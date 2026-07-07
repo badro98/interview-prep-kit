@@ -6,10 +6,9 @@ import Advisor from "./features/advisor/Advisor.jsx";
 import Context from "./features/context/Context.jsx";
 import JobSwitcher from "./components/JobSwitcher.jsx";
 import ManageJobsModal from "./components/ManageJobsModal.jsx";
-import { APP, DEMO } from "../interview.config.js";
+import { APP } from "../interview.config.js";
 import { getContextSummary } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
-import { applyDemoLocalReset } from "./lib/store.js";
 import { getActiveJobId } from "./lib/jobs.js";
 import { onQuotaError } from "./lib/storage.js";
 
@@ -28,10 +27,6 @@ export default function App() {
   const [activeJobId, setActiveJobIdState] = useState(getActiveJobId());
   const [manageOpen, setManageOpen] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState(false);
-
-  useEffect(() => {
-    if (applyDemoLocalReset(DEMO?.localStateVersion)) refreshCtx();
-  }, []);
 
   useEffect(() => {
     onQuotaError(() => setQuotaWarning(true));
