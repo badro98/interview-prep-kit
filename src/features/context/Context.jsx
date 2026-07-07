@@ -46,6 +46,7 @@ function ContextManager({ blocks, onChange }) {
   const [editing, setEditing] = useState(null);
 
   const builtin = blocks.filter((b) => b.source === "builtin");
+  const profile = blocks.filter((b) => b.source === "profile");
   const custom = blocks.filter((b) => b.source === "custom");
 
   function openEditBuiltin(block) {
@@ -127,6 +128,28 @@ function ContextManager({ blocks, onChange }) {
           ))}
         </div>
       </section>
+
+      {profile.length > 0 && (
+        <section className="mb-8">
+          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            From your profile
+          </h3>
+          <div className="space-y-1 rounded-xl border border-ink-700 bg-ink-800/40 p-2">
+            {profile.map((b) => (
+              <ContextRow
+                key={b.name}
+                label={b.label}
+                enabled={b.enabled}
+                profileBadge
+                onToggle={(on) => {
+                  setContextFileEnabled(b.name, on);
+                  onChange();
+                }}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -263,7 +286,7 @@ function ContextManager({ blocks, onChange }) {
   );
 }
 
-function ContextRow({ label, sub, enabled, badge, onToggle, onEdit, onRemove }) {
+function ContextRow({ label, sub, enabled, badge, profileBadge, onToggle, onEdit, onRemove }) {
   return (
     <div className="flex items-start gap-3 rounded-lg px-3 py-2.5 hover:bg-ink-700/50">
       <input
@@ -273,26 +296,37 @@ function ContextRow({ label, sub, enabled, badge, onToggle, onEdit, onRemove }) 
         className="mt-1 accent-indigo-500"
       />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-slate-200">{label}</p>
+        <p className="flex items-center gap-2 text-sm font-medium text-slate-200">
+          <span className="truncate">{label}</span>
+          {profileBadge && (
+            <span className="shrink-0 rounded-full bg-slate-500/15 px-2 py-0.5 text-[11px] font-medium text-slate-400 ring-1 ring-inset ring-slate-500/30">
+              profile
+            </span>
+          )}
+        </p>
         {sub && <p className="text-xs text-slate-500">{sub}</p>}
         {badge && <span className="text-xs text-emerald-400">{badge}</span>}
       </div>
-      <div className="flex shrink-0 gap-1">
-        <button
-          onClick={onEdit}
-          className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-ink-600 hover:text-white"
-        >
-          Edit
-        </button>
-        {onRemove && (
-          <button
-            onClick={onRemove}
-            className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-ink-600 hover:text-red-400"
-          >
-            Delete
-          </button>
-        )}
-      </div>
+      {(onEdit || onRemove) && (
+        <div className="flex shrink-0 gap-1">
+          {onEdit && (
+            <button
+              onClick={onEdit}
+              className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-ink-600 hover:text-white"
+            >
+              Edit
+            </button>
+          )}
+          {onRemove && (
+            <button
+              onClick={onRemove}
+              className="rounded px-2 py-1 text-xs text-slate-500 hover:bg-ink-600 hover:text-red-400"
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -28,3 +28,4 @@ cp "$DEMO/generated/"* "$TARGET/generated/"
 
 echo "Done. From $TARGET run: npm run dev"
 echo "Demo persona loaded from demo/interview.config.js"
+echo "WARNING: on next load the app resets ALL browser data (jobs, profile, recordings) to resync with this config — export your jobs from Manage jobs first if you have real data."

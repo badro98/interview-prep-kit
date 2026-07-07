@@ -109,7 +109,7 @@ export const ADVISOR_STARTERS = [
 ];
 
 export function buildAdvisorSystem(job) {
-  const { candidateName } = APP;
+  const candidateName = job.candidateName ?? APP.candidateName;
   const role = job.role;
   const company = job.company;
   const stages = job.stages;
@@ -173,7 +173,7 @@ Tone: supportive but honest. Flag gaps without being discouraging.`;
 // calls this via src/lib/transcribePrompt.js's `candidateLine()` alias without a
 // job argument, so this fallback must remain until the server call site is updated.
 export function buildSpeakerMappingPrompt(job) {
-  const { candidateName } = APP;
+  const candidateName = job?.candidateName ?? APP.candidateName;
   const role = job?.role || APP.role;
   const company = job?.company || APP.company;
   return `The candidate is ${candidateName} (interviewing for ${role} at ${company}).`;

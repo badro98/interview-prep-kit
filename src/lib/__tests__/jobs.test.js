@@ -17,6 +17,7 @@ import {
   importJob,
 } from "../jobs.js";
 import { get as storageGet, set as storageSet } from "../storage.js";
+import { addProfileEntry } from "../profile.js";
 import {
   APP,
   STAGES,
@@ -68,6 +69,19 @@ describe("jobs collection", () => {
     const job = createJob({ role: "QA Lead", company: "Cursor" });
     expect(job.role).toBe("QA Lead");
     expect(job.company).toBe("Cursor");
+  });
+
+  it("createJob defaults profileRefs to an empty array", () => {
+    const job = createJob({});
+    expect(job.profileRefs).toEqual([]);
+  });
+
+  it("createJob accepts explicit profileRefs and defensively copies them", () => {
+    const refs = ["prof-1", "prof-2"];
+    const job = createJob({ profileRefs: refs });
+    expect(job.profileRefs).toEqual(["prof-1", "prof-2"]);
+    refs.push("prof-3");
+    expect(job.profileRefs).toEqual(["prof-1", "prof-2"]);
   });
 
   it("updateJob patches and persists", () => {
@@ -280,6 +294,48 @@ describe("exportJob / importJob", () => {
       state: {},
     });
     expect(imported.stages.map((s) => s.id)).toEqual(STAGES.map((s) => s.id));
+  });
+
+  it("rejects malformed profileRefs", () => {
+    expect(() =>
+      importJob({
+        kind: "iprep-job",
+        version: 1,
+        job: { role: "R", company: "C", profileRefs: "nope" },
+        state: {},
+      })
+    ).toThrow("Invalid job export file");
+    expect(() =>
+      importJob({
+        kind: "iprep-job",
+        version: 1,
+        job: { role: "R", company: "C", profileRefs: [1, 2] },
+        state: {},
+      })
+    ).toThrow("Invalid job export file");
+  });
+
+  it("filters profileRefs to ids that exist in this browser's profile, dropping dangling refs silently", () => {
+    const existing = addProfileEntry({ name: "Resume", content: "..." });
+
+    const imported = importJob({
+      kind: "iprep-job",
+      version: 1,
+      job: { role: "R", company: "C", profileRefs: [existing.id, "prof-dangling"] },
+      state: {},
+    });
+
+    expect(imported.profileRefs).toEqual([existing.id]);
+  });
+
+  it("imports valid payload with profileRefs omitted, defaulting to empty array", () => {
+    const imported = importJob({
+      kind: "iprep-job",
+      version: 1,
+      job: { role: "R", company: "C" },
+      state: {},
+    });
+    expect(imported.profileRefs).toEqual([]);
   });
 });
 

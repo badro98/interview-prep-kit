@@ -4,13 +4,13 @@ import Flashcards from "./features/flashcards/Flashcards.jsx";
 import Audio from "./features/audio/Audio.jsx";
 import Advisor from "./features/advisor/Advisor.jsx";
 import Context from "./features/context/Context.jsx";
+import Onboarding from "./features/onboarding/Onboarding.jsx";
 import JobSwitcher from "./components/JobSwitcher.jsx";
 import ManageJobsModal from "./components/ManageJobsModal.jsx";
-import { APP, DEMO } from "../interview.config.js";
+import { APP } from "../interview.config.js";
 import { getContextSummary } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
-import { applyDemoLocalReset } from "./lib/store.js";
-import { getActiveJobId } from "./lib/jobs.js";
+import { getActiveJobId, getJobs } from "./lib/jobs.js";
 import { onQuotaError } from "./lib/storage.js";
 
 const TABS = [
@@ -22,16 +22,14 @@ const TABS = [
 ];
 
 export default function App() {
+  const [needsOnboarding, setNeedsOnboarding] = useState(() => getJobs().length === 0);
   const [ctx, setCtx] = useState(getContextSummary());
   const [mode, setModeState] = useState(getMode());
   const [tab, setTab] = useState("prep");
   const [activeJobId, setActiveJobIdState] = useState(getActiveJobId());
   const [manageOpen, setManageOpen] = useState(false);
+  const [addingJob, setAddingJob] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState(false);
-
-  useEffect(() => {
-    if (applyDemoLocalReset(DEMO?.localStateVersion)) refreshCtx();
-  }, []);
 
   useEffect(() => {
     onQuotaError(() => setQuotaWarning(true));
@@ -53,6 +51,37 @@ export default function App() {
     setModeState(next);
   }
 
+  if (needsOnboarding) {
+    return (
+      <Onboarding
+        mode="firstRun"
+        onComplete={(jobId) => {
+          handleJobChange(jobId);
+          setNeedsOnboarding(false);
+        }}
+      />
+    );
+  }
+
+  // addingJob replaces the mounted app entirely (same shape as needsOnboarding
+  // above) rather than overlaying it — the old <main> stayed mounted underneath
+  // and the Generate step's setActiveJobId mid-wizard let unguarded async
+  // continuations in old-job components (e.g. InterviewRecording) write under
+  // the new job. The overlay was visually opaque anyway, so this changes
+  // nothing the user could see.
+  if (addingJob) {
+    return (
+      <Onboarding
+        mode="addJob"
+        onComplete={(id) => {
+          handleJobChange(id);
+          setAddingJob(false);
+        }}
+        onCancel={() => setAddingJob(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex shrink-0 items-center justify-between gap-4 border-b border-ink-700 bg-ink-900/80 px-6 py-3 backdrop-blur">
@@ -72,6 +101,7 @@ export default function App() {
           <JobSwitcher
             onJobChange={handleJobChange}
             onManageJobs={() => setManageOpen(true)}
+            onNewJob={() => setAddingJob(true)}
           />
 
           <nav className="flex shrink-0 items-center gap-1 rounded-lg bg-ink-800 p-1">

@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getAdvisorSystem } from "../systemPrompt.js";
 import { createJob, setActiveJobId } from "../../../lib/jobs.js";
+import { setProfileName } from "../../../lib/profile.js";
+import { APP } from "../../../../interview.config.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -20,5 +22,15 @@ describe("getAdvisorSystem", () => {
     expect(second).toContain("PM");
     expect(second).toContain("Acme");
     expect(second).not.toContain("Staff Engineer");
+  });
+
+  it("uses the shared profile name when set, falling back to APP.candidateName otherwise", () => {
+    const job = createJob({ role: "Staff Engineer", company: "Rocket Inc" });
+    setActiveJobId(job.id);
+
+    expect(getAdvisorSystem()).toContain(APP.candidateName);
+
+    setProfileName("Osama Badr");
+    expect(getAdvisorSystem()).toContain("Osama Badr");
   });
 });
