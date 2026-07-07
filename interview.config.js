@@ -1,5 +1,9 @@
-// Interview-specific customization — edit this file after cloning the template.
-// See README.md and PROMPT.md for the full setup workflow.
+// Defaults + presets for the app, not per-job data. APP is the fallback
+// candidate name and the seed job's role/company/title; STAGE_PRESETS seeds
+// new jobs created in the onboarding wizard; STAGES (with `file`) is the seed
+// job's stage list, backed by docs in generated/. Per-job data — role,
+// company, stages, profile attachments — lives in the browser via the app UI.
+// See README.md ("Multiple jobs" + "Power-user path") and PROMPT.md.
 
 export const APP = {
   title: "Interview Prep",

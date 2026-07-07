@@ -1,12 +1,15 @@
 # Context — your interview materials
 
-The AI features (prep docs, flashcards, advisor, audio scoring) ground every response in **your** background. You do **not** need the specific files listed below — they are optional starter templates.
+The AI features (prep docs, flashcards, advisor, audio scoring) ground every response in **your** background. You do **not** need the files in this folder — they exist to power the **sample setup** (the seed job baked into `interview.config.js`, loaded via **Use the repo's sample setup** in onboarding). Jobs you create yourself never read from this folder.
 
-## Three ways to add context
+## Primary path: in-app
 
-1. **Context tab (in the app)** — paste text, upload a `.md` / `.txt` file, or add custom entries. Saved in your browser; works without editing this folder.
-2. **Edit files here** — drop any markdown into `context/` (rename, delete, or add files). Restart `npm run dev` after changes so Vite rebundles them.
-3. **Coming soon** — first-run setup to build the app with no context and upload everything from the UI.
+1. **Onboarding / profile** — first run (or **＋ New job**) walks you through a profile (resume/stories, saved in your browser and shared across every job) and job-specific details.
+2. **Context tab (in the app)** — paste text, upload a `.md` / `.txt` file, or add custom entries. Saved in your browser; works without editing this folder.
+
+## This folder: sample-setup seed data
+
+Drop any markdown into `context/` (rename, delete, or add files) to change what **Use the repo's sample setup** loads. Restart `npm run dev` after changes so Vite rebundles them.
 
 ## Optional starter templates
 

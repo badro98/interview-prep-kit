@@ -1,6 +1,8 @@
-# Customization prompt
+# Customization prompt (power-user / seed-job path)
 
-Copy this into **Cursor**, **Claude Code**, **Codex**, or any AI coding assistant after you've added your context (Context tab uploads, `context/` files, or both).
+Most people should just use the in-app onboarding wizard — open the app and step through name → profile → job → stages → generate, no file editing required. This prompt is for the **seed job** baked into `interview.config.js` and `generated/` (the one loaded by **Use the repo's sample setup**): use it if you want an AI coding assistant to regenerate that job's prep docs and flashcards ahead of time.
+
+Copy the prompt below into **Cursor**, **Claude Code**, **Codex**, or any AI coding assistant after you've added your context (Context tab uploads, `context/` files, or both).
 
 ---
 
