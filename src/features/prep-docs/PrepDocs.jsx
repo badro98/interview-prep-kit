@@ -21,15 +21,19 @@ export default function PrepDocs() {
   const [recordingFlags, setRecordingFlags] = useState(() => getRecordingFlags());
 
   useEffect(() => {
+    // Only backfill flags for stages that still exist — otherwise this
+    // resurrects recording flags updateJobStages already deleted for a
+    // stage removed in Job Settings before this fetch resolved.
+    const currentIds = new Set(stages.map((s) => s.id));
     getAllRecordings().then((recs) => {
       const flags = {};
       for (const r of recs) {
-        if (r.status === "done") flags[r.stageId] = true;
+        if (r.status === "done" && currentIds.has(r.stageId)) flags[r.stageId] = true;
       }
       for (const id of Object.keys(flags)) setRecordingFlag(id, true);
       setRecordingFlags({ ...getRecordingFlags(), ...flags });
     });
-  }, []);
+  }, [stages]);
 
   const refreshRecordingFlags = useCallback(() => {
     setRecordingFlags({ ...getRecordingFlags() });
@@ -137,6 +141,7 @@ function StageView({ stageId, onRecordingChange }) {
     try {
       const result = await coach({ task: base.regenTask });
       if (jobId !== getActiveJobId()) return; // job switched mid-flight — drop the result
+      if (!getStages().some((s) => s.id === stageId)) return; // stage removed mid-flight — drop the result
       if (result.mode === MODE_PASTE) {
         setModal({ open: true, prompt: result.prompt });
       } else {

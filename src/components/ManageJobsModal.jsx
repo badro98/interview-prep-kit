@@ -21,19 +21,24 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
   const [importError, setImportError] = useState("");
   const [busyId, setBusyId] = useState(null);
 
+  // Seeding is keyed on [open] only — App passes an inline onClose (new
+  // identity every render), so keying this on onClose too would re-seed from
+  // storage on any unrelated App re-render while open (see JobSettingsModal).
+  useEffect(() => {
+    if (!open) return;
+    setJobs(getJobs());
+    setImportError("");
+    setEditingId(null);
+    setConfirmingId(null);
+    setEditRole("");
+    setEditCompany("");
+  }, [open]);
+
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") onClose?.();
     }
-    if (open) {
-      setJobs(getJobs());
-      setImportError("");
-      setEditingId(null);
-      setConfirmingId(null);
-      setEditRole("");
-      setEditCompany("");
-      window.addEventListener("keydown", onKey);
-    }
+    if (open) window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 

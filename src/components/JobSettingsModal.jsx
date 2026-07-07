@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getActiveJob, updateJob, updateJobStages } from "../lib/jobs.js";
 import { getProfileEntries } from "../lib/profile.js";
-import { getDocOverride } from "../lib/store.js";
+import { getDocOverride, hasRecording } from "../lib/store.js";
 import StageEditor from "./StageEditor.jsx";
 
 // Overlay modal for editing everything about the ACTIVE job: role/company,
@@ -20,35 +20,40 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
   const [removedConfirm, setRemovedConfirm] = useState(null);
   const [saving, setSaving] = useState(false);
 
+  // Seeding is keyed on [open] only — App passes an inline onClose (new
+  // identity every render), so keying this on onClose too would re-seed from
+  // storage (wiping unsaved edits) on any unrelated App re-render while open.
+  useEffect(() => {
+    if (!open) return;
+    const job = getActiveJob();
+    const seededRole = job?.role || "";
+    const seededCompany = job?.company || "";
+    const seededStages = (job?.stages || []).map((s) => ({ ...s }));
+    const seededRefs = [...(job?.profileRefs || [])];
+    setJobId(job?.id || null);
+    setRole(seededRole);
+    setCompany(seededCompany);
+    setStages(seededStages);
+    setOriginalStages(seededStages);
+    setProfileRefs(seededRefs);
+    setSnapshot(
+      JSON.stringify({
+        role: seededRole,
+        company: seededCompany,
+        stages: seededStages,
+        profileRefs: seededRefs,
+      })
+    );
+    setError("");
+    setRemovedConfirm(null);
+    setSaving(false);
+  }, [open]);
+
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") onClose?.();
     }
-    if (open) {
-      const job = getActiveJob();
-      const seededRole = job?.role || "";
-      const seededCompany = job?.company || "";
-      const seededStages = (job?.stages || []).map((s) => ({ ...s }));
-      const seededRefs = [...(job?.profileRefs || [])];
-      setJobId(job?.id || null);
-      setRole(seededRole);
-      setCompany(seededCompany);
-      setStages(seededStages);
-      setOriginalStages(seededStages);
-      setProfileRefs(seededRefs);
-      setSnapshot(
-        JSON.stringify({
-          role: seededRole,
-          company: seededCompany,
-          stages: seededStages,
-          profileRefs: seededRefs,
-        })
-      );
-      setError("");
-      setRemovedConfirm(null);
-      setSaving(false);
-      window.addEventListener("keydown", onKey);
-    }
+    if (open) window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
@@ -63,7 +68,10 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
     profileRefs,
   });
   const dirty = current !== snapshot;
-  const canSave = !!role.trim() && !!company.trim() && dirty;
+  const hasStages = stages.length > 0;
+  const hasEmptyTitle = stages.some((s) => !s.title?.trim());
+  const canSave =
+    !!role.trim() && !!company.trim() && dirty && hasStages && !hasEmptyTitle;
 
   function toggleProfileRef(id) {
     setProfileRefs((prev) =>
@@ -76,16 +84,29 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
     setRemovedConfirm(null);
   }
 
+  // Drop a blank/whitespace-only regenTask so Regenerate doesn't inherit a
+  // dead prompt; leave subtitle alone (renders fine empty).
+  function normalizeStages(list) {
+    return list.map((s) => {
+      if (s.regenTask != null && !s.regenTask.trim()) {
+        const { regenTask, ...rest } = s;
+        return rest;
+      }
+      return s;
+    });
+  }
+
   function proceedSave() {
     if (!jobId) return;
     setSaving(true);
     setError("");
     try {
-      // NOT atomic: if updateJobStages throws (invalid stage shape), the
-      // role/company/profileRefs write above has already persisted. Acceptable
-      // for local single-user storage; don't assume the pair commits together.
+      // Stages save first: updateJobStages is the only validated/throwing
+      // write here (invalid stage shape), so saving it first means a throw
+      // never leaves a half-committed job (role/company/profileRefs already
+      // persisted with stages left invalid).
+      updateJobStages(jobId, normalizeStages(stages));
       updateJob(jobId, { role: role.trim(), company: company.trim(), profileRefs });
-      updateJobStages(jobId, stages);
       setRemovedConfirm(null);
       onSaved?.(jobId);
     } catch (err) {
@@ -98,15 +119,30 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
     if (!canSave || !jobId) return;
 
     const nextIds = new Set(stages.map((s) => s.id));
-    const removed = originalStages.filter(
-      (s) => !nextIds.has(s.id) && getDocOverride(s.id) != null
-    );
+    const removed = originalStages
+      .filter((s) => !nextIds.has(s.id))
+      .map((s) => ({
+        ...s,
+        hasDoc: getDocOverride(s.id) != null,
+        hasRec: hasRecording(s.id),
+      }))
+      .filter((s) => s.hasDoc || s.hasRec);
 
     if (removed.length) {
       setRemovedConfirm(removed);
       return;
     }
     proceedSave();
+  }
+
+  function removalCopy(stage) {
+    if (stage.hasDoc && stage.hasRec) {
+      return `Removing ${stage.title} deletes its prep doc edits and detaches its interview recording.`;
+    }
+    if (stage.hasDoc) {
+      return `Removing ${stage.title} deletes its prep doc edits.`;
+    }
+    return `Removing ${stage.title} detaches its interview recording.`;
   }
 
   return (
@@ -170,6 +206,16 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
               Stages
             </h4>
             <StageEditor stages={stages} onChange={handleStagesChange} />
+            {!hasStages && (
+              <p className="mt-1.5 text-xs text-red-300">
+                At least one stage is required.
+              </p>
+            )}
+            {hasStages && hasEmptyTitle && (
+              <p className="mt-1.5 text-xs text-red-300">
+                Stage titles can't be empty.
+              </p>
+            )}
           </div>
 
           {profileEntries.length > 0 && (
@@ -206,11 +252,11 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
 
           {removedConfirm ? (
             <div className="space-y-2">
-              <p className="text-xs text-red-300">
-                Removing {removedConfirm.map((s) => s.title).join(", ")}{" "}
-                deletes {removedConfirm.length > 1 ? "their" : "its"} prep doc
-                edits.
-              </p>
+              {removedConfirm.map((s) => (
+                <p key={s.id} className="text-xs text-red-300">
+                  {removalCopy(s)}
+                </p>
+              ))}
               <div className="flex justify-end gap-2">
                 <button
                   onClick={() => setRemovedConfirm(null)}
