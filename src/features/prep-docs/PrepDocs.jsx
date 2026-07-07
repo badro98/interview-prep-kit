@@ -122,6 +122,10 @@ function StageView({ stageId, onRecordingChange }) {
   const [editing, setEditing] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
 
+  // Stage may briefly not exist (job switching mid-render / empty stage list) —
+  // getStageDoc returns null then. Bail after hooks are called so hook order stays stable.
+  if (!base) return null;
+
   const markdown = override?.markdown ?? base.markdown;
   const isEdited = !!override;
 
