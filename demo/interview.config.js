@@ -82,6 +82,9 @@ export const STAGES = [
   },
 ];
 
+// Presets for jobs created in-app: same stages minus the seed `file` bindings.
+export const STAGE_PRESETS = STAGES.map(({ file, ...rest }) => rest);
+
 export const TRANSCRIBE_STAGES = STAGES.map(({ id, title, subtitle }) => ({
   id,
   title,
@@ -104,11 +107,13 @@ export const ADVISOR_STARTERS = [
   "I have new intel from the recruiter — I'll paste it below.",
 ];
 
-export function buildAdvisorSystem() {
-  const { candidateName, role, company } = APP;
-  const stageList = STAGES.map(
-    (s, i) => `${i + 1}. ${s.title} — ${s.subtitle}`
-  ).join("\n");
+export function buildAdvisorSystem(job) {
+  const candidateName = job?.candidateName ?? APP.candidateName;
+  const role = job?.role || APP.role;
+  const company = job?.company || APP.company;
+  const stageList = (job?.stages || STAGES)
+    .map((s, i) => `${i + 1}. ${s.title} — ${s.subtitle}`)
+    .join("\n");
 
   return `You are ${candidateName}'s interview prep advisor for the ${role} role at ${company}.
 
@@ -124,7 +129,9 @@ ${stageList}
 Tone: supportive but honest. Flag gaps without being discouraging.`;
 }
 
-export function buildSpeakerMappingPrompt() {
-  const { candidateName, role, company } = APP;
+export function buildSpeakerMappingPrompt(job) {
+  const candidateName = job?.candidateName ?? APP.candidateName;
+  const role = job?.role || APP.role;
+  const company = job?.company || APP.company;
   return `The candidate is ${candidateName} (interviewing for ${role} at ${company}).`;
 }

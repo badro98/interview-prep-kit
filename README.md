@@ -55,7 +55,7 @@ npm run dev
 
 Open the local URL printed in your terminal in **Chrome** (required for Web Speech API in the Audio tab).
 
-The app opens straight into an onboarding wizard: your name → an optional profile (resume/stories, shared across every job) → job + description → interview stages → generate prep docs and flashcards in-app. Two shortcuts on the first screen if you'd rather skip typing: **Use the repo's sample setup** (loads the job baked into `interview.config.js`) or **import a job export (.json)**.
+The app opens straight into an onboarding wizard: your name → an optional profile (resume/stories, shared across every job) → job + description → interview stages → pick which profile entries to attach (skipped if you added none) → generate prep docs and flashcards in-app. Two shortcuts on the first screen if you'd rather skip typing: **Use the repo's sample setup** (loads the job baked into `interview.config.js`) or **import a job export (.json)**.
 
 Check the proxy is up: http://localhost:3001/api/health
 
