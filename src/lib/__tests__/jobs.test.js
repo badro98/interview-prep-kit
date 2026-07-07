@@ -298,8 +298,15 @@ describe("parameterized prompt builders", () => {
     expect(prompt).toContain(APP.candidateName);
   });
 
-  it("buildAdvisorSystem() falls back to APP + config STAGES with no job (module-load safety)", () => {
-    const prompt = buildAdvisorSystem();
+  it("buildAdvisorSystem() now requires a job — no more no-arg module-load fallback", () => {
+    expect(() => buildAdvisorSystem()).toThrow();
+  });
+
+  it("buildAdvisorSystem(job) embeds the config-default job's role/company/stage titles unchanged", () => {
+    // Behavioral invariant: the seed-backed default job's prompt output must match
+    // what the old no-arg fallback (APP + config STAGES) used to produce.
+    const defaultJob = { role: APP.role, company: APP.company, stages: STAGES };
+    const prompt = buildAdvisorSystem(defaultJob);
     expect(prompt).toContain(APP.role);
     expect(prompt).toContain(APP.company);
     expect(prompt).toContain(STAGES[0].title);

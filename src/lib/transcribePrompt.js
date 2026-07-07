@@ -1,20 +1,24 @@
 // Prompts for interview transcription + stage-aware debrief summaries.
 
 import {
-  TRANSCRIBE_STAGES,
   TRANSCRIBE_STAGE_INSTRUCTIONS,
   buildSpeakerMappingPrompt as candidateLine,
 } from "../../interview.config.js";
+import { getActiveJob } from "./jobs.js";
 
-/** Stage metadata + debrief instructions for the summary pass. */
-const STAGES = TRANSCRIBE_STAGES;
-
-/** Stage-specific debrief instructions for the summary pass. */
-const STAGE_INSTRUCTIONS = TRANSCRIBE_STAGE_INSTRUCTIONS;
+/** Active job's stage metadata (id/title/subtitle) for the summary pass. */
+function getStages() {
+  return (getActiveJob()?.stages || []).map(({ id, title, subtitle }) => ({
+    id,
+    title,
+    subtitle,
+  }));
+}
 
 export function getStageSummaryInstructions(stageId) {
-  const stage = STAGES.find((s) => s.id === stageId);
-  const specific = STAGE_INSTRUCTIONS[stageId] || "";
+  const stage = getStages().find((s) => s.id === stageId);
+  // Preset stage ids match config ids, so instructions still resolve for preset jobs.
+  const specific = TRANSCRIBE_STAGE_INSTRUCTIONS[stageId] || "";
   return [
     stage ? `Stage: ${stage.title} — ${stage.subtitle}` : `Stage: ${stageId}`,
     specific,
@@ -205,4 +209,3 @@ export function transcriptToJson(recording) {
   );
 }
 
-export { STAGES };

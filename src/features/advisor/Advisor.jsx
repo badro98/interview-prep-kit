@@ -20,9 +20,7 @@ import {
   setActiveAdvisorThreadId,
 } from "../../lib/store.js";
 import { isProxyReachable } from "../../lib/claude.js";
-import { ADVISOR_STARTERS } from "../../../interview.config.js";
-
-const STARTERS = ADVISOR_STARTERS;
+import { getActiveJob } from "../../lib/jobs.js";
 
 function ensureActiveThread() {
   let id = getActiveAdvisorThreadId();
@@ -52,6 +50,7 @@ export default function Advisor({ onContextChange }) {
 
   const ctx = useMemo(() => getContextSummary(), [threadTick]);
   const deck = useMemo(() => getDeck(), [deckTick]);
+  const starters = getActiveJob()?.advisorStarters || [];
 
   // Load messages when switching threads (skip the next save — avoid overwriting).
   useEffect(() => {
@@ -258,7 +257,7 @@ export default function Advisor({ onContextChange }) {
                 confirm before adding anything. Manage context in the Context tab.
               </p>
               <div className="flex flex-wrap gap-2">
-                {STARTERS.map((s) => (
+                {starters.map((s) => (
                   <button
                     key={s}
                     onClick={() => send(s)}

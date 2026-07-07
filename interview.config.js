@@ -108,15 +108,11 @@ export const ADVISOR_STARTERS = [
   "Create flashcards from a link or doc I'll paste — ask before adding them.",
 ];
 
-// `job` is optional so this keeps working at module-load time in
-// src/features/advisor/systemPrompt.js, which still calls buildAdvisorSystem()
-// with no argument — Task 5 switches that call site to pass the active job
-// and this fallback can be dropped once every caller is updated.
 export function buildAdvisorSystem(job) {
   const { candidateName } = APP;
-  const role = job?.role || APP.role;
-  const company = job?.company || APP.company;
-  const stages = job?.stages || STAGES;
+  const role = job.role;
+  const company = job.company;
+  const stages = job.stages;
   const stageList = stages
     .map((s, i) => `${i + 1}. ${s.title} — ${s.subtitle}`)
     .join("\n");
@@ -173,9 +169,9 @@ ${stageList}
 Tone: supportive but honest. Flag gaps without being discouraging.`;
 }
 
-// `job` is optional for the same module-load-safety reason as
-// buildAdvisorSystem above — src/lib/transcribePrompt.js calls this with no
-// argument via its `candidateLine()` alias; drop the fallback once callers pass a job.
+// `job` stays optional here (unlike buildAdvisorSystem above): server/transcribe.js
+// calls this via src/lib/transcribePrompt.js's `candidateLine()` alias without a
+// job argument, so this fallback must remain until the server call site is updated.
 export function buildSpeakerMappingPrompt(job) {
   const { candidateName } = APP;
   const role = job?.role || APP.role;
