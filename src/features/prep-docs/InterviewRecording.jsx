@@ -7,6 +7,7 @@ import {
   deleteRecording,
 } from "../../lib/db.js";
 import { setRecordingFlag } from "../../lib/store.js";
+import { getActiveJobId } from "../../lib/jobs.js";
 import {
   transcribeInterview,
   getTranscribeStatus,
@@ -234,7 +235,14 @@ export default function InterviewRecording({ stageId, onChange }) {
     if (next) setRecording(next);
   }
 
-  async function finalizeTranscription(recordingId, result, durationFallback) {
+  // `ownerJobId` is the active-job id captured when the triggering flow
+  // (upload/retranscribe/resume) started. updateRecording is keyed by the
+  // recording's own id, so it's safe to run unconditionally even if the user
+  // has since switched jobs. setRecordingFlag, though, resolves against
+  // whatever job is ACTIVE at call time — if that's no longer the job this
+  // recording belongs to (e.g. the user opened the add-job wizard mid-upload),
+  // writing it would flip the flag under the wrong job. Guard it.
+  async function finalizeTranscription(recordingId, result, durationFallback, ownerJobId) {
     const done = await updateRecording(recordingId, {
       status: "done",
       segments: result.segments,
@@ -246,7 +254,7 @@ export default function InterviewRecording({ stageId, onChange }) {
       error: null,
     });
     setRecording(done);
-    setRecordingFlag(stageId, true);
+    if (ownerJobId === getActiveJobId()) setRecordingFlag(stageId, true);
     onChange?.();
     return done;
   }
@@ -261,12 +269,15 @@ export default function InterviewRecording({ stageId, onChange }) {
     };
   }
 
-  async function pollExistingJob(jobId, recordingId, durationFallback, signal) {
+  async function pollExistingJob(transcribeJobId, recordingId, durationFallback, signal, ownerJobId) {
     setBusy(true);
     setErr("");
     try {
-      const result = await pollTranscribeJob(jobId, { ...pollCallbacks(recordingId), signal });
-      await finalizeTranscription(recordingId, result, durationFallback);
+      const result = await pollTranscribeJob(transcribeJobId, {
+        ...pollCallbacks(recordingId),
+        signal,
+      });
+      await finalizeTranscription(recordingId, result, durationFallback, ownerJobId);
     } catch (ex) {
       if (isTranscribeCancelled(ex)) {
         await resetToUploaded(recordingId);
@@ -298,13 +309,16 @@ export default function InterviewRecording({ stageId, onChange }) {
   }
 
   async function recoverProcessingRecording(rec) {
+    // Captured once, up front — this is the job this recording belongs to
+    // for the duration of the resume flow.
+    const jobId = getActiveJobId();
     const hasPartial =
       Array.isArray(rec.segments) && rec.segments.length > 0 && !rec.summary;
 
     if (rec.transcribeJobId) {
       const job = await fetchTranscribeJob(rec.transcribeJobId);
       if (job?.status === "done" && job.result) {
-        await finalizeTranscription(rec.id, job.result, rec.durationMs);
+        await finalizeTranscription(rec.id, job.result, rec.durationMs, jobId);
         return;
       }
       if (job?.status === "running" || job?.status === "queued") {
@@ -318,7 +332,8 @@ export default function InterviewRecording({ stageId, onChange }) {
           rec.transcribeJobId,
           rec.id,
           rec.durationMs,
-          beginSession()
+          beginSession(),
+          jobId
         );
         return;
       }
@@ -397,6 +412,9 @@ export default function InterviewRecording({ stageId, onChange }) {
       progress: 2,
     });
 
+    // Captured before the upload/transcribe flow begins — used to guard the
+    // completion write against a job switch mid-flight (see finalizeTranscription).
+    const ownerJobId = getActiveJobId();
     let savedId = null;
     const signal = beginSession();
     try {
@@ -424,7 +442,7 @@ export default function InterviewRecording({ stageId, onChange }) {
         },
       });
 
-      await finalizeTranscription(saved.id, result, durationMs);
+      await finalizeTranscription(saved.id, result, durationMs, ownerJobId);
     } catch (ex) {
       if (isTranscribeCancelled(ex)) {
         await resetToUploaded(savedId);
@@ -483,6 +501,8 @@ export default function InterviewRecording({ stageId, onChange }) {
     }
     if (!window.confirm("Re-run transcription on the saved audio?")) return;
 
+    // Captured before the retranscribe flow begins — see finalizeTranscription.
+    const ownerJobId = getActiveJobId();
     setErr("");
     setBusy(true);
     setJobProgress({
@@ -515,7 +535,7 @@ export default function InterviewRecording({ stageId, onChange }) {
         },
       });
 
-      await finalizeTranscription(recording.id, result, recording.durationMs);
+      await finalizeTranscription(recording.id, result, recording.durationMs, ownerJobId);
     } catch (ex) {
       if (isTranscribeCancelled(ex)) {
         await resetToUploaded(recording.id);

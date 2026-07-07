@@ -63,6 +63,25 @@ export default function App() {
     );
   }
 
+  // addingJob replaces the mounted app entirely (same shape as needsOnboarding
+  // above) rather than overlaying it — the old <main> stayed mounted underneath
+  // and the Generate step's setActiveJobId mid-wizard let unguarded async
+  // continuations in old-job components (e.g. InterviewRecording) write under
+  // the new job. The overlay was visually opaque anyway, so this changes
+  // nothing the user could see.
+  if (addingJob) {
+    return (
+      <Onboarding
+        mode="addJob"
+        onComplete={(id) => {
+          handleJobChange(id);
+          setAddingJob(false);
+        }}
+        onCancel={() => setAddingJob(false)}
+      />
+    );
+  }
+
   return (
     <div className="flex h-screen flex-col overflow-hidden">
       <header className="flex shrink-0 items-center justify-between gap-4 border-b border-ink-700 bg-ink-900/80 px-6 py-3 backdrop-blur">
@@ -144,19 +163,6 @@ export default function App() {
         onClose={() => setManageOpen(false)}
         onJobChange={handleJobChange}
       />
-
-      {addingJob && (
-        <div className="fixed inset-0 z-50 bg-ink-900">
-          <Onboarding
-            mode="addJob"
-            onComplete={(id) => {
-              handleJobChange(id);
-              setAddingJob(false);
-            }}
-            onCancel={() => setAddingJob(false)}
-          />
-        </div>
-      )}
     </div>
   );
 }

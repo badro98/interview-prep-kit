@@ -14,8 +14,9 @@ import {
   saveStageDoc,
   generateFlashcards,
   parseFlashcards,
+  buildFlashcardsTask,
 } from "../../lib/generate.js";
-import { getMode, MODE_API } from "../../lib/coach.js";
+import { getMode, MODE_API, buildPrompt } from "../../lib/coach.js";
 import { extractUrls, fetchUrlContent } from "../../lib/fetchUrl.js";
 import { isProxyReachable } from "../../lib/claude.js";
 import { cloneStagePresets, buildCustomStage, moveStage } from "./steps.js";
@@ -54,6 +55,10 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
   // since state updates aren't visible to a synchronously-repeated effect call.
   const [job, setJob] = useState(null);
   const jobRef = useRef(null);
+  // Guards runAllRows against StrictMode's double-invoked mount effect (same
+  // synchronous-ref pattern as jobRef/rowsRef): without this, two concurrent
+  // sequential generation passes fire, duplicating API calls and flashcards.
+  const startedRef = useRef(false);
 
   function goNext() {
     setStepIdx((i) => Math.min(i + 1, steps.length - 1));
@@ -127,7 +132,9 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
   }
 
   function handleProfileNext() {
-    if (getProfileEntries().length === 0) setSkippedProfile(true);
+    // Back → add entries → Next should un-stick a prior Skip so Attach isn't
+    // bypassed for a profile that now has entries.
+    setSkippedProfile(getProfileEntries().length === 0);
     goNext();
   }
 
@@ -210,7 +217,10 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
 
   function ensureJobCreated() {
     if (jobRef.current) return jobRef.current;
-    const profileRefs = getProfileEntries().length > 0 ? [...attached] : [];
+    // Filter against current profile entries — an entry attached earlier in
+    // the wizard may have since been removed (e.g. via Back → remove entry).
+    const currentEntryIds = new Set(getProfileEntries().map((e) => e.id));
+    const profileRefs = [...attached].filter((id) => currentEntryIds.has(id));
     const created = createJob({
       role: role.trim(),
       company: company.trim(),
@@ -229,6 +239,10 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
 
   function ensureRowsBuilt(activeJob) {
     if (rowsRef.current) return rowsRef.current;
+    // Prompt is built eagerly for every row (not just paste mode) so an
+    // API-mode row that errors (e.g. proxy unreachable) can still offer the
+    // "Copy prompt" paste fallback immediately — buildPrompt() is pure
+    // assembly, no network call.
     const built = [
       ...activeJob.stages.map((s) => ({
         kind: "stage",
@@ -237,7 +251,7 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
         label: s.title,
         status: "pending",
         error: null,
-        prompt: null,
+        prompt: buildPrompt({ task: s.regenTask }),
         paste: "",
       })),
       {
@@ -246,7 +260,7 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
         label: "Flashcards",
         status: "pending",
         error: null,
-        prompt: null,
+        prompt: buildPrompt({ task: buildFlashcardsTask(activeJob) }),
         paste: "",
         count: null,
       },
@@ -312,6 +326,8 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
     // API mode: each row calls coach() and lands done/error. Paste mode: coach()
     // just assembles the prompt (no network call), landing rows "paste-ready"
     // so every "Copy prompt" button works immediately instead of staying disabled.
+    if (startedRef.current) return;
+    startedRef.current = true;
     runAllRows(built, activeJob);
   }
 
@@ -733,8 +749,24 @@ function JobStep({
   const [fetchError, setFetchError] = useState("");
 
   async function handleFetch() {
-    const urls = extractUrls(fetchUrl) || (fetchUrl.trim() ? [fetchUrl.trim()] : []);
-    const url = urls[0];
+    // extractUrls() always returns an array (never null), so the old
+    // `|| fallback` never ran. Fall back explicitly when nothing was
+    // extracted: try the trimmed input as a bare host (prefixed with
+    // https://) and validate it before using it.
+    let url = extractUrls(fetchUrl)[0];
+    if (!url) {
+      const trimmed = fetchUrl.trim();
+      if (trimmed) {
+        const candidate = `https://${trimmed}`;
+        try {
+          // eslint-disable-next-line no-new
+          new URL(candidate);
+          url = candidate;
+        } catch {
+          /* invalid — url stays unset, error shown below */
+        }
+      }
+    }
     if (!url) {
       setFetchError("Enter a URL to fetch.");
       return;
@@ -1051,7 +1083,14 @@ function GenerateRow({ row, aiMode, onRetry, onSkip, onPasteChange, onSavePaste,
 
       {row.error && <p className="mt-1.5 text-xs text-red-300">{row.error}</p>}
 
-      {aiMode !== MODE_API && row.status !== "done" && row.status !== "skipped" && (
+      {aiMode === MODE_API && row.status === "error" && (
+        <p className="mt-1.5 text-xs text-slate-500">
+          Proxy unreachable? Copy the prompt into any AI chat and paste the reply back.
+        </p>
+      )}
+
+      {row.status !== "done" && row.status !== "skipped" &&
+        (aiMode !== MODE_API || row.status === "error") && (
         <div className="mt-2 space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Paste-mode fallback</span>
