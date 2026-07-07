@@ -2,7 +2,8 @@
 // starters (copied from interview.config.js defaults at creation). All per-job
 // feature state in store.js/db.js is namespaced by the active job's id.
 
-import { get, set } from "./storage.js";
+import { get, set, remove, listKeys } from "./storage.js";
+import { deleteJobRecords } from "./db.js";
 import { APP, STAGES, ADVISOR_STARTERS } from "../../interview.config.js";
 
 const JOBS_KEY = "jobs";
@@ -64,5 +65,84 @@ export function ensureDefaultJob() {
   if (existing) return existing;
   const job = createJob({});
   setActiveJobId(job.id);
+  return job;
+}
+
+/** A job is seed-backed iff any of its stages has a bundled seed `file` (repo generated/ + context/ data). */
+export const isSeedBacked = (job) => !!job?.stages?.some((s) => s.file);
+
+const jobNamespace = (jobId) => `job:${jobId}:`;
+
+/**
+ * Deletes a job, every localStorage key namespaced under it, and every IDB
+ * row (attempts + recordings) belonging to it. If the deleted job was active,
+ * activeJobId is re-pointed to the first remaining job synchronously — before
+ * the async IDB purge — so a re-render mid-await never queries a dangling job
+ * id. Safe even when called on the last remaining job.
+ */
+export async function deleteJobWithData(jobId) {
+  const wasActive = getActiveJobId() === jobId;
+  const jobKeys = listKeys(jobNamespace(jobId));
+  for (const key of jobKeys) remove(key);
+
+  deleteJob(jobId);
+
+  if (wasActive) {
+    const remaining = getJobs();
+    if (remaining.length) setActiveJobId(remaining[0].id);
+    else remove(ACTIVE_KEY);
+  }
+
+  const { attempts, recordings } = await deleteJobRecords(jobId);
+  return { removedKeys: jobKeys.length, attempts, recordings };
+}
+
+/**
+ * Exports a job as a portable JSON payload: the job record plus every bare
+ * (legacy-key) localStorage entry namespaced under it. Audio blobs stored in
+ * IndexedDB (attempts/recordings) are NOT exported — they're too large for a
+ * JSON file and are considered ephemeral practice data.
+ */
+export function exportJob(jobId) {
+  const job = getJob(jobId);
+  const prefix = jobNamespace(jobId);
+  const state = {};
+  for (const key of listKeys(prefix)) {
+    state[key.slice(prefix.length)] = get(key);
+  }
+  return { version: 1, kind: "iprep-job", job, state };
+}
+
+/**
+ * Imports a job export payload under a freshly generated id (the incoming id
+ * is never trusted/reused). Appends the job to the collection and writes its
+ * state under the new id's namespace. Does not change the active job. Throws
+ * on any malformed payload.
+ */
+export function importJob(data) {
+  const valid =
+    data &&
+    data.kind === "iprep-job" &&
+    data.version === 1 &&
+    data.job &&
+    typeof data.job.role === "string" &&
+    typeof data.job.company === "string" &&
+    data.state &&
+    typeof data.state === "object" &&
+    !Array.isArray(data.state);
+  if (!valid) throw new Error("Invalid job export file");
+
+  const job = createJob({
+    role: data.job.role,
+    company: data.job.company,
+    stages: data.job.stages,
+    advisorStarters: data.job.advisorStarters,
+  });
+
+  const prefix = jobNamespace(job.id);
+  for (const [legacyKey, value] of Object.entries(data.state)) {
+    set(prefix + legacyKey, value);
+  }
+
   return job;
 }
