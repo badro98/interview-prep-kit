@@ -85,10 +85,8 @@ export async function deleteAttempt(id) {
 /** All attempts for the ACTIVE job, newest first. */
 export async function getAllAttempts() {
   const jobId = getActiveJobId();
-  const all = await (await db()).getAll(ATTEMPTS_STORE);
-  return all
-    .filter((a) => a.jobId === jobId)
-    .sort((a, b) => b.createdAt - a.createdAt);
+  const all = await (await db()).getAllFromIndex(ATTEMPTS_STORE, "byJob", jobId);
+  return all.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 /**
@@ -105,18 +103,16 @@ export async function getAllAttempts() {
 export async function getRecordingByStage(stageId) {
   const jobId = getActiveJobId();
   const d = await db();
-  const all = await d.getAllFromIndex(RECORDINGS_STORE, "byStage", stageId);
-  const mine = all.filter((r) => r.jobId === jobId);
+  const all = await d.getAllFromIndex(RECORDINGS_STORE, "byJob", jobId);
+  const mine = all.filter((r) => r.stageId === stageId);
   if (!mine.length) return null;
   return mine.sort((a, b) => b.createdAt - a.createdAt)[0];
 }
 
 export async function getAllRecordings() {
   const jobId = getActiveJobId();
-  const all = await (await db()).getAll(RECORDINGS_STORE);
-  return all
-    .filter((r) => r.jobId === jobId)
-    .sort((a, b) => b.createdAt - a.createdAt);
+  const all = await (await db()).getAllFromIndex(RECORDINGS_STORE, "byJob", jobId);
+  return all.sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export async function saveRecording(recording) {
@@ -158,6 +154,29 @@ export async function replaceRecordingForStage(stageId, recording) {
     if (rec.jobId === jobId) await d.delete(RECORDINGS_STORE, rec.id);
   }
   return saveRecording({ ...recording, stageId });
+}
+
+/**
+ * Delete every attempt + recording row belonging to a job (used when a job
+ * itself is deleted). One readwrite transaction per store. Returns the
+ * number of rows removed from each store.
+ */
+export async function deleteJobRecords(jobId) {
+  const d = await db();
+  const counts = {};
+  for (const [storeName, key] of [
+    [ATTEMPTS_STORE, "attempts"],
+    [RECORDINGS_STORE, "recordings"],
+  ]) {
+    const tx = d.transaction(storeName, "readwrite");
+    const keys = await tx.store.index("byJob").getAllKeys(jobId);
+    for (const recordKey of keys) {
+      await tx.store.delete(recordKey);
+    }
+    await tx.done;
+    counts[key] = keys.length;
+  }
+  return { attempts: counts.attempts, recordings: counts.recordings };
 }
 
 /** Stamp jobId onto legacy records that predate job scoping. Returns count updated. */
