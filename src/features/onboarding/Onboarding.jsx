@@ -59,6 +59,12 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
     setStepIdx((i) => Math.min(i + 1, steps.length - 1));
   }
   function goBack() {
+    // Once the job exists (Generate step created it), backing out of Generate
+    // would silently drop any edits made after re-entering Stages/Job — refs
+    // guarding job/row creation return the stale job. No-op instead of
+    // pretending edits still apply. Defensive: keyboard/step-indicator paths
+    // could reach here even though the Back button is no longer rendered.
+    if (steps[stepIdx] === "generate" && jobRef.current) return;
     setStepIdx((i) => Math.max(i - 1, 0));
   }
 
@@ -145,6 +151,11 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
 
   // ---- Stages -----------------------------------------------------------
 
+  // Monotonic counter for default custom-stage labels — prev.length + 1 would
+  // duplicate labels after a remove-then-add (e.g. add "Custom stage 2", remove
+  // it, add again → prev.length + 1 collides with an existing stage).
+  const customStageCountRef = useRef(0);
+
   function renameStage(id, patch) {
     setStages((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }
@@ -152,7 +163,8 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
     setStages((prev) => prev.filter((s) => s.id !== id));
   }
   function addStage() {
-    setStages((prev) => [...prev, buildCustomStage(`Custom stage ${prev.length + 1}`)]);
+    customStageCountRef.current += 1;
+    setStages((prev) => [...prev, buildCustomStage(`Custom stage ${customStageCountRef.current}`)]);
   }
   function moveStageAt(index, direction) {
     setStages((prev) => moveStage(prev, index, direction));
@@ -934,6 +946,9 @@ function GenerateStep({
         {aiMode === MODE_API
           ? "Generating a prep doc per stage and a flashcard deck through the local proxy."
           : "Copy each prompt into your AI chat of choice, then paste the reply back."}
+      </p>
+      <p className="mt-1 text-xs text-slate-500">
+        Job created — you can edit details and regenerate any doc from the app later.
       </p>
 
       <div className="mt-4 space-y-2">
