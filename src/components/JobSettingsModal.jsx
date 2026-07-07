@@ -81,6 +81,9 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
     setSaving(true);
     setError("");
     try {
+      // NOT atomic: if updateJobStages throws (invalid stage shape), the
+      // role/company/profileRefs write above has already persisted. Acceptable
+      // for local single-user storage; don't assume the pair commits together.
       updateJob(jobId, { role: role.trim(), company: company.trim(), profileRefs });
       updateJobStages(jobId, stages);
       setRemovedConfirm(null);

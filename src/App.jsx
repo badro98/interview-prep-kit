@@ -50,8 +50,15 @@ export default function App() {
 
   function handleJobChange(id) {
     setActiveJobIdState(id ?? getActiveJobId());
-    setRefreshKey((k) => k + 1);
     refreshCtx();
+  }
+
+  // Settings can change the ACTIVE job in place (same id, so the key above
+  // wouldn't change) — bump refreshKey only here so the tabs remount with the
+  // edited stages. Other handleJobChange callers keep no-op-on-same-id semantics.
+  function handleJobEdited(id) {
+    setRefreshKey((k) => k + 1);
+    handleJobChange(id);
   }
 
   function toggleMode() {
@@ -179,7 +186,7 @@ export default function App() {
         onClose={() => setSettingsOpen(false)}
         onSaved={(id) => {
           setSettingsOpen(false);
-          handleJobChange(id);
+          handleJobEdited(id);
         }}
         onGoToContext={() => {
           setSettingsOpen(false);
