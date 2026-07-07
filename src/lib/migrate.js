@@ -37,6 +37,10 @@ export function runMigrations() {
 
   // True fresh install: nothing to migrate and no jobs already created.
   // Stamp the schema and stop — do not conjure a phantom default job.
+  // Note: this is decided purely on job-scoped LEGACY_PREFIXES keys + jobs
+  // count. Global keys (e.g. settings:aiMode) don't count as migratable
+  // state — a settings-only user is still a fresh install for onboarding
+  // purposes, and those global keys are left untouched below.
   if (legacyKeys.length === 0 && getJobs().length === 0) {
     storage.set("schemaVersion", CURRENT_SCHEMA);
     return { migrated: false, jobId: null };
@@ -69,7 +73,7 @@ export function runMigrations() {
   return { migrated: true, jobId: job.id };
 }
 
-const DEMO_STATE_KEY = "demo:localStateVersion";
+export const DEMO_STATE_KEY = "demo:localStateVersion";
 
 /**
  * Demo resync (run BEFORE runMigrations in main.jsx): when the demo config's

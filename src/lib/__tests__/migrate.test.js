@@ -73,6 +73,17 @@ describe("runMigrations", () => {
     expect(getJobs()).toHaveLength(0);
   });
 
+  it("treats a settings-only user (global keys, no jobs) as a fresh install and preserves the global keys", () => {
+    localStorage.setItem("iprep:settings:aiMode", JSON.stringify("paste"));
+
+    const { migrated, jobId } = runMigrations();
+    expect(migrated).toBe(false);
+    expect(jobId).toBeNull();
+    expect(getJobs()).toHaveLength(0);
+    expect(storage.get("schemaVersion")).toBe(CURRENT_SCHEMA);
+    expect(localStorage.getItem("iprep:settings:aiMode")).toBe('"paste"');
+  });
+
   describe("stale-overwrite guard", () => {
     it("skips copying a legacy key when the job-scoped destination already has a value, and still deletes the legacy key", () => {
       // Simulate a job that already exists (e.g. created by the user mid-migration-retry)

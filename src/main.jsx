@@ -2,13 +2,11 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App.jsx";
 import "./index.css";
-import { runMigrations, applyDemoResync } from "./lib/migrate.js";
+import { runMigrations, applyDemoResync, DEMO_STATE_KEY } from "./lib/migrate.js";
 import { backfillJobIds } from "./lib/db.js";
 import { getJobs, ensureDefaultJob } from "./lib/jobs.js";
 import * as storage from "./lib/storage.js";
 import { DEMO } from "../interview.config.js";
-
-const DEMO_STATE_KEY = "demo:localStateVersion";
 
 async function boot() {
   // Demo resync runs BEFORE runMigrations: when the demo config's
