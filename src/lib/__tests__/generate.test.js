@@ -99,8 +99,8 @@ describe("parseFlashcards", () => {
       referenceAnswer: "Use STAR.",
       keyPoints: ["Situation", "Action", "Result"],
     });
-    expect(cards[0].id).toMatch(/^gen-\d+-0$/);
-    expect(cards[1].id).toMatch(/^gen-\d+-1$/);
+    expect(cards[0].id).toMatch(/^gen-\d+-[a-z0-9]+-0$/);
+    expect(cards[1].id).toMatch(/^gen-\d+-[a-z0-9]+-1$/);
   });
 
   it("strips markdown code fences and surrounding prose before parsing", () => {

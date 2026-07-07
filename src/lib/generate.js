@@ -115,7 +115,8 @@ export function parseFlashcards(text) {
   dropped += valid.length - kept.length;
 
   const now = Date.now();
-  const cards = kept.map((card, i) => ({ id: `gen-${now}-${i}`, ...card }));
+  const rand = Math.random().toString(36).slice(2, 8);
+  const cards = kept.map((card, i) => ({ id: `gen-${now}-${rand}-${i}`, ...card }));
 
   return { cards, dropped };
 }

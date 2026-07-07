@@ -4,12 +4,13 @@ import Flashcards from "./features/flashcards/Flashcards.jsx";
 import Audio from "./features/audio/Audio.jsx";
 import Advisor from "./features/advisor/Advisor.jsx";
 import Context from "./features/context/Context.jsx";
+import Onboarding from "./features/onboarding/Onboarding.jsx";
 import JobSwitcher from "./components/JobSwitcher.jsx";
 import ManageJobsModal from "./components/ManageJobsModal.jsx";
 import { APP } from "../interview.config.js";
 import { getContextSummary } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
-import { getActiveJobId } from "./lib/jobs.js";
+import { getActiveJobId, getJobs } from "./lib/jobs.js";
 import { onQuotaError } from "./lib/storage.js";
 
 const TABS = [
@@ -21,6 +22,7 @@ const TABS = [
 ];
 
 export default function App() {
+  const [needsOnboarding, setNeedsOnboarding] = useState(() => getJobs().length === 0);
   const [ctx, setCtx] = useState(getContextSummary());
   const [mode, setModeState] = useState(getMode());
   const [tab, setTab] = useState("prep");
@@ -46,6 +48,18 @@ export default function App() {
     const next = mode === MODE_PASTE ? MODE_API : MODE_PASTE;
     setMode(next);
     setModeState(next);
+  }
+
+  if (needsOnboarding) {
+    return (
+      <Onboarding
+        mode="firstRun"
+        onComplete={(jobId) => {
+          handleJobChange(jobId);
+          setNeedsOnboarding(false);
+        }}
+      />
+    );
   }
 
   return (
