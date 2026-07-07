@@ -11,6 +11,7 @@ import {
   getContextOverrides,
   getCustomContextEntries,
 } from "./store.js";
+import { getActiveJob, isSeedBacked } from "./jobs.js";
 
 const FILES = import.meta.glob("../../context/*.md", {
   eager: true,
@@ -22,8 +23,10 @@ function fileName(path) {
   return path.split("/").pop();
 }
 
-/** Raw built-in files from /context (build time). */
+/** Raw built-in files from /context (build time). Empty for non-seed-backed jobs. */
 export function getContextFiles() {
+  if (!isSeedBacked(getActiveJob())) return [];
+
   const entries = Object.entries(FILES)
     .map(([path, content]) => {
       const name = fileName(path);

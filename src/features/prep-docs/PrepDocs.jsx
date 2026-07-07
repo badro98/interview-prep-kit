@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { STAGES, getStageDoc } from "./stages.js";
+import { getStages, getStageDoc } from "./stages.js";
 import InterviewRecording from "./InterviewRecording.jsx";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
@@ -15,7 +15,8 @@ import {
 } from "../../lib/store.js";
 
 export default function PrepDocs() {
-  const [activeId, setActiveId] = useState(STAGES[0].id);
+  const stages = useMemo(() => getStages(), []);
+  const [activeId, setActiveId] = useState(stages[0]?.id);
   const [recordingFlags, setRecordingFlags] = useState(() => getRecordingFlags());
 
   useEffect(() => {
@@ -36,6 +37,7 @@ export default function PrepDocs() {
   return (
     <div className="flex h-full min-h-0">
       <StageNav
+        stages={stages}
         activeId={activeId}
         onSelect={setActiveId}
         recordingFlags={recordingFlags}
@@ -50,13 +52,13 @@ export default function PrepDocs() {
   );
 }
 
-function StageNav({ activeId, onSelect, recordingFlags }) {
+function StageNav({ stages, activeId, onSelect, recordingFlags }) {
   return (
     <nav className="flex w-64 shrink-0 flex-col gap-1 border-r border-ink-700 bg-ink-800/50 p-3">
       <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
         Interview stages
       </p>
-      {STAGES.map((s, i) => {
+      {stages.map((s, i) => {
         const active = s.id === activeId;
         const hasOverride = !!getDocOverride(s.id);
         const hasRec = recordingFlags[s.id] || hasRecording(s.id);
