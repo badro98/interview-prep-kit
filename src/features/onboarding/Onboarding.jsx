@@ -19,7 +19,8 @@ import {
 import { getMode, MODE_API, buildPrompt } from "../../lib/coach.js";
 import { extractUrls, fetchUrlContent } from "../../lib/fetchUrl.js";
 import { isProxyReachable } from "../../lib/claude.js";
-import { cloneStagePresets, buildCustomStage, moveStage } from "./steps.js";
+import { cloneStagePresets } from "./steps.js";
+import StageEditor from "../../components/StageEditor.jsx";
 
 const HAS_SAMPLE_SETUP = STAGES.some((s) => s.file);
 
@@ -154,27 +155,6 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
       }
     }
     setJd(nextText);
-  }
-
-  // ---- Stages -----------------------------------------------------------
-
-  // Monotonic counter for default custom-stage labels — prev.length + 1 would
-  // duplicate labels after a remove-then-add (e.g. add "Custom stage 2", remove
-  // it, add again → prev.length + 1 collides with an existing stage).
-  const customStageCountRef = useRef(0);
-
-  function renameStage(id, patch) {
-    setStages((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
-  }
-  function removeStage(id) {
-    setStages((prev) => prev.filter((s) => s.id !== id));
-  }
-  function addStage() {
-    customStageCountRef.current += 1;
-    setStages((prev) => [...prev, buildCustomStage(`Custom stage ${customStageCountRef.current}`)]);
-  }
-  function moveStageAt(index, direction) {
-    setStages((prev) => moveStage(prev, index, direction));
   }
 
   // ---- Attach -------------------------------------------------------------
@@ -449,10 +429,7 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
               {step === "stages" && (
                 <StagesStep
                   stages={stages}
-                  onRename={renameStage}
-                  onRemove={removeStage}
-                  onAdd={addStage}
-                  onMove={moveStageAt}
+                  onChange={setStages}
                   onBack={goBack}
                   onNext={() => handleAdvance("stages")}
                 />
@@ -849,7 +826,7 @@ function JobStep({
 
 // ---- Stages ---------------------------------------------------------------
 
-function StagesStep({ stages, onRename, onRemove, onAdd, onMove, onBack, onNext }) {
+function StagesStep({ stages, onChange, onBack, onNext }) {
   return (
     <div>
       <h2 className="text-lg font-semibold text-white">Interview stages</h2>
@@ -857,59 +834,9 @@ function StagesStep({ stages, onRename, onRemove, onAdd, onMove, onBack, onNext 
         Rename, reorder, or remove stages. At least one is required.
       </p>
 
-      <div className="mt-4 space-y-2">
-        {stages.map((stage, i) => (
-          <div key={stage.id} className="rounded-lg border border-ink-700 bg-ink-900/40 p-3">
-            <div className="flex items-start gap-2">
-              <div className="flex shrink-0 flex-col gap-0.5">
-                <button
-                  onClick={() => onMove(i, -1)}
-                  disabled={i === 0}
-                  aria-label="Move up"
-                  className="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-ink-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  ↑
-                </button>
-                <button
-                  onClick={() => onMove(i, 1)}
-                  disabled={i === stages.length - 1}
-                  aria-label="Move down"
-                  className="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-ink-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
-                >
-                  ↓
-                </button>
-              </div>
-              <div className="min-w-0 flex-1 space-y-1.5">
-                <input
-                  value={stage.title}
-                  onChange={(e) => onRename(stage.id, { title: e.target.value })}
-                  placeholder="Stage title"
-                  className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1 text-sm font-medium text-slate-200 focus:border-accent-500 focus:outline-none"
-                />
-                <input
-                  value={stage.subtitle || ""}
-                  onChange={(e) => onRename(stage.id, { subtitle: e.target.value })}
-                  placeholder="Subtitle (optional)"
-                  className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1 text-xs text-slate-400 focus:border-accent-500 focus:outline-none"
-                />
-              </div>
-              <button
-                onClick={() => onRemove(stage.id)}
-                className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 hover:bg-ink-600 hover:text-red-400"
-              >
-                Remove
-              </button>
-            </div>
-          </div>
-        ))}
+      <div className="mt-4">
+        <StageEditor stages={stages} onChange={onChange} />
       </div>
-
-      <button
-        onClick={onAdd}
-        className="mt-3 w-full rounded-xl border border-dashed border-ink-600 py-2.5 text-xs text-slate-400 transition hover:border-ink-500 hover:text-white"
-      >
-        + Add custom stage
-      </button>
 
       <StepFooter onBack={onBack} onNext={onNext} nextDisabled={stages.length === 0} />
     </div>

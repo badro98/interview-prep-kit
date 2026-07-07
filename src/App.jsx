@@ -7,6 +7,7 @@ import Context from "./features/context/Context.jsx";
 import Onboarding from "./features/onboarding/Onboarding.jsx";
 import JobSwitcher from "./components/JobSwitcher.jsx";
 import ManageJobsModal from "./components/ManageJobsModal.jsx";
+import JobSettingsModal from "./components/JobSettingsModal.jsx";
 import { APP } from "../interview.config.js";
 import { getContextSummary } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
@@ -27,7 +28,14 @@ export default function App() {
   const [mode, setModeState] = useState(getMode());
   const [tab, setTab] = useState("prep");
   const [activeJobId, setActiveJobIdState] = useState(getActiveJobId());
+  // Bumped on every handleJobChange call so <main> remounts even when the
+  // edited job is already active (e.g. Job Settings saving stage changes for
+  // the active job) — activeJobId alone wouldn't change in that case, and
+  // React bails out of a setState with an unchanged primitive, so the keyed
+  // remount below needs a value that always changes.
+  const [refreshKey, setRefreshKey] = useState(0);
   const [manageOpen, setManageOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [addingJob, setAddingJob] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState(false);
 
@@ -43,6 +51,14 @@ export default function App() {
   function handleJobChange(id) {
     setActiveJobIdState(id ?? getActiveJobId());
     refreshCtx();
+  }
+
+  // Settings can change the ACTIVE job in place (same id, so the key above
+  // wouldn't change) — bump refreshKey only here so the tabs remount with the
+  // edited stages. Other handleJobChange callers keep no-op-on-same-id semantics.
+  function handleJobEdited(id) {
+    setRefreshKey((k) => k + 1);
+    handleJobChange(id);
   }
 
   function toggleMode() {
@@ -102,6 +118,7 @@ export default function App() {
             onJobChange={handleJobChange}
             onManageJobs={() => setManageOpen(true)}
             onNewJob={() => setAddingJob(true)}
+            onJobSettings={() => setSettingsOpen(true)}
           />
 
           <nav className="flex shrink-0 items-center gap-1 rounded-lg bg-ink-800 p-1">
@@ -150,7 +167,7 @@ export default function App() {
         </div>
       )}
 
-      <main key={activeJobId} className="min-h-0 flex-1">
+      <main key={`${activeJobId}:${refreshKey}`} className="min-h-0 flex-1">
         {tab === "prep" && <PrepDocs />}
         {tab === "cards" && <Flashcards />}
         {tab === "audio" && <Audio />}
@@ -162,6 +179,19 @@ export default function App() {
         open={manageOpen}
         onClose={() => setManageOpen(false)}
         onJobChange={handleJobChange}
+      />
+
+      <JobSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onSaved={(id) => {
+          setSettingsOpen(false);
+          handleJobEdited(id);
+        }}
+        onGoToContext={() => {
+          setSettingsOpen(false);
+          setTab("context");
+        }}
       />
     </div>
   );

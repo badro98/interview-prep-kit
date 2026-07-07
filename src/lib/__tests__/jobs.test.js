@@ -6,6 +6,7 @@ import {
   getJob,
   createJob,
   updateJob,
+  updateJobStages,
   deleteJob,
   getActiveJobId,
   setActiveJobId,
@@ -108,6 +109,85 @@ describe("jobs collection", () => {
     expect(getActiveJobId()).toBe(job.id);
     expect(ensureDefaultJob().id).toBe(job.id);
     expect(getJobs()).toHaveLength(1);
+  });
+});
+
+describe("updateJobStages", () => {
+  it("reorders and renames stages, preserving file props and unrelated overrides", () => {
+    const job = createJob({});
+    storageSet(`job:${job.id}:prepdoc:override:hm`, { markdown: "edited", savedAt: 1 });
+
+    const nextStages = [
+      { ...job.stages[1], title: "Hiring Manager (Renamed)" }, // hm, renamed
+      job.stages[0], // recruiter
+      ...job.stages.slice(2),
+    ];
+    const nextStagesCopy = nextStages.map((s) => ({ ...s }));
+
+    const updated = updateJobStages(job.id, nextStages);
+
+    expect(updated.stages.map((s) => s.id)).toEqual(["hm", "recruiter", "takehome", "onsite", "final"]);
+    expect(updated.stages[0].title).toBe("Hiring Manager (Renamed)");
+    expect(updated.stages.find((s) => s.id === "recruiter").file).toBe("prep-recruiter.md");
+    expect(storageGet(`job:${job.id}:prepdoc:override:hm`)).toEqual({ markdown: "edited", savedAt: 1 });
+
+    // Defensive copy: mutating the input array/objects afterward must not affect the stored job.
+    nextStages[0].title = "Mutated";
+    expect(getJob(job.id).stages[0].title).toBe("Hiring Manager (Renamed)");
+    expect(getJob(job.id).stages).toEqual(nextStagesCopy);
+  });
+
+  it("removing a stage deletes its prepdoc override and recordings flag, leaving other stages' state intact", () => {
+    const job = createJob({});
+    storageSet(`job:${job.id}:prepdoc:override:recruiter`, { markdown: "r", savedAt: 1 });
+    storageSet(`job:${job.id}:prepdoc:override:hm`, { markdown: "h", savedAt: 2 });
+    storageSet(`job:${job.id}:recordings:hasByStage`, { recruiter: true, hm: true });
+
+    const nextStages = job.stages.filter((s) => s.id !== "recruiter");
+    const updated = updateJobStages(job.id, nextStages);
+
+    expect(updated.stages.map((s) => s.id)).not.toContain("recruiter");
+    expect(storageGet(`job:${job.id}:prepdoc:override:recruiter`)).toBeNull();
+    expect(storageGet(`job:${job.id}:prepdoc:override:hm`)).toEqual({ markdown: "h", savedAt: 2 });
+    expect(storageGet(`job:${job.id}:recordings:hasByStage`)).toEqual({ hm: true });
+  });
+
+  it("removing the last flagged stage drops the recordings-flag key entirely", () => {
+    const job = createJob({});
+    storageSet(`job:${job.id}:recordings:hasByStage`, { recruiter: true });
+
+    const nextStages = job.stages.filter((s) => s.id !== "recruiter");
+    updateJobStages(job.id, nextStages);
+
+    expect(storageGet(`job:${job.id}:recordings:hasByStage`)).toBeNull();
+  });
+
+  it("adding a stage leaves existing stages' state untouched", () => {
+    const job = createJob({});
+    storageSet(`job:${job.id}:prepdoc:override:final`, { markdown: "f", savedAt: 1 });
+    storageSet(`job:${job.id}:recordings:hasByStage`, { final: true });
+
+    const nextStages = [...job.stages, { id: "custom1", title: "Custom Stage" }];
+    const updated = updateJobStages(job.id, nextStages);
+
+    expect(updated.stages.map((s) => s.id)).toContain("custom1");
+    expect(storageGet(`job:${job.id}:prepdoc:override:final`)).toEqual({ markdown: "f", savedAt: 1 });
+    expect(storageGet(`job:${job.id}:recordings:hasByStage`)).toEqual({ final: true });
+  });
+
+  it("throws on invalid stage shapes", () => {
+    const job = createJob({});
+    expect(() => updateJobStages(job.id, "not-an-array")).toThrow("Invalid stages");
+    expect(() => updateJobStages(job.id, [])).toThrow("Invalid stages"); // empty array invalid
+    expect(() => updateJobStages(job.id, [{ id: "x" }])).toThrow("Invalid stages"); // missing title
+    expect(() => updateJobStages(job.id, [null])).toThrow("Invalid stages");
+    expect(() => updateJobStages(job.id, [{ id: "x", title: "T", subtitle: 5 }])).toThrow(
+      "Invalid stages"
+    );
+  });
+
+  it("throws Job not found for an unknown jobId", () => {
+    expect(() => updateJobStages("nope", [{ id: "x", title: "T" }])).toThrow("Job not found");
   });
 });
 
@@ -369,5 +449,35 @@ describe("parameterized prompt builders", () => {
     expect(prompt).toContain(APP.role);
     expect(prompt).toContain(APP.company);
     expect(prompt).toContain(STAGES[0].title);
+  });
+});
+
+describe("stage id uniqueness", () => {
+  it("updateJobStages rejects duplicate stage ids", () => {
+    const job = createJob({ role: "QA", company: "Co" });
+    expect(() =>
+      updateJobStages(job.id, [
+        { id: "a", title: "One" },
+        { id: "a", title: "Two" },
+      ])
+    ).toThrow(/Invalid stages/);
+  });
+
+  it("importJob rejects payloads with duplicate stage ids", () => {
+    expect(() =>
+      importJob({
+        version: 1,
+        kind: "iprep-job",
+        job: {
+          role: "QA",
+          company: "Co",
+          stages: [
+            { id: "a", title: "One" },
+            { id: "a", title: "Two" },
+          ],
+        },
+        state: {},
+      })
+    ).toThrow(/Invalid job export file/);
   });
 });
