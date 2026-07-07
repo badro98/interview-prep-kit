@@ -338,14 +338,14 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
   }
 
   function skipRow(row) {
-    updateRow(row.id, { status: "skipped" });
+    updateRow(row.id, { status: "skipped", error: null });
   }
 
   function savePasteReply(row) {
     if (row.kind === "stage") {
       if (!row.paste.trim()) return;
       saveStageDoc(row.stage.id, row.paste.trim());
-      updateRow(row.id, { status: "done" });
+      updateRow(row.id, { status: "done", error: null });
       return;
     }
     try {
