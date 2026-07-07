@@ -119,6 +119,21 @@ export function exportJob(jobId) {
  * state under the new id's namespace. Does not change the active job. Throws
  * on any malformed payload.
  */
+function isPlainObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isValidStage(stage) {
+  return (
+    isPlainObject(stage) &&
+    typeof stage.id === "string" &&
+    typeof stage.title === "string" &&
+    (stage.subtitle === undefined || typeof stage.subtitle === "string") &&
+    (stage.regenTask === undefined || typeof stage.regenTask === "string") &&
+    (stage.file === undefined || typeof stage.file === "string")
+  );
+}
+
 export function importJob(data) {
   const valid =
     data &&
@@ -127,6 +142,11 @@ export function importJob(data) {
     data.job &&
     typeof data.job.role === "string" &&
     typeof data.job.company === "string" &&
+    (data.job.stages === undefined ||
+      (Array.isArray(data.job.stages) && data.job.stages.every(isValidStage))) &&
+    (data.job.advisorStarters === undefined ||
+      (Array.isArray(data.job.advisorStarters) &&
+        data.job.advisorStarters.every((s) => typeof s === "string"))) &&
     data.state &&
     typeof data.state === "object" &&
     !Array.isArray(data.state);

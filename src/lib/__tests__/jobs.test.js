@@ -244,6 +244,40 @@ describe("exportJob / importJob", () => {
       importJob({ kind: "iprep-job", version: 1, job: { role: "R", company: "C" }, state: null })
     ).toThrow("Invalid job export file"); // state not an object
   });
+
+  it("rejects malformed stages", () => {
+    const base = { kind: "iprep-job", version: 1, state: {} };
+    expect(() =>
+      importJob({ ...base, job: { role: "R", company: "C", stages: "not-an-array" } })
+    ).toThrow("Invalid job export file");
+    expect(() =>
+      importJob({ ...base, job: { role: "R", company: "C", stages: [{ id: "x" }] } })
+    ).toThrow("Invalid job export file"); // missing title
+    expect(() =>
+      importJob({ ...base, job: { role: "R", company: "C", stages: [null] } })
+    ).toThrow("Invalid job export file");
+  });
+
+  it("rejects malformed advisorStarters", () => {
+    expect(() =>
+      importJob({
+        kind: "iprep-job",
+        version: 1,
+        job: { role: "R", company: "C", advisorStarters: "nope" },
+        state: {},
+      })
+    ).toThrow("Invalid job export file");
+  });
+
+  it("imports valid payload with stages omitted, using config defaults", () => {
+    const imported = importJob({
+      kind: "iprep-job",
+      version: 1,
+      job: { role: "R", company: "C" },
+      state: {},
+    });
+    expect(imported.stages.map((s) => s.id)).toEqual(STAGES.map((s) => s.id));
+  });
 });
 
 describe("parameterized prompt builders", () => {
