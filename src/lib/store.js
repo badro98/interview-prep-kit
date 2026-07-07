@@ -1,37 +1,24 @@
-// localStorage helpers — namespaced, JSON-safe, with graceful fallbacks.
+// State helpers on top of the storage adapter (src/lib/storage.js).
 //
-// Used for: editable prep-doc bodies, flashcard progress, settings (AI mode).
-// Big binary data (audio blobs in Phase 3) goes to IndexedDB instead, not here.
+// Two scopes:
+//   - GLOBAL: raw get/set/remove re-exported below — settings like AI mode.
+//   - JOB-SCOPED: everything else in this file belongs to the ACTIVE job and
+//     is stored under job:<activeJobId>:<key>. Feature code never sees the
+//     prefix; switching the active job switches all of this state.
+//
+// Big binary data (audio blobs) goes to IndexedDB (db.js), not here.
 
-const NS = "iprep:";
+import * as storage from "./storage.js";
+import { getActiveJobId } from "./jobs.js";
 
-export function get(key, fallback = null) {
-  try {
-    const raw = localStorage.getItem(NS + key);
-    if (raw === null) return fallback;
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
+export const get = storage.get;
+export const set = storage.set;
+export const remove = storage.remove;
 
-export function set(key, value) {
-  try {
-    localStorage.setItem(NS + key, JSON.stringify(value));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function remove(key) {
-  try {
-    localStorage.removeItem(NS + key);
-    return true;
-  } catch {
-    return false;
-  }
-}
+const jobKey = (key) => `job:${getActiveJobId() || "none"}:${key}`;
+const jget = (key, fallback = null) => storage.get(jobKey(key), fallback);
+const jset = (key, value) => storage.set(jobKey(key), value);
+const jremove = (key) => storage.remove(jobKey(key));
 
 // ---- Per-stage prep-doc state -------------------------------------------------
 
@@ -42,10 +29,10 @@ const overrideKey = (stageId) => `prepdoc:override:${stageId}`;
  * here, replacing the build-time markdown. Stored as { markdown, savedAt }.
  * Returns null when the user hasn't edited/regenerated (so the original shows).
  */
-export const getDocOverride = (stageId) => get(overrideKey(stageId), null);
+export const getDocOverride = (stageId) => jget(overrideKey(stageId), null);
 export const setDocOverride = (stageId, markdown) =>
-  set(overrideKey(stageId), { markdown, savedAt: Date.now() });
-export const clearDocOverride = (stageId) => remove(overrideKey(stageId));
+  jset(overrideKey(stageId), { markdown, savedAt: Date.now() });
+export const clearDocOverride = (stageId) => jremove(overrideKey(stageId));
 
 // ---- Flashcard state ----------------------------------------------------------
 //
@@ -57,24 +44,24 @@ export const clearDocOverride = (stageId) => remove(overrideKey(stageId));
 const PROGRESS_KEY = "flashcards:progress";
 const CUSTOM_KEY = "flashcards:custom";
 
-export const getProgressMap = () => get(PROGRESS_KEY, {});
+export const getProgressMap = () => jget(PROGRESS_KEY, {});
 
 /** Merge a partial progress object into a card's existing progress. */
 export function setCardProgress(cardId, partial) {
   const map = getProgressMap();
   map[cardId] = { ...(map[cardId] || {}), ...partial, lastReviewed: Date.now() };
-  set(PROGRESS_KEY, map);
+  jset(PROGRESS_KEY, map);
   return map[cardId];
 }
 
-export const getCustomCards = () => get(CUSTOM_KEY, []);
+export const getCustomCards = () => jget(CUSTOM_KEY, []);
 
 /** Append new custom cards, de-duped by id. Returns how many were added. */
 export function addCustomCards(cards) {
   const existing = getCustomCards();
   const seen = new Set(existing.map((c) => c.id));
   const additions = cards.filter((c) => c && c.id && !seen.has(c.id));
-  if (additions.length) set(CUSTOM_KEY, [...existing, ...additions]);
+  if (additions.length) jset(CUSTOM_KEY, [...existing, ...additions]);
   return additions.length;
 }
 
@@ -83,7 +70,7 @@ export function addCustomCards(cards) {
 
 const MODEL_KEY = "flashcards:modelOverrides";
 
-export const getModelOverrides = () => get(MODEL_KEY, {});
+export const getModelOverrides = () => jget(MODEL_KEY, {});
 
 export function setModelOverride(cardId, { referenceAnswer, keyPoints }) {
   const map = getModelOverrides();
@@ -92,14 +79,14 @@ export function setModelOverride(cardId, { referenceAnswer, keyPoints }) {
     keyPoints: Array.isArray(keyPoints) ? keyPoints : [],
     savedAt: Date.now(),
   };
-  set(MODEL_KEY, map);
+  jset(MODEL_KEY, map);
   return map[cardId];
 }
 
 export function clearModelOverride(cardId) {
   const map = getModelOverrides();
   delete map[cardId];
-  set(MODEL_KEY, map);
+  jset(MODEL_KEY, map);
 }
 
 // ---- Context preferences (advisor + all coach() calls) ----------------------
@@ -130,7 +117,7 @@ function autoThreadTitle(messages) {
 }
 
 function migrateLegacyAdvisorChat() {
-  const legacy = get(LEGACY_CHAT_KEY, null);
+  const legacy = jget(LEGACY_CHAT_KEY, null);
   if (!legacy || !Array.isArray(legacy) || legacy.length === 0) return null;
   const now = Date.now();
   const thread = {
@@ -140,24 +127,24 @@ function migrateLegacyAdvisorChat() {
     updatedAt: legacy[legacy.length - 1]?.at || now,
     messages: legacy,
   };
-  set(ADVISOR_THREADS_KEY, [thread]);
-  set(ADVISOR_ACTIVE_KEY, thread.id);
-  remove(LEGACY_CHAT_KEY);
+  jset(ADVISOR_THREADS_KEY, [thread]);
+  jset(ADVISOR_ACTIVE_KEY, thread.id);
+  jremove(LEGACY_CHAT_KEY);
   return thread;
 }
 
 /** All advisor chat threads, newest activity first. */
 export function getAdvisorThreads() {
-  let threads = get(ADVISOR_THREADS_KEY, null);
+  let threads = jget(ADVISOR_THREADS_KEY, null);
   if (threads === null) {
     migrateLegacyAdvisorChat();
-    threads = get(ADVISOR_THREADS_KEY, []);
+    threads = jget(ADVISOR_THREADS_KEY, []);
   }
   return [...threads].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
 }
 
 export function getActiveAdvisorThreadId() {
-  const id = get(ADVISOR_ACTIVE_KEY, null);
+  const id = jget(ADVISOR_ACTIVE_KEY, null);
   const threads = getAdvisorThreads();
   if (id && threads.some((t) => t.id === id)) return id;
   if (threads.length) return threads[0].id;
@@ -165,7 +152,7 @@ export function getActiveAdvisorThreadId() {
 }
 
 export function setActiveAdvisorThreadId(id) {
-  set(ADVISOR_ACTIVE_KEY, id);
+  jset(ADVISOR_ACTIVE_KEY, id);
 }
 
 export function getActiveAdvisorThread() {
@@ -184,13 +171,13 @@ export function createAdvisorThread() {
     updatedAt: now,
     messages: [],
   };
-  set(ADVISOR_THREADS_KEY, [thread, ...getAdvisorThreads()]);
+  jset(ADVISOR_THREADS_KEY, [thread, ...getAdvisorThreads()]);
   setActiveAdvisorThreadId(thread.id);
   return thread;
 }
 
 function writeAdvisorThreads(threads) {
-  set(ADVISOR_THREADS_KEY, threads);
+  jset(ADVISOR_THREADS_KEY, threads);
 }
 
 export function saveAdvisorThreadMessages(threadId, messages) {
@@ -228,27 +215,27 @@ export function deleteAdvisorThread(threadId) {
 /** @deprecated Legacy single-chat API — migrates on read. */
 export const getAdvisorChat = () => getActiveAdvisorThread()?.messages || [];
 
-export const getDisabledContextFiles = () => get(CONTEXT_DISABLED_KEY, []);
+export const getDisabledContextFiles = () => jget(CONTEXT_DISABLED_KEY, []);
 export function setContextFileEnabled(fileName, enabled) {
   const disabled = new Set(getDisabledContextFiles());
   if (enabled) disabled.delete(fileName);
   else disabled.add(fileName);
-  set(CONTEXT_DISABLED_KEY, [...disabled]);
+  jset(CONTEXT_DISABLED_KEY, [...disabled]);
 }
 
-export const getContextOverrides = () => get(CONTEXT_OVERRIDES_KEY, {});
+export const getContextOverrides = () => jget(CONTEXT_OVERRIDES_KEY, {});
 export function setContextOverride(fileName, content) {
   const map = getContextOverrides();
   map[fileName] = content;
-  set(CONTEXT_OVERRIDES_KEY, map);
+  jset(CONTEXT_OVERRIDES_KEY, map);
 }
 export function clearContextOverride(fileName) {
   const map = getContextOverrides();
   delete map[fileName];
-  set(CONTEXT_OVERRIDES_KEY, map);
+  jset(CONTEXT_OVERRIDES_KEY, map);
 }
 
-export const getCustomContextEntries = () => get(CONTEXT_CUSTOM_KEY, []);
+export const getCustomContextEntries = () => jget(CONTEXT_CUSTOM_KEY, []);
 export function addCustomContextEntry({ name, content }) {
   const list = getCustomContextEntries();
   const entry = {
@@ -258,17 +245,17 @@ export function addCustomContextEntry({ name, content }) {
     enabled: true,
     createdAt: Date.now(),
   };
-  set(CONTEXT_CUSTOM_KEY, [...list, entry]);
+  jset(CONTEXT_CUSTOM_KEY, [...list, entry]);
   return entry;
 }
 export function updateCustomContextEntry(id, patch) {
   const list = getCustomContextEntries().map((e) =>
     e.id === id ? { ...e, ...patch } : e
   );
-  set(CONTEXT_CUSTOM_KEY, list);
+  jset(CONTEXT_CUSTOM_KEY, list);
 }
 export function removeCustomContextEntry(id) {
-  set(
+  jset(
     CONTEXT_CUSTOM_KEY,
     getCustomContextEntries().filter((e) => e.id !== id)
   );
@@ -280,10 +267,10 @@ const DEMO_STATE_KEY = "demo:localStateVersion";
 export function applyDemoLocalReset(version) {
   if (version == null) return false;
   if (get(DEMO_STATE_KEY, null) === version) return false;
-  set(CONTEXT_CUSTOM_KEY, []);
-  remove(ADVISOR_THREADS_KEY);
-  remove(ADVISOR_ACTIVE_KEY);
-  remove(LEGACY_CHAT_KEY);
+  jset(CONTEXT_CUSTOM_KEY, []);
+  jremove(ADVISOR_THREADS_KEY);
+  jremove(ADVISOR_ACTIVE_KEY);
+  jremove(LEGACY_CHAT_KEY);
   set(DEMO_STATE_KEY, version);
   return true;
 }
@@ -293,14 +280,14 @@ export function applyDemoLocalReset(version) {
 const RECORDING_FLAGS_KEY = "recordings:hasByStage";
 
 export function getRecordingFlags() {
-  return get(RECORDING_FLAGS_KEY, {});
+  return jget(RECORDING_FLAGS_KEY, {});
 }
 
 export function setRecordingFlag(stageId, hasRecording) {
   const flags = getRecordingFlags();
   if (hasRecording) flags[stageId] = true;
   else delete flags[stageId];
-  set(RECORDING_FLAGS_KEY, flags);
+  jset(RECORDING_FLAGS_KEY, flags);
 }
 
 export function hasRecording(stageId) {
