@@ -28,6 +28,7 @@ export default function App() {
   const [tab, setTab] = useState("prep");
   const [activeJobId, setActiveJobIdState] = useState(getActiveJobId());
   const [manageOpen, setManageOpen] = useState(false);
+  const [addingJob, setAddingJob] = useState(false);
   const [quotaWarning, setQuotaWarning] = useState(false);
 
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function App() {
           <JobSwitcher
             onJobChange={handleJobChange}
             onManageJobs={() => setManageOpen(true)}
+            onNewJob={() => setAddingJob(true)}
           />
 
           <nav className="flex shrink-0 items-center gap-1 rounded-lg bg-ink-800 p-1">
@@ -142,6 +144,19 @@ export default function App() {
         onClose={() => setManageOpen(false)}
         onJobChange={handleJobChange}
       />
+
+      {addingJob && (
+        <div className="fixed inset-0 z-50 bg-ink-900">
+          <Onboarding
+            mode="addJob"
+            onComplete={(id) => {
+              handleJobChange(id);
+              setAddingJob(false);
+            }}
+            onCancel={() => setAddingJob(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }

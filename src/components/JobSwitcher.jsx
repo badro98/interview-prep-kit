@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { getJobs, getActiveJob, setActiveJobId, createJob } from "../lib/jobs.js";
-import { STAGE_PRESETS, ADVISOR_STARTERS } from "../../interview.config.js";
+import { getJobs, getActiveJob, setActiveJobId } from "../lib/jobs.js";
 
 // Header job switcher: dropdown listing non-archived jobs, plus "New job" and
 // "Manage jobs…" actions. Follows CoachPasteModal's outside-click/Escape pattern,
 // but renders an anchored dropdown panel instead of a full-screen overlay.
-export default function JobSwitcher({ onJobChange, onManageJobs }) {
+export default function JobSwitcher({ onJobChange, onManageJobs, onNewJob }) {
   const [open, setOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const [role, setRole] = useState("");
-  const [company, setCompany] = useState("");
   const rootRef = useRef(null);
 
   const active = getActiveJob();
@@ -34,9 +30,6 @@ export default function JobSwitcher({ onJobChange, onManageJobs }) {
 
   function close() {
     setOpen(false);
-    setCreating(false);
-    setRole("");
-    setCompany("");
   }
 
   function selectJob(id) {
@@ -49,17 +42,9 @@ export default function JobSwitcher({ onJobChange, onManageJobs }) {
     close();
   }
 
-  function handleCreate() {
-    if (!role.trim() || !company.trim()) return;
-    const job = createJob({
-      role: role.trim(),
-      company: company.trim(),
-      stages: STAGE_PRESETS,
-      advisorStarters: ADVISOR_STARTERS,
-    });
-    setActiveJobId(job.id);
-    onJobChange?.(job.id);
+  function handleNewJob() {
     close();
+    onNewJob?.();
   }
 
   function openManage() {
@@ -105,45 +90,12 @@ export default function JobSwitcher({ onJobChange, onManageJobs }) {
           </div>
 
           <div className="border-t border-ink-600">
-            {creating ? (
-              <div className="space-y-2 p-3">
-                <input
-                  autoFocus
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  placeholder="Role (e.g. Senior QA Engineer)"
-                  className="w-full rounded-md border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
-                />
-                <input
-                  value={company}
-                  onChange={(e) => setCompany(e.target.value)}
-                  placeholder="Company"
-                  className="w-full rounded-md border border-ink-600 bg-ink-900 px-2.5 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
-                />
-                <div className="flex justify-end gap-2 pt-1">
-                  <button
-                    onClick={() => setCreating(false)}
-                    className="rounded-md px-2.5 py-1.5 text-xs text-slate-400 hover:bg-ink-700 hover:text-white"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleCreate}
-                    disabled={!role.trim() || !company.trim()}
-                    className="rounded-md bg-accent-500 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Create
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setCreating(true)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-ink-700/60"
-              >
-                ＋ New job
-              </button>
-            )}
+            <button
+              onClick={handleNewJob}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-ink-700/60"
+            >
+              ＋ New job
+            </button>
             <button
               onClick={openManage}
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-300 hover:bg-ink-700/60"
