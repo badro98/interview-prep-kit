@@ -55,9 +55,9 @@ describe("job-scoped store", () => {
     const a = createJob({});
     const b = createJob({});
     setActiveJobId(a.id);
-    set("mode", "paste");
+    set("settings:aiMode", "paste");
     setActiveJobId(b.id);
-    expect(get("mode")).toBe("paste");
-    expect(localStorage.getItem("iprep:mode")).toBeTruthy();
+    expect(get("settings:aiMode")).toBe("paste");
+    expect(localStorage.getItem("iprep:settings:aiMode")).toBeTruthy();
   });
 });

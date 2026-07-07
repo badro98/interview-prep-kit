@@ -27,7 +27,7 @@ describe("runMigrations", () => {
       JSON.stringify({ "card-1": { confidence: 5 } })
     );
     localStorage.setItem("iprep:advisor:chat", JSON.stringify([{ role: "user", content: "hi" }]));
-    localStorage.setItem("iprep:mode", JSON.stringify("paste")); // global — untouched
+    localStorage.setItem("iprep:settings:aiMode", JSON.stringify("paste")); // global — untouched
 
     const { migrated, jobId } = runMigrations();
     expect(migrated).toBe(true);
@@ -36,7 +36,7 @@ describe("runMigrations", () => {
     expect(localStorage.getItem("iprep:prepdoc:override:onsite")).toBeNull();
     expect(localStorage.getItem("iprep:flashcards:progress")).toBeNull();
     expect(storage.get(`job:${jobId}:advisor:chat`)).toEqual([{ role: "user", content: "hi" }]);
-    expect(localStorage.getItem("iprep:mode")).toBe('"paste"');
+    expect(localStorage.getItem("iprep:settings:aiMode")).toBe('"paste"');
 
     // And the job-scoped store reads them for the active job.
     setActiveJobId(jobId);

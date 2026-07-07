@@ -16,7 +16,7 @@
 - Every existing exported function in `src/lib/store.js` and `src/lib/db.js` keeps its exact name and signature. Feature files (`src/features/**`, `src/lib/coach.js`, `src/lib/context.js`) must NOT be modified in this PR.
 - Only `src/lib/storage.js` may call `localStorage`; only `src/lib/db.js` may touch IndexedDB.
 - localStorage namespace prefix stays `iprep:` (existing user data depends on it).
-- Job-scoped localStorage key shape: `job:<jobId>:<legacy key>`. Global (job-independent) keys: `mode` (AI mode, lives in coach.js), `jobs`, `activeJobId`, `schemaVersion`, `demo:localStateVersion`.
+- Job-scoped localStorage key shape: `job:<jobId>:<legacy key>`. Global (job-independent) keys: `settings:aiMode` (AI mode, lives in coach.js), `jobs`, `activeJobId`, `schemaVersion`, `demo:localStateVersion`.
 - Migration must be non-destructive: legacy keys are deleted only after copied values are read back and verified.
 - App must remain runnable (`npm run dev`) and buildable (`npm run build`) after every task.
 - Work on branch `multi-job-support`. Commit after every task.
@@ -454,10 +454,10 @@ describe("job-scoped store", () => {
     const a = createJob({});
     const b = createJob({});
     setActiveJobId(a.id);
-    set("mode", "paste");
+    set("settings:aiMode", "paste");
     setActiveJobId(b.id);
-    expect(get("mode")).toBe("paste");
-    expect(localStorage.getItem("iprep:mode")).toBeTruthy();
+    expect(get("settings:aiMode")).toBe("paste");
+    expect(localStorage.getItem("iprep:settings:aiMode")).toBeTruthy();
   });
 });
 ```
@@ -560,7 +560,7 @@ describe("runMigrations", () => {
       JSON.stringify({ "card-1": { confidence: 5 } })
     );
     localStorage.setItem("iprep:advisor:chat", JSON.stringify([{ role: "user", content: "hi" }]));
-    localStorage.setItem("iprep:mode", JSON.stringify("paste")); // global — untouched
+    localStorage.setItem("iprep:settings:aiMode", JSON.stringify("paste")); // global — untouched
 
     const { migrated, jobId } = runMigrations();
     expect(migrated).toBe(true);
@@ -569,7 +569,7 @@ describe("runMigrations", () => {
     expect(localStorage.getItem("iprep:prepdoc:override:onsite")).toBeNull();
     expect(localStorage.getItem("iprep:flashcards:progress")).toBeNull();
     expect(storage.get(`job:${jobId}:advisor:chat`)).toEqual([{ role: "user", content: "hi" }]);
-    expect(localStorage.getItem("iprep:mode")).toBe('"paste"');
+    expect(localStorage.getItem("iprep:settings:aiMode")).toBe('"paste"');
 
     // And the job-scoped store reads them for the active job.
     setActiveJobId(jobId);

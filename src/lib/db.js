@@ -33,6 +33,15 @@ function db() {
           if (!store.indexNames.contains("byJob")) store.createIndex("byJob", "jobId");
         }
       },
+      blocking() {
+        // An upgrade in another tab is waiting on this connection — release it
+        // so that tab can proceed. The next db() call here reopens fresh.
+        dbPromise?.then((d) => d.close());
+        dbPromise = null;
+      },
+      blocked() {
+        console.warn("iprep: waiting for another tab to close its database connection");
+      },
     });
   }
   return dbPromise;
