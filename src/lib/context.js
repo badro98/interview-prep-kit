@@ -12,6 +12,7 @@ import {
   getCustomContextEntries,
 } from "./store.js";
 import { getActiveJob, isSeedBacked } from "./jobs.js";
+import { getProfileEntries } from "./profile.js";
 
 const FILES = import.meta.glob("../../context/*.md", {
   eager: true,
@@ -62,6 +63,18 @@ export function getActiveContextBlocks() {
     content: overrides[f.name] ?? f.content,
   }));
 
+  const profileEntries = getProfileEntries();
+  const profileBlocks = (getActiveJob()?.profileRefs || [])
+    .map((id) => profileEntries.find((e) => e.id === id))
+    .filter(Boolean)
+    .map((entry) => ({
+      name: entry.id,
+      label: `${entry.name} (profile)`,
+      content: entry.content,
+      source: "profile",
+      enabled: !disabled.has(entry.id),
+    }));
+
   const customBlocks = custom.map((entry) => ({
     name: entry.id,
     customId: entry.id,
@@ -72,7 +85,7 @@ export function getActiveContextBlocks() {
     sourceUrl: entry.sourceUrl,
   }));
 
-  return [...builtin, ...customBlocks];
+  return [...builtin, ...profileBlocks, ...customBlocks];
 }
 
 /** Assembled grounding string for coach() / advisor. */

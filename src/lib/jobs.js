@@ -4,6 +4,7 @@
 
 import { get, set, remove, listKeys } from "./storage.js";
 import { deleteJobRecords } from "./db.js";
+import { getProfileEntries } from "./profile.js";
 import { APP, STAGES, ADVISOR_STARTERS } from "../../interview.config.js";
 
 const JOBS_KEY = "jobs";
@@ -20,7 +21,7 @@ export const getJobs = () => get(JOBS_KEY, []);
 
 export const getJob = (id) => getJobs().find((j) => j.id === id) || null;
 
-export function createJob({ role, company, stages, advisorStarters } = {}) {
+export function createJob({ role, company, stages, advisorStarters, profileRefs } = {}) {
   const job = {
     id: newJobId(),
     role: role || APP.role,
@@ -29,6 +30,7 @@ export function createJob({ role, company, stages, advisorStarters } = {}) {
     createdAt: Date.now(),
     stages: (stages || STAGES).map((s) => ({ ...s })),
     advisorStarters: [...(advisorStarters || ADVISOR_STARTERS)],
+    profileRefs: [...(profileRefs || [])],
   };
   set(JOBS_KEY, [...getJobs(), job]);
   return job;
@@ -147,16 +149,24 @@ export function importJob(data) {
     (data.job.advisorStarters === undefined ||
       (Array.isArray(data.job.advisorStarters) &&
         data.job.advisorStarters.every((s) => typeof s === "string"))) &&
+    (data.job.profileRefs === undefined ||
+      (Array.isArray(data.job.profileRefs) &&
+        data.job.profileRefs.every((r) => typeof r === "string"))) &&
     data.state &&
     typeof data.state === "object" &&
     !Array.isArray(data.state);
   if (!valid) throw new Error("Invalid job export file");
+
+  // Dangling refs from another machine's profile are dropped silently.
+  const existingProfileIds = new Set(getProfileEntries().map((e) => e.id));
+  const profileRefs = (data.job.profileRefs || []).filter((id) => existingProfileIds.has(id));
 
   const job = createJob({
     role: data.job.role,
     company: data.job.company,
     stages: data.job.stages,
     advisorStarters: data.job.advisorStarters,
+    profileRefs,
   });
 
   const prefix = jobNamespace(job.id);

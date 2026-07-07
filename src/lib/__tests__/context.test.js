@@ -5,7 +5,8 @@ import {
   getContext,
 } from "../context.js";
 import { createJob, setActiveJobId } from "../jobs.js";
-import { addCustomContextEntry } from "../store.js";
+import { addCustomContextEntry, setContextFileEnabled } from "../store.js";
+import { addProfileEntry } from "../profile.js";
 import { STAGE_PRESETS } from "../../../interview.config.js";
 
 beforeEach(() => {
@@ -56,6 +57,41 @@ describe("getActiveContextBlocks", () => {
     expect(blocks.every((b) => b.source === "custom")).toBe(true);
     expect(blocks).toHaveLength(1);
     expect(blocks[0].label).toBe("My note");
+  });
+
+  it("includes profile blocks for attached-and-existing refs only, ordered builtin/profile/custom", () => {
+    const entry = addProfileEntry({ name: "Resume", content: "Profile resume content." });
+    const job = createJob({
+      stages: STAGE_PRESETS,
+      profileRefs: [entry.id, "prof-dangling"],
+    });
+    setActiveJobId(job.id);
+    addCustomContextEntry({ name: "My note", content: "Some custom context." });
+
+    const blocks = getActiveContextBlocks();
+    expect(blocks.map((b) => b.source)).toEqual(["profile", "custom"]);
+
+    const profileBlock = blocks.find((b) => b.source === "profile");
+    expect(profileBlock.name).toBe(entry.id);
+    expect(profileBlock.label).toBe("Resume (profile)");
+    expect(profileBlock.content).toBe("Profile resume content.");
+    expect(profileBlock.enabled).toBe(true);
+
+    // Dangling ref (no matching profile entry) is omitted entirely.
+    expect(blocks.some((b) => b.name === "prof-dangling")).toBe(false);
+  });
+
+  it("per-job disable of a profile block does not affect another job with the same ref attached", () => {
+    const entry = addProfileEntry({ name: "Resume", content: "Shared resume." });
+    const jobA = createJob({ stages: STAGE_PRESETS, profileRefs: [entry.id] });
+    const jobB = createJob({ stages: STAGE_PRESETS, profileRefs: [entry.id] });
+
+    setActiveJobId(jobA.id);
+    setContextFileEnabled(entry.id, false);
+    expect(getActiveContextBlocks().find((b) => b.name === entry.id).enabled).toBe(false);
+
+    setActiveJobId(jobB.id);
+    expect(getActiveContextBlocks().find((b) => b.name === entry.id).enabled).toBe(true);
   });
 });
 
