@@ -4,7 +4,7 @@ import { getJobs, getActiveJob, setActiveJobId } from "../lib/jobs.js";
 // Header job switcher: dropdown listing non-archived jobs, plus "New job" and
 // "Manage jobs…" actions. Follows CoachPasteModal's outside-click/Escape pattern,
 // but renders an anchored dropdown panel instead of a full-screen overlay.
-export default function JobSwitcher({ onJobChange, onManageJobs, onNewJob }) {
+export default function JobSwitcher({ onJobChange, onManageJobs, onNewJob, onJobSettings }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
 
@@ -52,6 +52,11 @@ export default function JobSwitcher({ onJobChange, onManageJobs, onNewJob }) {
     onManageJobs?.();
   }
 
+  function openSettings() {
+    close();
+    onJobSettings?.();
+  }
+
   const label = active ? `${active.role} — ${active.company}` : "No job selected";
 
   return (
@@ -95,6 +100,12 @@ export default function JobSwitcher({ onJobChange, onManageJobs, onNewJob }) {
               className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-200 hover:bg-ink-700/60"
             >
               ＋ New job
+            </button>
+            <button
+              onClick={openSettings}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-slate-300 hover:bg-ink-700/60"
+            >
+              Job settings…
             </button>
             <button
               onClick={openManage}
