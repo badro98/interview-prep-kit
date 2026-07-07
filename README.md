@@ -153,6 +153,8 @@ interview-prep-kit/
 | `build` | Production bundle → `dist/` |
 | `preview` | Preview production build |
 | `server` | Run proxy only |
+| `test` | Run the test suite once |
+| `test:watch` | Run the test suite in watch mode |
 
 ---
 
