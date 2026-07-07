@@ -5,6 +5,7 @@ import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { getAllRecordings } from "../../lib/db.js";
+import { getActiveJobId } from "../../lib/jobs.js";
 import {
   getDocOverride,
   setDocOverride,
@@ -132,17 +133,20 @@ function StageView({ stageId, onRecordingChange }) {
   async function handleRegenerate() {
     setErr("");
     setBusy(true);
+    const jobId = getActiveJobId();
     try {
       const result = await coach({ task: base.regenTask });
+      if (jobId !== getActiveJobId()) return; // job switched mid-flight — drop the result
       if (result.mode === MODE_PASTE) {
         setModal({ open: true, prompt: result.prompt });
       } else {
         saveOverride(result.text);
       }
     } catch (e) {
+      if (jobId !== getActiveJobId()) return;
       setErr(e.message || "Regenerate failed.");
     } finally {
-      setBusy(false);
+      if (jobId === getActiveJobId()) setBusy(false);
     }
   }
 

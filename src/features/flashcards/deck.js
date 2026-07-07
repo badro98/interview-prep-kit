@@ -19,11 +19,6 @@ export const CATEGORIES = [
 export const categoryLabel = (id) =>
   CATEGORIES.find((c) => c.id === id)?.label || id;
 
-/** Seed deck metadata — only present for the seed-backed (config-default) job. */
-export function getDeckMeta() {
-  return isSeedBacked(getActiveJob()) ? seed.meta || {} : {};
-}
-
 function seedCards() {
   return isSeedBacked(getActiveJob()) ? seed.cards || [] : [];
 }

@@ -29,9 +29,12 @@ beforeEach(() => {
   globalThis.indexedDB = new IDBFactory(); // fresh DB per test
 });
 
-// jobs.js statically imports db.js, which caches its connection at module
-// scope. Cache-busting both with the same query param binds the fresh
-// jobs.js to the fresh db.js so IDB state is isolated per test.
+// jobs.js has a static import of db.js, so the `?t=` query param does NOT
+// rebind it to a fresh db.js module instance (static imports aren't
+// cache-busted this way) — jobs and db here still share whatever db.js
+// module the test runner already loaded. Isolation instead comes from
+// `beforeEach` installing a fresh `new IDBFactory()` per test plus each test
+// using freshly generated job ids, so no test can see another test's rows.
 async function freshModules() {
   const t = `${Date.now()}-${Math.random()}`;
   const db = await import(/* @vite-ignore */ `../db.js?t=${t}`);

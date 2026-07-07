@@ -87,4 +87,9 @@ Browser pass on `npm run dev`: default job renders identically to PR1; create a 
 - Vacuous `count >= 0` assertion → removed (Task 1)
 - Quota-warning UI for `onQuotaError` → banner (Task 4)
 
-Still deferred: migration stale-overwrite guard (PR3 revisit), `job:none:` bucket (PR3).
+Deferred (documented during whole-branch review):
+
+- (a) `demo:setup` resync of the seed-backed default job after config swap → PR5 demo refresh.
+- (b) Server-side transcription prompts use config fallback, not the active job — needs role/company/stage threaded through the upload request → server-factoring work.
+- (c) `importJob` ignores `set()` quota returns (global banner covers) → PR3 revisit with onboarding storage UX.
+- (d) Migration stale-overwrite guard and `job:none` bucket → PR3 (unchanged).

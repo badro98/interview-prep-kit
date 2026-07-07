@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getJobs,
   getActiveJobId,
+  setActiveJobId,
   updateJob,
   deleteJobWithData,
   exportJob,
@@ -19,7 +20,6 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
   const [confirmingId, setConfirmingId] = useState(null);
   const [importError, setImportError] = useState("");
   const [busyId, setBusyId] = useState(null);
-  const fileInputRef = useRef(null);
 
   useEffect(() => {
     function onKey(e) {
@@ -28,6 +28,10 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
     if (open) {
       setJobs(getJobs());
       setImportError("");
+      setEditingId(null);
+      setConfirmingId(null);
+      setEditRole("");
+      setEditCompany("");
       window.addEventListener("keydown", onKey);
     }
     return () => window.removeEventListener("keydown", onKey);
@@ -57,6 +61,21 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
   function toggleArchive(job) {
     const nextStatus = job.status === "archived" ? "active" : "archived";
     updateJob(job.id, { status: nextStatus });
+
+    // If the active job ends up archived (it was just archived, or the only
+    // non-archived job got unarchived while some other archived job was
+    // somehow active), re-point activeJobId to the first non-archived job.
+    const updatedJobs = getJobs();
+    const activeId = getActiveJobId();
+    const activeJob = updatedJobs.find((j) => j.id === activeId);
+    if (activeJob?.status === "archived") {
+      const nextActive = updatedJobs.find((j) => j.status !== "archived");
+      if (nextActive) {
+        setActiveJobId(nextActive.id);
+        onJobChange?.(nextActive.id);
+      }
+    }
+
     refresh();
   }
 
@@ -93,13 +112,19 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
+      let parsed;
       try {
-        const parsed = JSON.parse(String(reader.result));
+        parsed = JSON.parse(String(reader.result));
+      } catch {
+        setImportError("Invalid job export file");
+        return;
+      }
+      try {
         importJob(parsed);
         setImportError("");
         refresh();
-      } catch (err) {
-        setImportError(err.message || "Invalid job export file");
+      } catch {
+        setImportError("Invalid job export file");
       }
     };
     reader.onerror = () => setImportError("Could not read that file.");
@@ -108,6 +133,7 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
   }
 
   const canDelete = jobs.length > 1;
+  const activeCount = jobs.filter((j) => j.status !== "archived").length;
 
   return (
     <div
@@ -152,6 +178,8 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
               onCancelDelete={() => setConfirmingId(null)}
               onConfirmDelete={() => handleDelete(job)}
               canDelete={canDelete}
+              // Archiving this job must never leave zero non-archived jobs.
+              canArchive={job.status === "archived" || activeCount > 1}
               busy={busyId === job.id}
             />
           ))}
@@ -166,7 +194,6 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
           <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-ink-600 py-3 text-xs text-slate-400 transition hover:border-ink-500 hover:text-white">
             Import job (.json)
             <input
-              ref={fileInputRef}
               type="file"
               accept=".json,application/json"
               className="hidden"
@@ -196,6 +223,7 @@ function JobRow({
   onCancelDelete,
   onConfirmDelete,
   canDelete,
+  canArchive,
   busy,
 }) {
   const archived = job.status === "archived";
@@ -286,7 +314,9 @@ function JobRow({
             </button>
             <button
               onClick={onToggleArchive}
-              className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-ink-700"
+              disabled={!canArchive}
+              title={canArchive ? undefined : "Can't archive the last remaining active job"}
+              className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-ink-700 disabled:cursor-not-allowed disabled:text-slate-600 disabled:hover:bg-transparent"
             >
               {archived ? "Unarchive" : "Archive"}
             </button>
