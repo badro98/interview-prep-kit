@@ -67,7 +67,12 @@ export function deleteJob(id) {
  * `Error("Job not found")` for an unknown `jobId`.
  */
 export function updateJobStages(jobId, nextStages) {
-  if (!Array.isArray(nextStages) || nextStages.length === 0 || !nextStages.every(isValidStage)) {
+  if (
+    !Array.isArray(nextStages) ||
+    nextStages.length === 0 ||
+    !nextStages.every(isValidStage) ||
+    !hasUniqueStageIds(nextStages)
+  ) {
     throw new Error("Invalid stages");
   }
 
@@ -174,6 +179,11 @@ function isPlainObject(value) {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+/** Stage lists must not reuse ids — shared ids would conflate per-stage state. */
+function hasUniqueStageIds(stages) {
+  return new Set(stages.map((s) => s.id)).size === stages.length;
+}
+
 function isValidStage(stage) {
   return (
     isPlainObject(stage) &&
@@ -194,7 +204,9 @@ export function importJob(data) {
     typeof data.job.role === "string" &&
     typeof data.job.company === "string" &&
     (data.job.stages === undefined ||
-      (Array.isArray(data.job.stages) && data.job.stages.every(isValidStage))) &&
+      (Array.isArray(data.job.stages) &&
+        data.job.stages.every(isValidStage) &&
+        hasUniqueStageIds(data.job.stages))) &&
     (data.job.advisorStarters === undefined ||
       (Array.isArray(data.job.advisorStarters) &&
         data.job.advisorStarters.every((s) => typeof s === "string"))) &&

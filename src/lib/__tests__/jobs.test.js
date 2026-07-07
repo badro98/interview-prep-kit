@@ -451,3 +451,33 @@ describe("parameterized prompt builders", () => {
     expect(prompt).toContain(STAGES[0].title);
   });
 });
+
+describe("stage id uniqueness", () => {
+  it("updateJobStages rejects duplicate stage ids", () => {
+    const job = createJob({ role: "QA", company: "Co" });
+    expect(() =>
+      updateJobStages(job.id, [
+        { id: "a", title: "One" },
+        { id: "a", title: "Two" },
+      ])
+    ).toThrow(/Invalid stages/);
+  });
+
+  it("importJob rejects payloads with duplicate stage ids", () => {
+    expect(() =>
+      importJob({
+        version: 1,
+        kind: "iprep-job",
+        job: {
+          role: "QA",
+          company: "Co",
+          stages: [
+            { id: "a", title: "One" },
+            { id: "a", title: "Two" },
+          ],
+        },
+        state: {},
+      })
+    ).toThrow(/Invalid job export file/);
+  });
+});
