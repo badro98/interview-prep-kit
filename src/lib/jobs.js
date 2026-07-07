@@ -50,6 +50,55 @@ export function deleteJob(id) {
   set(JOBS_KEY, getJobs().filter((j) => j.id !== id));
 }
 
+/**
+ * Replaces a job's stage list (validated with the same shape floor as
+ * importJob's stages). For any stage id present in the OLD list but absent
+ * from `nextStages`, cleans up its job-scoped localStorage state: the
+ * prep-doc override (`prepdoc:override:<id>`) and its entry in the
+ * recordings-flag map (`recordings:hasByStage`, one map key — read, delete
+ * the removed ids, write back, or drop the key entirely once empty).
+ *
+ * IndexedDB rows (attempts/recordings) for removed stages are intentionally
+ * left in place here — they're keyed by their own record ids and simply
+ * become unreachable for that stage. A full purge is deleteJobWithData's
+ * concern, not this function's.
+ *
+ * Throws `Error("Invalid stages")` on a malformed `nextStages`, and
+ * `Error("Job not found")` for an unknown `jobId`.
+ */
+export function updateJobStages(jobId, nextStages) {
+  if (!Array.isArray(nextStages) || nextStages.length === 0 || !nextStages.every(isValidStage)) {
+    throw new Error("Invalid stages");
+  }
+
+  const job = getJob(jobId);
+  if (!job) throw new Error("Job not found");
+
+  const nextIds = new Set(nextStages.map((s) => s.id));
+  const removedIds = job.stages.map((s) => s.id).filter((id) => !nextIds.has(id));
+
+  if (removedIds.length) {
+    const prefix = jobNamespace(jobId);
+    for (const id of removedIds) remove(`${prefix}prepdoc:override:${id}`);
+
+    const flagsKey = `${prefix}recordings:hasByStage`;
+    const flags = get(flagsKey, {});
+    let flagsChanged = false;
+    for (const id of removedIds) {
+      if (id in flags) {
+        delete flags[id];
+        flagsChanged = true;
+      }
+    }
+    if (flagsChanged) {
+      if (Object.keys(flags).length === 0) remove(flagsKey);
+      else set(flagsKey, flags);
+    }
+  }
+
+  return updateJob(jobId, { stages: nextStages.map((s) => ({ ...s })) });
+}
+
 export function getActiveJobId() {
   const jobs = getJobs();
   const id = get(ACTIVE_KEY, null);
