@@ -6,7 +6,7 @@ I was juggling notes in Google Docs, practice questions in Claude, prep docs som
 
 So I built this instead. One place for everything, always grounded in your resume and the actual job. I put it together in under 24 hours on Cursor to prep for an interview and found it genuinely useful — so here it is.
 
-This is a **local-first** interview prep app. Add your resume, job description, notes, and stories — it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a chat advisor, and interview recording transcription.
+This is a **local-first** interview prep app. Add your resume, job description, notes, and stories — it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a chat advisor, and interview recording transcription. Set up one job or several from an in-app onboarding wizard — no config editing required to get started.
 
 You bring your own API keys. Nothing leaves your machine. Feel free to build it out locally and try it for yourself.
 
@@ -36,6 +36,7 @@ See [`demo/DEMO.md`](demo/DEMO.md) for what's pre-loaded.
 | **Audio** | Record answers → transcribe → score your structure and delivery |
 | **Advisor** | Multi-turn chat that proposes flashcards and context updates |
 | **Context** | Paste, upload, or toggle your grounding materials |
+| **Jobs** (header switcher) | Jump between jobs; **Job settings…** edits role/company/stages/profile attachments; **Manage jobs…** renames, archives, exports, imports, and deletes jobs |
 
 ---
 
@@ -53,6 +54,8 @@ npm run dev
 ```
 
 Open the local URL printed in your terminal in **Chrome** (required for Web Speech API in the Audio tab).
+
+The app opens straight into an onboarding wizard: your name → an optional profile (resume/stories, shared across every job) → job + description → interview stages → generate prep docs and flashcards in-app. Two shortcuts on the first screen if you'd rather skip typing: **Use the repo's sample setup** (loads the job baked into `interview.config.js`) or **import a job export (.json)**.
 
 Check the proxy is up: http://localhost:3001/api/health
 
@@ -81,21 +84,38 @@ The server is wired for Gemini by default ([`server/gemini.js`](server/gemini.js
 
 ## Adding your context
 
-You don't need a fixed set of files. Three ways to add your materials:
+You don't need a fixed set of files. The in-app path is primary:
 
-1. **Context tab** — paste notes, upload `.md` / `.txt`, or add custom entries (saved in your browser)
-2. **Edit `context/`** — any markdown files; restart `npm run dev` after changes
-3. See [`context/README.md`](context/README.md) for a full guide to the starter templates
+1. **Onboarding / profile** — paste your resume and stories once during setup (or later from **＋ New job**); profile entries are shared across every job, so you attach the relevant ones per job instead of re-pasting them
+2. **Context tab** — paste notes, upload `.md` / `.txt`, or add job-specific custom entries (saved in your browser)
+
+The repo's `context/` folder is seed data for **Use the repo's sample setup** in onboarding — not required for your own jobs. See [`context/README.md`](context/README.md) if you want to edit those files directly.
 
 Every AI feature prepends your active context. Better stories → better coaching.
 
 ---
 
-## Customizing for your interview
+## Multiple jobs
 
-1. Add your context (see above)
-2. Edit [`interview.config.js`](interview.config.js) — set the app title, role, company, your name, and interview stages
-3. Run the drop-in prompt in [PROMPT.md](./PROMPT.md) inside Cursor, Claude Code, or Codex to regenerate prep docs and flashcards
+Set up a job per interview you're prepping for. Each job keeps its own prep docs, flashcards, advisor history, and audio recordings — nothing bleeds between jobs.
+
+- **Switch jobs** — the header switcher lists your active jobs; **＋ New job** launches the onboarding wizard scoped to a single job (skips the name/profile steps since those already exist)
+- **Job settings…** — edit role, company, interview stages, and which profile entries are attached
+- **Manage jobs…** — rename, archive/unarchive, export, import, or delete jobs (deleting the last remaining job is disabled)
+- **Profile** — your resume/stories live once in a shared profile; attach whichever pieces are relevant to each job
+- **Export/import** — Manage jobs exports a job to a JSON file; audio recordings are **not** included (too large for a JSON export, treated as ephemeral practice data). Import brings a job back in under a new id
+
+Everything lives in your browser (localStorage + IndexedDB for audio) — nothing syncs to a server. Export jobs you care about before clearing site data or switching browsers. If storage fills up, a banner appears telling you to export and free up space.
+
+---
+
+## Power-user path: config + PROMPT.md
+
+Most people should just use the in-app onboarding wizard above — it's faster and doesn't touch any files. This path is for the **seed job** (the one baked into `interview.config.js` and `generated/`, loaded via **Use the repo's sample setup**) if you want an AI coding assistant to regenerate its prep docs and flashcards ahead of time.
+
+1. Add context to `context/` (see [`context/README.md`](context/README.md))
+2. Edit [`interview.config.js`](interview.config.js) — set the app title, role, company, your name, and interview stages for the seed job
+3. Run the drop-in prompt in [PROMPT.md](./PROMPT.md) inside Cursor, Claude Code, or Codex to regenerate the seed job's prep docs and flashcards
 4. Restart `npm run dev` after editing files in `context/` or `generated/` (Vite bundles them at build time)
 
 ---
@@ -112,11 +132,11 @@ Frontend only (no proxy): `npm run dev:frontend`
 
 ```
 interview-prep-kit/
-├── context/              # Optional starter templates + README
+├── context/              # Seed files for the sample setup (optional) + README
 ├── generated/            # Seed prep docs + flashcards (customize via PROMPT.md)
-├── interview.config.js   # App title, stages, advisor prompt
+├── interview.config.js   # Defaults, stage presets, and the seed job's config
 ├── server/               # Local proxy — calls your Gemini key
-├── src/                  # React app
+├── src/                  # React app — onboarding, jobs, profile, tabs
 ├── .env.example
 └── PROMPT.md
 ```
@@ -144,6 +164,7 @@ flowchart TB
     UI[React tabs]
     Coach[coach.js]
     Ctx[context.js + Context tab uploads]
+    Jobs[jobs.js + profile.js — jobs, profile, local storage]
   end
 
   subgraph server [Express proxy]
@@ -152,6 +173,7 @@ flowchart TB
   end
 
   Ctx --> Coach
+  Jobs --> Coach
   Coach -->|API default| server
   Coach -->|paste fallback| ExtLLM[External chat]
   LLM --> Env[".env keys"]
