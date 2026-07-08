@@ -6,7 +6,7 @@
 import "dotenv/config";
 import express from "express";
 import multer from "multer";
-import { generateText, generateChat, scoreAudio, isConfigured, MODEL } from "./gemini.js";
+import { generateText, generateChat, scoreAudio, pdfToMarkdown, isConfigured, MODEL } from "./gemini.js";
 import { fetchPublicUrl } from "./fetchUrl.js";
 import { transcribeInterview, assemblyConfigured } from "./transcribe.js";
 import { createJob, getJob, patchJob, publicJobView, cancelJob } from "./transcribeJobs.js";
@@ -86,6 +86,35 @@ app.post("/api/fetch-url", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// PDF → markdown for profile/context intake (resumes). Small files only.
+const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB — Gemini inline limit is 20MB
+
+app.post("/api/extract-pdf", (req, res) => {
+  upload.single("file")(req, res, async (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    try {
+      if (!isConfigured()) {
+        return res.status(503).json({
+          error:
+            "PDF conversion needs GEMINI_API_KEY in .env (see .env.example). Add it and restart with `npm run dev`.",
+        });
+      }
+      const file = req.file;
+      if (!file) return res.status(400).json({ error: "Missing file." });
+      const isPdf =
+        file.mimetype === "application/pdf" || /\.pdf$/i.test(file.originalname || "");
+      if (!isPdf) return res.status(400).json({ error: "Only PDF files are supported here." });
+      if (file.size > MAX_PDF_BYTES) {
+        return res.status(400).json({ error: "PDF exceeds 10MB — export a smaller copy and retry." });
+      }
+      const text = await pdfToMarkdown(file.buffer.toString("base64"));
+      res.json({ text });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
 // Interview recording transcription — returns job id immediately, poll for progress.

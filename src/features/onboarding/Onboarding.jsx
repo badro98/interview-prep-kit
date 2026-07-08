@@ -17,7 +17,8 @@ import {
   buildFlashcardsTask,
 } from "../../lib/generate.js";
 import { getMode, MODE_API, buildPrompt } from "../../lib/coach.js";
-import { extractUrls, fetchUrlContent } from "../../lib/fetchUrl.js";
+import { fetchUrlContent, normalizeUrlInput } from "../../lib/fetchUrl.js";
+import { readEntryFile, entryNameFromUrl } from "../../lib/entryFile.js";
 import { isProxyReachable } from "../../lib/claude.js";
 import { cloneStagePresets } from "./steps.js";
 import StageEditor from "../../components/StageEditor.jsx";
@@ -580,6 +581,11 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
   const [adding, setAdding] = useState(false);
   const [entryName, setEntryName] = useState("");
   const [content, setContent] = useState("");
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [portfolioBusy, setPortfolioBusy] = useState(false);
+  const [portfolioError, setPortfolioError] = useState("");
 
   function handleAdd() {
     if (!entryName.trim() || !content.trim()) return;
@@ -589,16 +595,43 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
     setAdding(false);
   }
 
-  function handleUpload(e) {
+  async function handleUpload(e) {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base = file.name.replace(/\.(md|txt)$/i, "") || file.name;
-      onAdd({ name: base, content: String(reader.result) });
-    };
-    reader.readAsText(file);
     e.target.value = "";
+    if (!file) return;
+    setUploadBusy(true);
+    setUploadError("");
+    try {
+      onAdd(await readEntryFile(file));
+    } catch (err) {
+      setUploadError(err.message || "Could not read that file.");
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  async function handleFetchPortfolio() {
+    const url = normalizeUrlInput(portfolioUrl);
+    if (!url) {
+      setPortfolioError("Enter a URL to fetch.");
+      return;
+    }
+    setPortfolioBusy(true);
+    setPortfolioError("");
+    try {
+      const proxyOk = await isProxyReachable();
+      if (!proxyOk) {
+        setPortfolioError("Proxy is offline (run npm run dev) — paste the content manually instead.");
+        return;
+      }
+      const { title, text } = await fetchUrlContent(url);
+      onAdd({ name: entryNameFromUrl(url, title), content: text });
+      setPortfolioUrl("");
+    } catch (e) {
+      setPortfolioError(e.message || "Could not fetch that URL.");
+    } finally {
+      setPortfolioBusy(false);
+    }
   }
 
   return (
@@ -670,15 +703,35 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
             + Paste profile entry
           </button>
           <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white">
-            Upload .md / .txt
+            {uploadBusy ? "Converting…" : "Upload .md / .txt / .pdf"}
             <input
               type="file"
-              accept=".md,.txt,text/markdown,text/plain"
+              accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
               className="hidden"
+              disabled={uploadBusy}
               onChange={handleUpload}
             />
           </label>
         </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          value={portfolioUrl}
+          onChange={(e) => setPortfolioUrl(e.target.value)}
+          placeholder="https://... portfolio or personal site"
+          className="min-w-0 flex-1 rounded-lg border border-ink-600 bg-ink-900 px-3 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+        />
+        <button
+          onClick={handleFetchPortfolio}
+          disabled={portfolioBusy}
+          className="shrink-0 rounded-md border border-ink-600 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-ink-500 disabled:opacity-50"
+        >
+          {portfolioBusy ? "Fetching…" : "Add from URL"}
+        </button>
+      </div>
+      {(uploadError || portfolioError) && (
+        <p className="mt-1 text-xs text-red-300">{uploadError || portfolioError}</p>
       )}
 
       <div className="mt-6 flex items-center justify-between">
@@ -726,24 +779,7 @@ function JobStep({
   const [fetchError, setFetchError] = useState("");
 
   async function handleFetch() {
-    // extractUrls() always returns an array (never null), so the old
-    // `|| fallback` never ran. Fall back explicitly when nothing was
-    // extracted: try the trimmed input as a bare host (prefixed with
-    // https://) and validate it before using it.
-    let url = extractUrls(fetchUrl)[0];
-    if (!url) {
-      const trimmed = fetchUrl.trim();
-      if (trimmed) {
-        const candidate = `https://${trimmed}`;
-        try {
-          // eslint-disable-next-line no-new
-          new URL(candidate);
-          url = candidate;
-        } catch {
-          /* invalid — url stays unset, error shown below */
-        }
-      }
-    }
+    const url = normalizeUrlInput(fetchUrl);
     if (!url) {
       setFetchError("Enter a URL to fetch.");
       return;

@@ -64,6 +64,27 @@ export async function scoreAudio({ prompt, audioBase64, mimeType = "audio/wav" }
   return res.text;
 }
 
+/** PDF → clean markdown (resume/profile intake). Gemini reads PDFs natively. */
+export async function pdfToMarkdown(pdfBase64) {
+  const res = await ai().models.generateContent({
+    model: MODEL,
+    contents: [
+      {
+        role: "user",
+        parts: [
+          {
+            text:
+              "Convert this document to clean markdown. Preserve headings, lists, and structure. " +
+              "Output only the markdown — no commentary, no code fences.",
+          },
+          { inlineData: { mimeType: "application/pdf", data: pdfBase64 } },
+        ],
+      },
+    ],
+  });
+  return res.text;
+}
+
 const INLINE_AUDIO_LIMIT = 20 * 1024 * 1024; // 20MB
 
 function parseJsonResponse(text) {
