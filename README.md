@@ -118,6 +118,8 @@ Most people should just use the in-app onboarding wizard above — it's faster a
 3. Run the drop-in prompt in [PROMPT.md](./PROMPT.md) inside Cursor, Claude Code, or Codex to regenerate the seed job's prep docs and flashcards
 4. Restart `npm run dev` after editing files in `context/` or `generated/` (Vite bundles them at build time)
 
+**Using the kit for a real interview?** Keep your personal edits to `context/`, `generated/`, and `interview.config.js` local. A pre-commit hook (installed via `npm install` → `prepare`) blocks committing those paths so a real resume or interviewer names cannot land in a public fork by accident. Intentional seed updates only: `ALLOW_SEED_COMMIT=1 git commit …`.
+
 ---
 
 ## Paste mode
@@ -135,6 +137,7 @@ interview-prep-kit/
 ├── context/              # Seed files for the sample setup (optional) + README
 ├── generated/            # Seed prep docs + flashcards (customize via PROMPT.md)
 ├── interview.config.js   # Defaults, stage presets, and the seed job's config
+├── .githooks/            # pre-commit: blocks personal seed-path commits
 ├── server/               # Local proxy — calls your Gemini key
 ├── src/                  # React app — onboarding, jobs, profile, tabs
 ├── .env.example
@@ -155,6 +158,7 @@ interview-prep-kit/
 | `server` | Run proxy only |
 | `test` | Run the test suite once |
 | `test:watch` | Run the test suite in watch mode |
+| `prepare` | Point git at `.githooks/` (runs on `npm install`) |
 
 ---
 

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Block commits that stage personal prep paths.
+# These paths ship as *sample* seed data, but anyone using the kit for a real
+# interview will overwrite them locally — they must not be pushed back upstream.
+#
+# Intentional seed updates (maintainers only):
+#   ALLOW_SEED_COMMIT=1 git commit ...
+# or: git commit --no-verify
+
+set -euo pipefail
+
+if [[ "${ALLOW_SEED_COMMIT:-}" == "1" ]]; then
+  exit 0
+fi
+
+blocked="$(
+  git diff --cached --name-only --diff-filter=ACM |
+    grep -E '^(context/|generated/|interview\.config\.js$)' ||
+    true
+)"
+
+if [[ -n "$blocked" ]]; then
+  cat >&2 <<'EOF'
+Commit blocked: staged paths look like personal prep data.
+
+These must stay local when using the kit for a real interview:
+
+EOF
+  echo "$blocked" | sed 's/^/  /' >&2
+  cat >&2 <<'EOF'
+
+Unstage them, e.g.:
+  git restore --staged context/ generated/ interview.config.js
+
+If you are intentionally updating the public sample seed (rare):
+  ALLOW_SEED_COMMIT=1 git commit ...
+EOF
+  exit 1
+fi
