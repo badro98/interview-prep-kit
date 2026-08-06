@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
+import { STAGES as SEED_STAGES } from "../../interview.config.js";
 import { getActiveJob, updateJob, updateJobStages } from "../lib/jobs.js";
 import { getProfileEntries } from "../lib/profile.js";
-import { getDocOverride, hasRecording } from "../lib/store.js";
+import {
+  getDocOverride,
+  hasRecording,
+  setStageProgress,
+  ensureStageProgressDefaults,
+} from "../lib/store.js";
 import StageEditor from "./StageEditor.jsx";
 
 // Overlay modal for editing everything about the ACTIVE job: role/company,
@@ -84,6 +90,21 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
     setRemovedConfirm(null);
   }
 
+  /** Merge any seed-config stages that aren't already on this job (by id). */
+  function handleAddSeedStages() {
+    const existing = new Set(stages.map((s) => s.id));
+    const additions = SEED_STAGES.filter((s) => !existing.has(s.id)).map((s) => ({
+      ...s,
+    }));
+    if (!additions.length) {
+      setError("All seed stages are already on this job.");
+      return;
+    }
+    setError("");
+    setStages((prev) => [...prev, ...additions]);
+    setRemovedConfirm(null);
+  }
+
   // Drop a blank/whitespace-only regenTask so Regenerate doesn't inherit a
   // dead prompt; leave subtitle alone (renders fine empty).
   function normalizeStages(list) {
@@ -105,8 +126,17 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
       // write here (invalid stage shape), so saving it first means a throw
       // never leaves a half-committed job (role/company/profileRefs already
       // persisted with stages left invalid).
-      updateJobStages(jobId, normalizeStages(stages));
+      const normalized = normalizeStages(stages);
+      updateJobStages(jobId, normalized);
       updateJob(jobId, { role: role.trim(), company: company.trim(), profileRefs });
+      // Keep pipeline checklist sensible after seed imports: recruiter done, next current.
+      const ids = normalized.map((s) => s.id);
+      ensureStageProgressDefaults(ids);
+      if (ids.includes("recruiter") && ids.length > 1) {
+        setStageProgress("recruiter", "complete");
+        const next = ids.find((id) => id !== "recruiter");
+        if (next) setStageProgress(next, "in-progress");
+      }
       setRemovedConfirm(null);
       onSaved?.(jobId);
     } catch (err) {
@@ -202,9 +232,23 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
           </div>
 
           <div>
-            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Stages
-            </h4>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Stages
+              </h4>
+              <button
+                type="button"
+                onClick={handleAddSeedStages}
+                className="rounded-md border border-ink-600 px-2 py-1 text-[11px] font-medium text-slate-300 transition hover:border-accent-500/40 hover:bg-ink-700 hover:text-white"
+              >
+                Add stages from seed
+              </button>
+            </div>
+            <p className="mb-2 text-[11px] leading-snug text-slate-500">
+              After a recruiter call, click <span className="text-slate-400">Add stages from seed</span> then{" "}
+              <span className="text-slate-400">Save</span>. Prep docs load from the repo; use{" "}
+              <span className="text-slate-400">Regenerate</span> on a stage to refresh from your latest context.
+            </p>
             <StageEditor stages={stages} onChange={handleStagesChange} />
             {!hasStages && (
               <p className="mt-1.5 text-xs text-red-300">

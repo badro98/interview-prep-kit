@@ -112,9 +112,18 @@ describe("jobs collection", () => {
   });
 });
 
+/** Multi-stage fixture — seed job may be recruiter-only; these tests need several stages. */
+const MULTI_STAGES = [
+  { id: "recruiter", title: "Recruiter Screen", subtitle: "intro", file: "prep-recruiter.md" },
+  { id: "hm", title: "Hiring Manager", subtitle: "behavioral" },
+  { id: "takehome", title: "Take-home", subtitle: "exercise" },
+  { id: "onsite", title: "Onsite", subtitle: "loop" },
+  { id: "final", title: "Final", subtitle: "fit" },
+];
+
 describe("updateJobStages", () => {
   it("reorders and renames stages, preserving file props and unrelated overrides", () => {
-    const job = createJob({});
+    const job = createJob({ stages: MULTI_STAGES });
     storageSet(`job:${job.id}:prepdoc:override:hm`, { markdown: "edited", savedAt: 1 });
 
     const nextStages = [
@@ -137,11 +146,16 @@ describe("updateJobStages", () => {
     expect(getJob(job.id).stages).toEqual(nextStagesCopy);
   });
 
-  it("removing a stage deletes its prepdoc override and recordings flag, leaving other stages' state intact", () => {
-    const job = createJob({});
+  it("removing a stage deletes its prepdoc override, recordings flag, and progress entry", () => {
+    const job = createJob({ stages: MULTI_STAGES });
     storageSet(`job:${job.id}:prepdoc:override:recruiter`, { markdown: "r", savedAt: 1 });
     storageSet(`job:${job.id}:prepdoc:override:hm`, { markdown: "h", savedAt: 2 });
     storageSet(`job:${job.id}:recordings:hasByStage`, { recruiter: true, hm: true });
+    storageSet(`job:${job.id}:stages:progress`, {
+      recruiter: "complete",
+      hm: "in-progress",
+      takehome: "upcoming",
+    });
 
     const nextStages = job.stages.filter((s) => s.id !== "recruiter");
     const updated = updateJobStages(job.id, nextStages);
@@ -150,10 +164,14 @@ describe("updateJobStages", () => {
     expect(storageGet(`job:${job.id}:prepdoc:override:recruiter`)).toBeNull();
     expect(storageGet(`job:${job.id}:prepdoc:override:hm`)).toEqual({ markdown: "h", savedAt: 2 });
     expect(storageGet(`job:${job.id}:recordings:hasByStage`)).toEqual({ hm: true });
+    expect(storageGet(`job:${job.id}:stages:progress`)).toEqual({
+      hm: "in-progress",
+      takehome: "upcoming",
+    });
   });
 
   it("removing the last flagged stage drops the recordings-flag key entirely", () => {
-    const job = createJob({});
+    const job = createJob({ stages: MULTI_STAGES });
     storageSet(`job:${job.id}:recordings:hasByStage`, { recruiter: true });
 
     const nextStages = job.stages.filter((s) => s.id !== "recruiter");
@@ -163,7 +181,7 @@ describe("updateJobStages", () => {
   });
 
   it("adding a stage leaves existing stages' state untouched", () => {
-    const job = createJob({});
+    const job = createJob({ stages: MULTI_STAGES });
     storageSet(`job:${job.id}:prepdoc:override:final`, { markdown: "f", savedAt: 1 });
     storageSet(`job:${job.id}:recordings:hasByStage`, { final: true });
 

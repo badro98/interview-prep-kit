@@ -53,13 +53,30 @@ function ProposalCard({ proposal, onApply, onDismiss }) {
         </div>
       )}
 
+      {proposal.type === "add_stage" && (
+        <div className="mt-2 text-xs text-slate-400">
+          <p>
+            Stage: <span className="text-slate-300">{proposal.title}</span>
+            {proposal.subtitle ? (
+              <span className="text-slate-500"> — {proposal.subtitle}</span>
+            ) : null}
+          </p>
+          <p className="mt-0.5 font-mono text-[11px] text-slate-500">id: {proposal.stageId}</p>
+          <p className="mt-1 line-clamp-3 text-slate-500">{proposal.content}</p>
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onApply}
           className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
         >
-          {proposal.type === "add_flashcards" ? "Add to flashcards" : "Add to context"}
+          {proposal.type === "add_flashcards"
+            ? "Add to flashcards"
+            : proposal.type === "add_stage"
+              ? "Add stage + prep doc"
+              : "Add to context"}
         </button>
         <button
           type="button"

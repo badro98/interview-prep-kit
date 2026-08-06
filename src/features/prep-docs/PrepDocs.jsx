@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getStages, getStageDoc } from "./stages.js";
+import {
+  getSuggestedStages,
+  buildSuggestionBanner,
+  shouldShowSuggestions,
+} from "./suggestions.js";
 import InterviewRecording from "./InterviewRecording.jsx";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { getAllRecordings } from "../../lib/db.js";
-import { getActiveJobId } from "../../lib/jobs.js";
+import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
+import { generateStageDoc, saveStageDoc } from "../../lib/generate.js";
+import { buildCustomStage } from "../onboarding/steps.js";
 import {
   getDocOverride,
   setDocOverride,
@@ -13,20 +20,86 @@ import {
   hasRecording,
   getRecordingFlags,
   setRecordingFlag,
+  getCurrentStageId,
+  getStageProgress,
+  ensureStageProgressDefaults,
+  setStageProgress,
+  STAGE_PROGRESS_STATUSES,
+  STAGE_PROGRESS_LABELS,
+  dismissSuggestion,
 } from "../../lib/store.js";
 
+function defaultActiveStageId(stages) {
+  const ids = stages.map((s) => s.id);
+  ensureStageProgressDefaults(ids);
+  const current = getCurrentStageId(ids);
+  if (current && stages.some((s) => s.id === current)) return current;
+  return stages[0]?.id;
+}
+
+function refreshStagesFromJob() {
+  return getStages().map((s) => ({ ...s }));
+}
+
 export default function PrepDocs() {
-  const stages = useMemo(() => getStages(), []);
-  const [activeId, setActiveId] = useState(stages[0]?.id);
+  const [stages, setStages] = useState(refreshStagesFromJob);
+  const [activeId, setActiveId] = useState(() => defaultActiveStageId(refreshStagesFromJob()));
   const [recordingFlags, setRecordingFlags] = useState(() => getRecordingFlags());
+  const [progressTick, setProgressTick] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [addTitle, setAddTitle] = useState("");
+  const [addSubtitle, setAddSubtitle] = useState("");
+  const [generateOnAdd, setGenerateOnAdd] = useState(true);
+  const [addBusy, setAddBusy] = useState(false);
+  const [addErr, setAddErr] = useState("");
+  const [docNonce, setDocNonce] = useState(0);
+  const [pasteModal, setPasteModal] = useState({ open: false, prompt: "", stageId: null, title: "" });
+  const [suggestions, setSuggestions] = useState(() => getSuggestedStages());
+  const [previewSuggestionId, setPreviewSuggestionId] = useState(null);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+  const bumpProgress = () => setProgressTick((t) => t + 1);
+
+  const reloadSuggestions = useCallback(() => {
+    setSuggestions(getSuggestedStages());
+  }, []);
+
+  const reloadStages = useCallback((preferActiveId) => {
+    const next = refreshStagesFromJob();
+    setStages(next);
+    ensureStageProgressDefaults(next.map((s) => s.id));
+    setActiveId((prev) => {
+      const want = preferActiveId || prev;
+      if (want && next.some((s) => s.id === want)) return want;
+      return defaultActiveStageId(next);
+    });
+    reloadSuggestions();
+    return next;
+  }, [reloadSuggestions]);
+
+  useEffect(() => {
+    reloadSuggestions();
+  }, [reloadSuggestions, stages.length]);
+
+  const previewSuggestion = suggestions.find((s) => s.id === previewSuggestionId) || null;
+  const showSuggestions = shouldShowSuggestions(suggestions);
+  const banner =
+    !bannerDismissed && showSuggestions ? buildSuggestionBanner(suggestions) : null;
+
+  // When pipeline suggestions appear after a recruiter call, mark recruiter complete
+  // if it still looks like the active stage.
+  useEffect(() => {
+    if (!showSuggestions || !banner) return;
+    if (!stages.some((s) => s.id === "recruiter")) return;
+    const status = getStageProgress("recruiter", stages.map((s) => s.id));
+    if (status === "in-progress" || status === "upcoming") {
+      setStageProgress("recruiter", "complete");
+      bumpProgress();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot when suggestions first surface
+  }, [showSuggestions, banner?.title]);
 
   useEffect(() => {
     getAllRecordings().then((recs) => {
-      // Only backfill flags for stages that still exist — otherwise this
-      // resurrects recording flags updateJobStages already deleted for a
-      // stage removed in Job Settings before this fetch resolved. Read
-      // getStages() fresh HERE (not the mount-time `stages` memo): the
-      // removal can happen while the fetch is in flight.
       const currentIds = new Set(getStages().map((s) => s.id));
       const flags = {};
       for (const r of recs) {
@@ -41,81 +114,600 @@ export default function PrepDocs() {
     setRecordingFlags({ ...getRecordingFlags() });
   }, []);
 
+  function openAddForm() {
+    setAddErr("");
+    setAddTitle("");
+    setAddSubtitle("");
+    setGenerateOnAdd(true);
+    setAdding(true);
+  }
+
+  function cancelAddForm() {
+    if (addBusy) return;
+    setAdding(false);
+    setAddErr("");
+  }
+
+  async function handleCreateStage(e) {
+    e?.preventDefault?.();
+    const title = addTitle.trim();
+    if (!title) {
+      setAddErr("Give the stage a title.");
+      return;
+    }
+    const job = getActiveJob();
+    const jobId = getActiveJobId();
+    if (!job || !jobId) {
+      setAddErr("No active job.");
+      return;
+    }
+
+    setAddBusy(true);
+    setAddErr("");
+    const stage = {
+      ...buildCustomStage(title),
+      subtitle: addSubtitle.trim(),
+    };
+
+    try {
+      updateJobStages(jobId, [...job.stages, stage]);
+      setStageProgress(stage.id, "upcoming");
+      reloadStages(stage.id);
+      setAdding(false);
+      setAddTitle("");
+      setAddSubtitle("");
+
+      if (generateOnAdd) {
+        const result = await generateStageDoc(stage);
+        if (jobId !== getActiveJobId()) return;
+        if (!getStages().some((s) => s.id === stage.id)) return;
+        if (result.mode === MODE_PASTE) {
+          setPasteModal({
+            open: true,
+            prompt: result.prompt,
+            stageId: stage.id,
+            title: stage.title,
+          });
+        } else {
+          saveStageDoc(stage.id, result.text);
+          setDocNonce((n) => n + 1);
+        }
+      }
+    } catch (err) {
+      setAddErr(err?.message || "Could not add stage.");
+      setAdding(true);
+      reloadStages();
+    } finally {
+      if (jobId === getActiveJobId()) setAddBusy(false);
+    }
+  }
+
+  function savePasteGenerated(text) {
+    if (!pasteModal.stageId) return;
+    const id = pasteModal.stageId;
+    saveStageDoc(id, text);
+    setPasteModal({ open: false, prompt: "", stageId: null, title: "" });
+    setActiveId(id);
+    setPreviewSuggestionId(null);
+    setDocNonce((n) => n + 1);
+  }
+
+  function handleSelectStage(id) {
+    setPreviewSuggestionId(null);
+    setActiveId(id);
+  }
+
+  function handlePreviewSuggestion(id) {
+    setPreviewSuggestionId(id);
+  }
+
+  function handleDismissSuggestion(id) {
+    dismissSuggestion(id);
+    if (previewSuggestionId === id) setPreviewSuggestionId(null);
+    reloadSuggestions();
+  }
+
+  async function handleAcceptSuggestion(suggestion, { refreshFromContext = true } = {}) {
+    const job = getActiveJob();
+    const jobId = getActiveJobId();
+    if (!job || !jobId || !suggestion) return;
+
+    setAddBusy(true);
+    setAddErr("");
+    try {
+      const stage = {
+        id: suggestion.id,
+        title: suggestion.title,
+        subtitle: suggestion.subtitle || "",
+        ...(suggestion.file ? { file: suggestion.file } : {}),
+        ...(suggestion.regenTask ? { regenTask: suggestion.regenTask } : {}),
+      };
+      if (!job.stages.some((s) => s.id === stage.id)) {
+        updateJobStages(jobId, [...job.stages, stage]);
+      }
+      setStageProgress(stage.id, "upcoming");
+      // Persist the draft they reviewed, then optionally refresh from live context.
+      if (suggestion.markdown?.trim()) saveStageDoc(stage.id, suggestion.markdown);
+      setPreviewSuggestionId(null);
+      reloadStages(stage.id);
+
+      if (refreshFromContext) {
+        const result = await generateStageDoc(stage);
+        if (jobId !== getActiveJobId()) return;
+        if (!getStages().some((s) => s.id === stage.id)) return;
+        if (result.mode === MODE_PASTE) {
+          setPasteModal({
+            open: true,
+            prompt: result.prompt,
+            stageId: stage.id,
+            title: stage.title,
+          });
+        } else {
+          saveStageDoc(stage.id, result.text);
+          setDocNonce((n) => n + 1);
+        }
+      } else {
+        setDocNonce((n) => n + 1);
+      }
+    } catch (err) {
+      setAddErr(err?.message || "Could not add suggested stage.");
+    } finally {
+      if (jobId === getActiveJobId()) setAddBusy(false);
+      reloadSuggestions();
+    }
+  }
+
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex h-full min-h-0 overflow-hidden">
       <StageNav
         stages={stages}
-        activeId={activeId}
-        onSelect={setActiveId}
+        activeId={previewSuggestion ? null : activeId}
+        onSelect={handleSelectStage}
         recordingFlags={recordingFlags}
+        progressTick={progressTick}
+        onProgressChange={bumpProgress}
+        adding={adding}
+        addTitle={addTitle}
+        addSubtitle={addSubtitle}
+        generateOnAdd={generateOnAdd}
+        addBusy={addBusy}
+        addErr={addErr}
+        onOpenAdd={openAddForm}
+        onCancelAdd={cancelAddForm}
+        onChangeTitle={setAddTitle}
+        onChangeSubtitle={setAddSubtitle}
+        onChangeGenerate={setGenerateOnAdd}
+        onSubmitAdd={handleCreateStage}
+        suggestions={shouldShowSuggestions(suggestions) ? suggestions : []}
+        previewSuggestionId={previewSuggestionId}
+        onPreviewSuggestion={handlePreviewSuggestion}
+        onAcceptSuggestion={(s) => handleAcceptSuggestion(s, { refreshFromContext: true })}
+        onDismissSuggestion={handleDismissSuggestion}
+        banner={banner}
+        onDismissBanner={() => setBannerDismissed(true)}
       />
-      {/* Remount on stage change so edit/override state loads fresh per stage. */}
-      <StageView
-        key={activeId}
-        stageId={activeId}
-        onRecordingChange={refreshRecordingFlags}
+      {previewSuggestion ? (
+        <SuggestionPreview
+          suggestion={previewSuggestion}
+          busy={addBusy}
+          onAdd={() => handleAcceptSuggestion(previewSuggestion, { refreshFromContext: true })}
+          onAddDraft={() => handleAcceptSuggestion(previewSuggestion, { refreshFromContext: false })}
+          onDismiss={() => handleDismissSuggestion(previewSuggestion.id)}
+        />
+      ) : activeId ? (
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {addBusy && (
+            <div className="shrink-0 border-b border-accent-500/30 bg-accent-500/10 px-8 py-2 text-xs text-accent-200">
+              Generating prep doc from your active context…
+            </div>
+          )}
+          <StageView
+            key={`${activeId}:${docNonce}`}
+            stageId={activeId}
+            onRecordingChange={refreshRecordingFlags}
+          />
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+          {addBusy ? "Generating prep doc…" : "Select a stage"}
+        </div>
+      )}
+      <CoachPasteModal
+        open={pasteModal.open}
+        title={`Generate — ${pasteModal.title}`}
+        prompt={pasteModal.prompt}
+        saveLabel="Save prep doc"
+        replyHint="Paste the generated prep doc (Markdown) here…"
+        onSave={savePasteGenerated}
+        onClose={() => setPasteModal({ open: false, prompt: "", stageId: null, title: "" })}
       />
     </div>
   );
 }
 
-function StageNav({ stages, activeId, onSelect, recordingFlags }) {
+function StageNav({
+  stages,
+  activeId,
+  onSelect,
+  recordingFlags,
+  progressTick,
+  onProgressChange,
+  adding,
+  addTitle,
+  addSubtitle,
+  generateOnAdd,
+  addBusy,
+  addErr,
+  onOpenAdd,
+  onCancelAdd,
+  onChangeTitle,
+  onChangeSubtitle,
+  onChangeGenerate,
+  onSubmitAdd,
+  suggestions = [],
+  previewSuggestionId,
+  onPreviewSuggestion,
+  onAcceptSuggestion,
+  onDismissSuggestion,
+  banner,
+  onDismissBanner,
+}) {
+  // progressTick forces a re-read of localStorage after status edits.
+  void progressTick;
+  const stageIds = stages.map((s) => s.id);
+  const titleRef = useRef(null);
+
+  useEffect(() => {
+    if (adding) titleRef.current?.focus();
+  }, [adding]);
+
   return (
-    <nav className="flex w-64 shrink-0 flex-col gap-1 border-r border-ink-700 bg-ink-800/50 p-3">
+    <nav className="flex h-full min-h-0 w-72 shrink-0 flex-col gap-1 border-r border-ink-700 bg-ink-800/50 p-3">
       <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
         Interview stages
       </p>
-      {stages.map((s, i) => {
-        const active = s.id === activeId;
-        const hasOverride = !!getDocOverride(s.id);
-        const hasRec = recordingFlags[s.id] || hasRecording(s.id);
-        return (
-          <button
-            key={s.id}
-            onClick={() => onSelect(s.id)}
-            className={`group rounded-lg px-3 py-2.5 text-left transition ${
-              active
-                ? "bg-accent-500/15 ring-1 ring-inset ring-accent-500/40"
-                : "hover:bg-ink-700/60"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span
-                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
-                  active ? "bg-accent-500 text-white" : "bg-ink-600 text-slate-300"
-                }`}
-              >
-                {i + 1}
-              </span>
-              <span
-                className={`text-sm font-medium ${
-                  active ? "text-white" : "text-slate-200"
-                }`}
-              >
-                {s.title}
-              </span>
-              <span className="ml-auto flex items-center gap-1">
-                {hasRec && (
-                  <span
-                    title="Has interview recording"
-                    className="h-1.5 w-1.5 rounded-full bg-sky-400"
-                  />
-                )}
-                {hasOverride && (
-                  <span
-                    title="You've edited this doc"
-                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
-                  />
-                )}
-              </span>
-            </div>
-            <p className="mt-1 pl-7 text-xs leading-snug text-slate-400">
-              {s.subtitle}
+
+      {banner && (
+        <div className="mb-2 rounded-lg border border-accent-500/35 bg-accent-500/10 px-3 py-2.5">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-300">
+              {banner.eyebrow}
             </p>
+            <button
+              type="button"
+              onClick={onDismissBanner}
+              className="rounded px-1 text-[11px] text-slate-500 hover:bg-ink-700 hover:text-white"
+              aria-label="Dismiss suggestion banner"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="mt-1 text-sm font-medium leading-snug text-white">{banner.title}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{banner.body}</p>
+        </div>
+      )}
+
+      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+        {stages.map((s, i) => {
+          const active = s.id === activeId;
+          const hasOverride = !!getDocOverride(s.id);
+          const hasRec = recordingFlags[s.id] || hasRecording(s.id);
+          const progress = getStageProgress(s.id, stageIds);
+
+          return (
+            <div
+              key={s.id}
+              className={`rounded-lg transition ${
+                active
+                  ? "bg-accent-500/15 ring-1 ring-inset ring-accent-500/40"
+                  : "hover:bg-ink-700/60"
+              }`}
+            >
+              <div className="flex items-start gap-1 px-1 py-1">
+                <button
+                  type="button"
+                  onClick={() => onSelect(s.id)}
+                  className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
+                >
+                  <StageNavRow
+                    s={s}
+                    index={i}
+                    active={active}
+                    progress={progress}
+                    hasRec={hasRec}
+                    hasOverride={hasOverride}
+                  />
+                </button>
+                <label className="mt-1.5 shrink-0" title="Edit stage status">
+                  <span className="sr-only">Status for {s.title}</span>
+                  <select
+                    value={progress}
+                    onChange={(e) => {
+                      setStageProgress(s.id, e.target.value);
+                      onProgressChange?.();
+                    }}
+                    className="max-w-[5.75rem] rounded-md border border-ink-600 bg-ink-900 px-1 py-1 text-[10px] font-medium text-slate-300 focus:border-accent-500 focus:outline-none"
+                  >
+                    {STAGE_PROGRESS_STATUSES.map((status) => (
+                      <option key={status} value={status}>
+                        {STAGE_PROGRESS_LABELS[status]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          );
+        })}
+
+        {suggestions.length > 0 && (
+          <div className="mt-3 space-y-1 border-t border-ink-700 pt-3">
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Suggested · review then add
+            </p>
+            {suggestions.map((s) => {
+              const active = s.id === previewSuggestionId;
+              return (
+                <div
+                  key={s.id}
+                  className={`rounded-lg border border-dashed transition ${
+                    active
+                      ? "border-accent-500/40 bg-ink-800/80"
+                      : "border-ink-600/80 bg-ink-900/30 opacity-60 hover:opacity-90"
+                  }`}
+                >
+                  <div className="flex items-start gap-1 px-2 py-2">
+                    <button
+                      type="button"
+                      title={`Add “${s.title}” to prep docs`}
+                      disabled={addBusy}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAcceptSuggestion?.(s);
+                      }}
+                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-accent-500/50 bg-accent-500/15 text-sm font-semibold leading-none text-accent-300 transition hover:bg-accent-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onPreviewSuggestion?.(s.id)}
+                      className="min-w-0 flex-1 rounded-md px-1 py-0.5 text-left"
+                    >
+                      <span className="text-sm font-medium text-slate-300">{s.title}</span>
+                      {s.subtitle && (
+                        <p className="mt-1 text-xs leading-snug text-slate-500">{s.subtitle}</p>
+                      )}
+                    </button>
+                  </div>
+                  <div className="flex gap-1 px-2 pb-2 pl-9">
+                    <button
+                      type="button"
+                      onClick={() => onPreviewSuggestion?.(s.id)}
+                      className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:bg-ink-700 hover:text-white"
+                    >
+                      Review
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onDismissSuggestion?.(s.id)}
+                      className="rounded px-1.5 py-0.5 text-[10px] text-slate-500 hover:bg-ink-700 hover:text-slate-300"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-2 border-t border-ink-700 pt-2">
+        {adding ? (
+          <form onSubmit={onSubmitAdd} className="space-y-2 rounded-lg border border-ink-600 bg-ink-900/50 p-2">
+            <input
+              ref={titleRef}
+              value={addTitle}
+              onChange={(e) => onChangeTitle(e.target.value)}
+              placeholder="Stage title"
+              disabled={addBusy}
+              className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-accent-500 focus:outline-none disabled:opacity-50"
+            />
+            <input
+              value={addSubtitle}
+              onChange={(e) => onChangeSubtitle(e.target.value)}
+              placeholder="Subtitle (optional)"
+              disabled={addBusy}
+              className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1.5 text-xs text-slate-300 placeholder:text-slate-600 focus:border-accent-500 focus:outline-none disabled:opacity-50"
+            />
+            <label className="flex items-start gap-2 text-[11px] text-slate-400">
+              <input
+                type="checkbox"
+                checked={generateOnAdd}
+                onChange={(e) => onChangeGenerate(e.target.checked)}
+                disabled={addBusy}
+                className="mt-0.5 h-3.5 w-3.5 rounded border-ink-600 bg-ink-900 text-accent-500 focus:ring-accent-500"
+              />
+              <span>Generate prep doc from active context</span>
+            </label>
+            {addErr && <p className="text-[11px] text-red-300">{addErr}</p>}
+            <div className="flex gap-1.5">
+              <button
+                type="submit"
+                disabled={addBusy}
+                className="flex-1 rounded-md bg-accent-500 px-2 py-1.5 text-xs font-semibold text-white hover:bg-accent-400 disabled:opacity-50"
+              >
+                {addBusy ? "Working…" : generateOnAdd ? "Add + generate" : "Add stage"}
+              </button>
+              <button
+                type="button"
+                onClick={onCancelAdd}
+                disabled={addBusy}
+                className="rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-ink-700 hover:text-white disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={onOpenAdd}
+            title="Add a stage"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink-600 px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:border-accent-500/50 hover:bg-ink-800 hover:text-white"
+          >
+            <PlusIcon />
+            Add stage
           </button>
-        );
-      })}
+        )}
+      </div>
     </nav>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
+function StageNavRow({ s, index, active, progress, hasRec, hasOverride }) {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+            progress === "complete"
+              ? "bg-emerald-600 text-white"
+              : progress === "in-progress"
+                ? "bg-accent-500 text-white"
+                : progress === "pending"
+                  ? "bg-ink-700 text-slate-500"
+                  : active
+                    ? "bg-accent-500 text-white"
+                    : "bg-ink-600 text-slate-300"
+          }`}
+        >
+          {progress === "complete" ? <CheckIcon /> : index + 1}
+        </span>
+        <span
+          className={`text-sm font-medium ${
+            active || progress === "in-progress" ? "text-white" : "text-slate-200"
+          }`}
+        >
+          {s.title}
+        </span>
+        {progress === "in-progress" && (
+          <span className="rounded bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-300">
+            now
+          </span>
+        )}
+        <span className="ml-auto flex items-center gap-1">
+          {hasRec && (
+            <span
+              title="Has interview recording"
+              className="h-1.5 w-1.5 rounded-full bg-sky-400"
+            />
+          )}
+          {hasOverride && (
+            <span
+              title="You've edited this doc"
+              className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+            />
+          )}
+        </span>
+      </div>
+      <p className="mt-1 pl-7 text-xs leading-snug text-slate-400">{s.subtitle}</p>
+    </>
+  );
+}
+
+function SuggestionPreview({ suggestion, busy, onAdd, onAddDraft, onDismiss }) {
+  return (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <header className="flex items-center justify-between gap-4 border-b border-ink-700 px-8 py-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="truncate text-lg font-semibold text-white">{suggestion.title}</h2>
+            <span className="rounded-full bg-ink-700 px-2 py-0.5 text-[11px] font-medium text-slate-300 ring-1 ring-inset ring-ink-500">
+              suggested
+            </span>
+          </div>
+          {suggestion.subtitle && (
+            <p className="text-xs text-slate-400">{suggestion.subtitle}</p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={onDismiss}
+            disabled={busy}
+            className="rounded-md px-3 py-2 text-xs font-medium text-slate-400 hover:bg-ink-700 hover:text-white disabled:opacity-50"
+          >
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={onAddDraft}
+            disabled={busy}
+            className="rounded-md border border-ink-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-ink-700 disabled:opacity-50"
+          >
+            Add draft as-is
+          </button>
+          <button
+            type="button"
+            onClick={onAdd}
+            disabled={busy}
+            className="rounded-md bg-accent-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-accent-400 disabled:opacity-50"
+          >
+            {busy ? "Adding…" : "Add + refresh from context"}
+          </button>
+        </div>
+      </header>
+      {busy && (
+        <div className="shrink-0 border-b border-accent-500/30 bg-accent-500/10 px-8 py-2 text-xs text-accent-200">
+          Adding stage and refreshing the prep doc from your active context…
+        </div>
+      )}
+      <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+        <p className="mb-4 text-xs text-slate-500">
+          Preview only — this stage isn&apos;t on your pipeline until you click Add.
+        </p>
+        <article className="mx-auto max-w-3xl">
+          <div className="rounded-lg px-4 py-3 opacity-90">
+            <Markdown>{suggestion.markdown}</Markdown>
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      className="h-3 w-3"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
   );
 }
 
@@ -178,8 +770,8 @@ function StageView({ stageId, onRecordingChange }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-ink-700 px-8 py-4">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-ink-700 px-8 py-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="truncate text-lg font-semibold text-white">
@@ -213,7 +805,7 @@ function StageView({ stageId, onRecordingChange }) {
                   : "text-slate-300 hover:bg-ink-700"
               }`}
             >
-              Recording
+              Recording / Transcript
             </button>
           </div>
           {subTab === "prep" && (

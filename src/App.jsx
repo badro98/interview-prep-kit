@@ -167,12 +167,29 @@ export default function App() {
         </div>
       )}
 
-      <main key={`${activeJobId}:${refreshKey}`} className="min-h-0 flex-1">
-        {tab === "prep" && <PrepDocs />}
-        {tab === "cards" && <Flashcards />}
-        {tab === "audio" && <Audio />}
-        {tab === "advisor" && <Advisor onContextChange={refreshCtx} />}
-        {tab === "context" && <Context onChange={refreshCtx} />}
+      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Keep tabs mounted so in-flight work (advisor replies, audio, drafts)
+            survives switching away and back. Remount per-job (and prep/cards
+            on stage edits) via keys — not by unmounting on tab change. */}
+        <TabPanel active={tab === "prep"}>
+          <PrepDocs key={`prep:${activeJobId}:${refreshKey}`} />
+        </TabPanel>
+        <TabPanel active={tab === "cards"}>
+          <Flashcards key={`cards:${activeJobId}:${refreshKey}`} />
+        </TabPanel>
+        <TabPanel active={tab === "audio"}>
+          <Audio key={`audio:${activeJobId}`} />
+        </TabPanel>
+        <TabPanel active={tab === "advisor"}>
+          <Advisor
+            key={`advisor:${activeJobId}`}
+            onContextChange={refreshCtx}
+            onStagesChange={() => handleJobEdited(getActiveJobId())}
+          />
+        </TabPanel>
+        <TabPanel active={tab === "context"}>
+          <Context key={`context:${activeJobId}`} onChange={refreshCtx} />
+        </TabPanel>
       </main>
 
       <ManageJobsModal
@@ -193,6 +210,21 @@ export default function App() {
           setTab("context");
         }}
       />
+    </div>
+  );
+}
+
+function TabPanel({ active, children }) {
+  return (
+    <div
+      className={
+        active
+          ? "flex h-full min-h-0 flex-1 flex-col overflow-hidden"
+          : "hidden"
+      }
+      aria-hidden={!active}
+    >
+      {children}
     </div>
   );
 }

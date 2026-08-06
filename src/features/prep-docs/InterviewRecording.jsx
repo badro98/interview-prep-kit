@@ -6,7 +6,7 @@ import {
   updateRecording,
   deleteRecording,
 } from "../../lib/db.js";
-import { setRecordingFlag } from "../../lib/store.js";
+import { setRecordingFlag, addCustomContextEntry } from "../../lib/store.js";
 import { getActiveJobId } from "../../lib/jobs.js";
 import {
   transcribeInterview,
@@ -33,8 +33,42 @@ const ACCEPTED_TYPES = [
   { ext: ".mp4", note: "MP4 audio" },
   { ext: ".aac", note: "AAC" },
 ];
+const TEXT_TYPES = [
+  { ext: ".txt", note: "plain transcript" },
+  { ext: ".md", note: "markdown notes" },
+];
 const ACCEPT_ATTR = ACCEPTED_TYPES.map((t) => t.ext).join(",") + ",audio/*";
+const ACCEPT_TEXT_ATTR = TEXT_TYPES.map((t) => t.ext).join(",") + ",text/plain,text/markdown";
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+const MAX_TEXT_CHARS = 500_000;
+
+function isTextFile(file) {
+  const name = (file?.name || "").toLowerCase();
+  return (
+    name.endsWith(".txt") ||
+    name.endsWith(".md") ||
+    (file?.type || "").startsWith("text/")
+  );
+}
+
+function segmentsFromPlainText(text) {
+  const cleaned = String(text || "").replace(/\r\n/g, "\n").trim();
+  if (!cleaned) return [];
+  // Keep as one segment so pasted/uploaded transcripts stay readable as-is.
+  return [{ speaker: "Transcript", startMs: 0, endMs: 0, text: cleaned }];
+}
+
+function recordingToContextMarkdown(recording, stageTitle) {
+  const title = stageTitle || "Interview";
+  const transcript = transcriptToTxt(recording);
+  if (recording?.summary?.trim() && recording.summary.trim() !== transcript.trim()) {
+    return `# ${title} — debrief\n\n${recording.summary.trim()}\n\n---\n\n## Transcript\n\n${transcript}`;
+  }
+  if (recording?.summary?.trim() && !transcript.trim()) {
+    return `# ${title} — transcript\n\n${recording.summary.trim()}`;
+  }
+  return `# ${title} — transcript\n\n${transcript}`;
+}
 
 function fmtFileSize(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -211,6 +245,9 @@ export default function InterviewRecording({ stageId, onChange }) {
   const [jobProgress, setJobProgress] = useState(null);
   const [err, setErr] = useState("");
   const [proxy, setProxy] = useState({ reachable: false, configured: false, assemblyai: false });
+  const [intakeMode, setIntakeMode] = useState("audio"); // audio | text
+  const [pasteText, setPasteText] = useState("");
+  const [contextSavedName, setContextSavedName] = useState("");
   const sessionRef = useRef(null);
 
   function beginSession() {
@@ -384,10 +421,88 @@ export default function InterviewRecording({ stageId, onChange }) {
     };
   }, [stageId]);
 
+  async function saveTextTranscript({ text, fileName }) {
+    const cleaned = String(text || "").trim();
+    if (!cleaned) {
+      setErr("Paste or upload a non-empty transcript.");
+      return;
+    }
+    if (cleaned.length > MAX_TEXT_CHARS) {
+      setErr(`Transcript is too long (limit ${MAX_TEXT_CHARS.toLocaleString()} characters).`);
+      return;
+    }
+    if (recording) {
+      const ok = window.confirm(
+        "Replace the existing recording/transcript for this stage? The previous data will be deleted."
+      );
+      if (!ok) return;
+    }
+
+    setErr("");
+    setContextSavedName("");
+    const ownerJobId = getActiveJobId();
+    const segments = segmentsFromPlainText(cleaned);
+    const saved = await replaceRecordingForStage(stageId, {
+      fileName: fileName || "pasted-transcript.txt",
+      audioBlob: null,
+      audioType: "text/plain",
+      durationMs: 0,
+      status: "done",
+      segments,
+      speakers: [{ id: "Transcript", label: "Transcript" }],
+      // Keep summary empty so the UI shows one Transcript panel (not a duplicate "debrief").
+      summary: "",
+      provider: "paste",
+      transcribeJobId: null,
+      error: null,
+    });
+    setRecording(saved);
+    if (ownerJobId === getActiveJobId()) setRecordingFlag(stageId, true);
+    onChange?.();
+    setPasteText("");
+  }
+
+  async function handleTextFileSelect(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const text = await file.text();
+      await saveTextTranscript({ text, fileName: file.name });
+    } catch (ex) {
+      setErr(ex.message || "Could not read that text file.");
+    }
+  }
+
+  async function handlePasteSave() {
+    await saveTextTranscript({
+      text: pasteText,
+      fileName: `${stage?.title || "stage"}-transcript.txt`,
+    });
+  }
+
+  function handleAddToContext() {
+    if (!recording || !hasTranscript) return;
+    const name = `${stage?.title || "Interview"} transcript`;
+    const content = recordingToContextMarkdown(recording, stage?.title);
+    const entry = addCustomContextEntry({ name, content });
+    setContextSavedName(entry.name);
+    onChange?.();
+  }
+
   async function handleFileSelect(e) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (isTextFile(file)) {
+      try {
+        const text = await file.text();
+        await saveTextTranscript({ text, fileName: file.name });
+      } catch (ex) {
+        setErr(ex.message || "Could not read that text file.");
+      }
+      return;
+    }
 
     try {
       assertCanTranscribe(file.size, proxy);
@@ -600,41 +715,83 @@ export default function InterviewRecording({ stageId, onChange }) {
             ? "audio only"
             : null;
 
+  const isTextOnly = recording?.provider === "paste" || (!recording?.audioBlob && hasTranscript);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="border-b border-ink-700 px-8 py-4">
         <p className="text-sm text-slate-300">
-          Add your interview recording for this stage. The app transcribes with speaker
-          labels and generates a debrief summary.
+          Add an audio recording <span className="text-slate-500">or</span> a text transcript for
+          this stage. Optionally save it into this job&apos;s Context so Advisor and Regenerate
+          can use it.
         </p>
-        <p className="mt-2 text-xs text-slate-500">
-          Accepted formats:{" "}
-          {ACCEPTED_TYPES.map((t, i) => (
-            <span key={t.ext}>
-              {i > 0 && " · "}
-              <span className="font-medium text-slate-400">{t.ext}</span>
-              {t.note ? ` (${t.note})` : ""}
-            </span>
-          ))}
-          {" · "}
-          up to 45 min / 200MB
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Tip: export as mono <span className="font-mono text-slate-400">.mp3</span> (~64kbps,
-          ~20MB for 45 min) for ~3× faster uploads vs large .m4a files.
-        </p>
-        {!proxy.reachable && (
-          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            Run <code className="text-amber-100">npm run dev</code> and open{" "}
-            <code className="text-amber-100">http://localhost:5175</code> to transcribe.
+        <div className="mt-3 flex gap-1 rounded-lg bg-ink-800 p-1 text-xs w-fit">
+          <button
+            type="button"
+            onClick={() => setIntakeMode("audio")}
+            className={`rounded-md px-3 py-1.5 font-medium transition ${
+              intakeMode === "audio"
+                ? "bg-accent-500 text-white"
+                : "text-slate-300 hover:bg-ink-700"
+            }`}
+          >
+            Audio
+          </button>
+          <button
+            type="button"
+            onClick={() => setIntakeMode("text")}
+            className={`rounded-md px-3 py-1.5 font-medium transition ${
+              intakeMode === "text"
+                ? "bg-accent-500 text-white"
+                : "text-slate-300 hover:bg-ink-700"
+            }`}
+          >
+            Text transcript
+          </button>
+        </div>
+        {intakeMode === "audio" ? (
+          <>
+            <p className="mt-2 text-xs text-slate-500">
+              Accepted formats:{" "}
+              {ACCEPTED_TYPES.map((t, i) => (
+                <span key={t.ext}>
+                  {i > 0 && " · "}
+                  <span className="font-medium text-slate-400">{t.ext}</span>
+                  {t.note ? ` (${t.note})` : ""}
+                </span>
+              ))}
+              {" · "}
+              up to 45 min / 200MB
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Tip: export as mono <span className="font-mono text-slate-400">.mp3</span> (~64kbps,
+              ~20MB for 45 min) for ~3× faster uploads vs large .m4a files.
+            </p>
+          </>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">
+            Paste a transcript or upload{" "}
+            {TEXT_TYPES.map((t, i) => (
+              <span key={t.ext}>
+                {i > 0 && " / "}
+                <span className="font-mono text-slate-400">{t.ext}</span>
+              </span>
+            ))}
+            . No transcription step — saved as-is for this stage.
           </p>
         )}
-        {proxy.reachable && !proxy.configured && (
+        {intakeMode === "audio" && !proxy.reachable && (
+          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+            Run <code className="text-amber-100">npm run dev</code> and open{" "}
+            <code className="text-amber-100">http://localhost:5173</code> to transcribe.
+          </p>
+        )}
+        {intakeMode === "audio" && proxy.reachable && !proxy.configured && (
           <p className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
             Add GEMINI_API_KEY to .env and restart the proxy.
           </p>
         )}
-        {proxy.reachable && proxy.configured && !proxy.assemblyai && (
+        {intakeMode === "audio" && proxy.reachable && proxy.configured && !proxy.assemblyai && (
           <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
             AssemblyAI is off — files over 25MB cannot transcribe. Add{" "}
             <code className="text-amber-100">ASSEMBLYAI_API_KEY</code> to .env and restart{" "}
@@ -642,7 +799,7 @@ export default function InterviewRecording({ stageId, onChange }) {
             <code className="text-amber-100">assemblyai set ✓</code>).
           </p>
         )}
-        {proxy.assemblyai && (
+        {intakeMode === "audio" && proxy.assemblyai && (
           <p className="mt-2 text-xs text-slate-500">
             Transcription: AssemblyAI (diarization) + Gemini (summary)
           </p>
@@ -657,7 +814,7 @@ export default function InterviewRecording({ stageId, onChange }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
         <div className="mx-auto max-w-3xl space-y-6">
-          {/* Upload zone — always visible so you can add or replace a recording */}
+          {intakeMode === "audio" ? (
           <label
             className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition ${
               isProcessing
@@ -700,6 +857,38 @@ export default function InterviewRecording({ stageId, onChange }) {
             </p>
             )}
           </label>
+          ) : (
+          <div className="space-y-3 rounded-xl border border-ink-700 bg-ink-800/30 p-4">
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              disabled={isProcessing}
+              rows={10}
+              placeholder="Paste the full interview transcript or notes here…"
+              className="w-full resize-y rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 font-mono text-[13px] leading-relaxed text-slate-200 placeholder:text-slate-600 focus:border-accent-500 focus:outline-none"
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePasteSave}
+                disabled={isProcessing || !pasteText.trim()}
+                className="rounded-md bg-accent-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-400 disabled:opacity-50"
+              >
+                Save transcript
+              </button>
+              <label className="cursor-pointer rounded-md border border-ink-600 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-ink-700">
+                Upload .txt / .md
+                <input
+                  type="file"
+                  accept={ACCEPT_TEXT_ATTR}
+                  className="hidden"
+                  disabled={isProcessing}
+                  onChange={handleTextFileSelect}
+                />
+              </label>
+            </div>
+          </div>
+          )}
 
           {isProcessing && (
             <TranscribeProgress jobProgress={jobProgress} onCancel={handleCancel} />
@@ -718,12 +907,15 @@ export default function InterviewRecording({ stageId, onChange }) {
                     {recording.fileName}
                   </p>
                   <p className="text-xs text-slate-400">
-                    {fmtDuration(recording.durationMs)}
+                    {isTextOnly
+                      ? "text transcript"
+                      : fmtDuration(recording.durationMs)}
                     {recording.audioBlob?.size
                       ? ` · ${fmtFileSize(recording.audioBlob.size)}`
                       : ""}
                     {recording.provider && ` · ${recording.provider}`}
-                    {statusLabel && ` · ${statusLabel}`}
+                    {statusLabel && !isTextOnly && ` · ${statusLabel}`}
+                    {isTextOnly && " · ready"}
                   </p>
                   {recording.audioBlob?.size > MAX_UPLOAD_BYTES && (
                     <p className="mt-1 text-xs text-red-300">
@@ -741,6 +933,12 @@ export default function InterviewRecording({ stageId, onChange }) {
                 <div className="flex flex-wrap gap-2">
                   {hasTranscript && (
                     <>
+                      <button
+                        onClick={handleAddToContext}
+                        className="rounded-md bg-emerald-600/90 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500"
+                      >
+                        Add to context
+                      </button>
                       <button
                         onClick={() => handleDownload("txt")}
                         className="rounded-md border border-ink-600 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-ink-700"
@@ -761,6 +959,7 @@ export default function InterviewRecording({ stageId, onChange }) {
                       </button>
                     </>
                   )}
+                  {!isTextOnly && (
                   <button
                     onClick={handleRetranscribe}
                     disabled={busy || !recording.audioBlob}
@@ -768,6 +967,7 @@ export default function InterviewRecording({ stageId, onChange }) {
                   >
                     {hasTranscript ? "Re-transcribe" : "Transcribe"}
                   </button>
+                  )}
                   {busy && (
                     <button
                       onClick={handleCancel}
@@ -785,6 +985,12 @@ export default function InterviewRecording({ stageId, onChange }) {
                   </button>
                 </div>
               </div>
+
+              {contextSavedName && (
+                <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                  Saved “{contextSavedName}” to Context (enabled). Advisor and Regenerate will use it.
+                </p>
+              )}
 
               {/* Playback */}
               {recording.audioBlob && (

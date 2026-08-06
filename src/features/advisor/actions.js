@@ -1,7 +1,10 @@
-// Parse and execute structured advisor proposals (flashcards, context).
+// Parse and execute structured advisor proposals (flashcards, context, stages).
 
 import { CATEGORIES, categoryLabel, getDeck } from "../flashcards/deck.js";
 import { addCustomCards, addCustomContextEntry } from "../../lib/store.js";
+import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
+import { saveStageDoc } from "../../lib/generate.js";
+import { buildCustomStage } from "../onboarding/steps.js";
 
 const ACTIONS_FENCE = /```advisor-actions\s*([\s\S]*?)```/i;
 
@@ -81,6 +84,24 @@ function normalizeProposal(p, index) {
     };
   }
 
+  if (p.type === "add_stage") {
+    const title = (p.title || "").trim();
+    const content = (p.content || "").trim();
+    if (!title || !content) return null;
+    const stageId = (p.id || slug(title) || `stage-${index}`).trim();
+    if (!stageId) return null;
+    return {
+      id: p.proposalId || `stage-${stageId}-${index}`,
+      type: "add_stage",
+      label: p.label || `Add stage “${title}” + prep doc`,
+      stageId,
+      title,
+      subtitle: (p.subtitle || "").trim(),
+      content,
+      regenTask: typeof p.regenTask === "string" ? p.regenTask.trim() : "",
+    };
+  }
+
   return null;
 }
 
@@ -126,7 +147,62 @@ export function executeAdvisorProposal(proposal) {
     };
   }
 
+  if (proposal.type === "add_stage") {
+    return executeAddStage(proposal);
+  }
+
   return { ok: false, message: "Unknown proposal type." };
+}
+
+function executeAddStage(proposal) {
+  const job = getActiveJob();
+  const jobId = getActiveJobId();
+  if (!job || !jobId) {
+    return { ok: false, message: "No active job — finish onboarding first." };
+  }
+
+  const existing = job.stages.find((s) => s.id === proposal.stageId);
+  if (existing) {
+    const nextStages = job.stages.map((s) =>
+      s.id === proposal.stageId
+        ? {
+            ...s,
+            title: proposal.title || s.title,
+            subtitle: proposal.subtitle || s.subtitle,
+            ...(proposal.regenTask ? { regenTask: proposal.regenTask } : {}),
+          }
+        : s
+    );
+    updateJobStages(jobId, nextStages);
+    saveStageDoc(proposal.stageId, proposal.content);
+    return {
+      ok: true,
+      message: `Updated prep doc for “${proposal.title}”. Open Prep Docs to review.`,
+      kind: "stage",
+      stageId: proposal.stageId,
+      updated: true,
+    };
+  }
+
+  const base = buildCustomStage(proposal.title);
+  const stage = {
+    ...base,
+    id: proposal.stageId,
+    title: proposal.title,
+    subtitle: proposal.subtitle || "",
+    ...(proposal.regenTask
+      ? { regenTask: proposal.regenTask }
+      : { regenTask: base.regenTask }),
+  };
+  updateJobStages(jobId, [...job.stages, stage]);
+  saveStageDoc(stage.id, proposal.content);
+  return {
+    ok: true,
+    message: `Added stage “${stage.title}” with prep doc. Open Prep Docs to review.`,
+    kind: "stage",
+    stageId: stage.id,
+    updated: false,
+  };
 }
 
 /** Compact deck summary for advisor grounding. */
