@@ -31,7 +31,7 @@ function ensureActiveThread() {
   return id;
 }
 
-export default function Advisor({ onContextChange }) {
+export default function Advisor({ onContextChange, onStagesChange }) {
   const [threadTick, setThreadTick] = useState(0);
   const refreshThreads = () => setThreadTick((t) => t + 1);
 
@@ -199,6 +199,7 @@ export default function Advisor({ onContextChange }) {
 
     if (result.kind === "flashcards") bumpDeck();
     if (result.kind === "context") onContextChange?.();
+    if (result.kind === "stage") onStagesChange?.();
 
     setMessages((prev) => [
       ...prev,

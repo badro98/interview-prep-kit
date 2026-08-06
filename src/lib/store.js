@@ -279,3 +279,139 @@ export function setRecordingFlag(stageId, hasRecording) {
 export function hasRecording(stageId) {
   return !!getRecordingFlags()[stageId];
 }
+
+// ---- Interview stage progress (pipeline checklist) ----------------------------
+//
+// Per-job map of stageId → "pending" | "upcoming" | "in-progress" | "complete".
+// Editable in Prep Docs. Defaults: first stage = in-progress, rest = upcoming.
+
+const STAGE_PROGRESS_KEY = "stages:progress";
+
+/** @typedef {"pending" | "upcoming" | "in-progress" | "complete"} StageProgressStatus */
+
+export const STAGE_PROGRESS_STATUSES = [
+  "pending",
+  "upcoming",
+  "in-progress",
+  "complete",
+];
+
+export const STAGE_PROGRESS_LABELS = {
+  pending: "Pending",
+  upcoming: "Upcoming",
+  "in-progress": "In progress",
+  complete: "Complete",
+};
+
+/** Migrate legacy current/completed values written before the 4-status model. */
+function normalizeProgressStatus(status) {
+  if (status === "current") return "in-progress";
+  if (status === "completed") return "complete";
+  if (STAGE_PROGRESS_STATUSES.includes(status)) return status;
+  return "upcoming";
+}
+
+function defaultStageProgressMap() {
+  return {};
+}
+
+/**
+ * Seed defaults for any known stage ids missing from the stored map.
+ * First stage becomes "in-progress" if nothing is marked in-progress yet.
+ */
+export function ensureStageProgressDefaults(stageIds = []) {
+  const raw = { ...(jget(STAGE_PROGRESS_KEY, null) || defaultStageProgressMap()) };
+  const map = {};
+  let changed = false;
+
+  for (const [id, status] of Object.entries(raw)) {
+    const next = normalizeProgressStatus(status);
+    map[id] = next;
+    if (next !== status) changed = true;
+  }
+
+  for (const id of stageIds) {
+    if (!map[id]) {
+      map[id] = "upcoming";
+      changed = true;
+    }
+  }
+
+  const hasInProgress = Object.values(map).some((s) => s === "in-progress");
+  if (!hasInProgress && stageIds[0]) {
+    map[stageIds[0]] = "in-progress";
+    changed = true;
+  }
+
+  if (changed || jget(STAGE_PROGRESS_KEY, null) === null) {
+    jset(STAGE_PROGRESS_KEY, map);
+  }
+  return map;
+}
+
+export function getStageProgressMap(stageIds = []) {
+  if (stageIds.length) return ensureStageProgressDefaults(stageIds);
+  const stored = jget(STAGE_PROGRESS_KEY, null);
+  if (stored) {
+    const map = {};
+    let changed = false;
+    for (const [id, status] of Object.entries(stored)) {
+      const next = normalizeProgressStatus(status);
+      map[id] = next;
+      if (next !== status) changed = true;
+    }
+    if (changed) jset(STAGE_PROGRESS_KEY, map);
+    return map;
+  }
+  const fresh = defaultStageProgressMap();
+  jset(STAGE_PROGRESS_KEY, fresh);
+  return { ...fresh };
+}
+
+export function getStageProgress(stageId, stageIds = []) {
+  return getStageProgressMap(stageIds)[stageId] || "upcoming";
+}
+
+export function setStageProgress(stageId, status) {
+  const map = getStageProgressMap();
+  map[stageId] = normalizeProgressStatus(status);
+  jset(STAGE_PROGRESS_KEY, map);
+  return map;
+}
+
+/** Cycle pending → upcoming → in-progress → complete → pending. */
+export function cycleStageProgress(stageId) {
+  const order = STAGE_PROGRESS_STATUSES;
+  const idx = order.indexOf(getStageProgress(stageId));
+  const next = order[(idx + 1) % order.length];
+  return setStageProgress(stageId, next);
+}
+
+/** Active stage id (status === in-progress), if any. */
+export function getCurrentStageId(stageIds = []) {
+  const map = getStageProgressMap(stageIds);
+  const hit = Object.entries(map).find(([, status]) => status === "in-progress");
+  return hit?.[0] || null;
+}
+
+// ---- Dismissed stage suggestions ------------------------------------------------
+
+const DISMISSED_SUGGESTIONS_KEY = "stages:dismissedSuggestions";
+
+export function getDismissedSuggestions() {
+  return jget(DISMISSED_SUGGESTIONS_KEY, []);
+}
+
+export function dismissSuggestion(stageId) {
+  const set = new Set(getDismissedSuggestions());
+  set.add(stageId);
+  jset(DISMISSED_SUGGESTIONS_KEY, [...set]);
+  return [...set];
+}
+
+export function clearDismissedSuggestion(stageId) {
+  jset(
+    DISMISSED_SUGGESTIONS_KEY,
+    getDismissedSuggestions().filter((id) => id !== stageId)
+  );
+}
