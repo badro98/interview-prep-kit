@@ -351,7 +351,7 @@ function ContextRow({ label, sub, enabled, badge, profileBadge, onToggle, onEdit
         type="checkbox"
         checked={enabled}
         onChange={(e) => onToggle(e.target.checked)}
-        className="mt-1 accent-indigo-500"
+        className="mt-1 accent-accent"
       />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 text-sm font-medium text-ink1">

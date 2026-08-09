@@ -236,7 +236,7 @@ export default function Flashcards() {
               type="checkbox"
               checked={sortWeak}
               onChange={(e) => setSortWeak(e.target.checked)}
-              className="accent-indigo-500"
+              className="accent-accent"
             />
             Sort weakest-first
           </label>

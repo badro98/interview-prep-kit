@@ -19,17 +19,18 @@
 }
 
 [data-theme="dark"] {
+  /* Same LinkedIn warm palette as light, inverted — not the old cool indigo skin. */
   color-scheme: dark;
-  --canvas: 11 12 15; /* #0b0c0f */
-  --surface: 18 20 25; /* #121419 */
-  --surface-2: 26 29 36; /* #1a1d24 */
-  --border: 36 40 51; /* #242833 */
-  --text-1: 230 232 238; /* #e6e8ee */
-  --text-2: 148 163 184; /* slate-400 */
-  --accent: 99 102 241; /* #6366f1 indigo */
-  --accent-hover: 129 140 248; /* #818cf8 */
-  --scrollbar: 36 40 51;
-  --scrollbar-hover: 54 59 73; /* #363b49 */
+  --canvas: 27 26 24; /* #1B1A18 warm near-black */
+  --surface: 36 35 32; /* #242320 */
+  --surface-2: 46 45 42; /* #2E2D2A */
+  --border: 61 60 56; /* #3D3C38 */
+  --text-1: 242 241 238; /* #F2F1EE mirrors light canvas */
+  --text-2: 163 160 154; /* #A3A09A warm secondary */
+  --accent: 10 102 194; /* #0A66C2 same LinkedIn blue */
+  --accent-hover: 55 143 233; /* #378FE9 lighter on dark */
+  --scrollbar: 61 60 56;
+  --scrollbar-hover: 90 88 82; /* #5A5852 */
 }
 
 html,

@@ -325,7 +325,7 @@ export default function Audio() {
               type="checkbox"
               checked={onlyThisQuestion}
               onChange={(e) => setOnlyThisQuestion(e.target.checked)}
-              className="accent-indigo-500"
+              className="accent-accent"
             />
             This question
           </label>

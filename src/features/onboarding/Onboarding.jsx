@@ -900,7 +900,7 @@ function AttachStep({ entries, attached, onToggle, onBack, onNext }) {
               type="checkbox"
               checked={attached.has(entry.id)}
               onChange={() => onToggle(entry.id)}
-              className="accent-indigo-500"
+              className="accent-accent"
             />
             <span className="text-sm text-ink1">{entry.name}</span>
           </label>
