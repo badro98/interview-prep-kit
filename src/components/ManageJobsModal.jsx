@@ -145,18 +145,18 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
     >
-      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-ink-600 bg-ink-800 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-ink-600 px-5 py-4">
+      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
-            <h3 className="text-base font-semibold text-white">Manage jobs</h3>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <h3 className="text-base font-semibold text-ink1">Manage jobs</h3>
+            <p className="mt-0.5 text-xs text-ink2">
               Rename, archive, export, or delete jobs. Export before deleting if you
               want to keep a copy.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-slate-400 transition hover:bg-ink-700 hover:text-white"
+            className="rounded-md px-2 py-1 text-ink2 transition hover:bg-surface2 hover:text-ink1"
             aria-label="Close"
           >
             ✕
@@ -190,13 +190,13 @@ export default function ManageJobsModal({ open, onClose, onJobChange }) {
           ))}
         </div>
 
-        <div className="border-t border-ink-600 px-5 py-4">
+        <div className="border-t border-line px-5 py-4">
           {importError && (
-            <p className="mb-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+            <p className="mb-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
               {importError}
             </p>
           )}
-          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-ink-600 py-3 text-xs text-slate-400 transition hover:border-ink-500 hover:text-white">
+          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-line py-3 text-xs text-ink2 transition hover:border-line hover:text-ink1">
             Import job (.json)
             <input
               type="file"
@@ -234,7 +234,7 @@ function JobRow({
   const archived = job.status === "archived";
 
   return (
-    <div className="rounded-lg border border-ink-700 bg-ink-900/40 px-3 py-2.5">
+    <div className="rounded-lg border border-line bg-canvas/40 px-3 py-2.5">
       <div className="flex items-center gap-3">
         {isEditing ? (
           <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -242,19 +242,19 @@ function JobRow({
               autoFocus
               value={editRole}
               onChange={(e) => onEditRole(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-ink-600 bg-ink-800 px-2 py-1 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink1 focus:border-accent focus:outline-none"
               placeholder="Role"
             />
             <input
               value={editCompany}
               onChange={(e) => onEditCompany(e.target.value)}
-              className="min-w-0 flex-1 rounded-md border border-ink-600 bg-ink-800 px-2 py-1 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+              className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink1 focus:border-accent focus:outline-none"
               placeholder="Company"
             />
           </div>
         ) : (
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-slate-200">
+            <p className="truncate text-sm font-medium text-ink1">
               {job.role} — {job.company}
             </p>
           </div>
@@ -263,8 +263,8 @@ function JobRow({
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
             archived
-              ? "bg-slate-500/15 text-slate-400 ring-1 ring-inset ring-slate-500/30"
-              : "bg-emerald-500/15 text-emerald-300 ring-1 ring-inset ring-emerald-500/30"
+              ? "bg-slate-500/15 text-ink2 ring-1 ring-inset ring-slate-500/30"
+              : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 ring-1 ring-inset ring-emerald-500/30"
           }`}
         >
           {archived ? "archived" : "active"}
@@ -276,26 +276,26 @@ function JobRow({
           <>
             <button
               onClick={onCancelEdit}
-              className="rounded-md px-2.5 py-1 text-xs text-slate-400 hover:bg-ink-700 hover:text-white"
+              className="rounded-md px-2.5 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-ink1"
             >
               Cancel
             </button>
             <button
               onClick={onSaveEdit}
               disabled={!editRole.trim() || !editCompany.trim()}
-              className="rounded-md bg-accent-500 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-accentHover disabled:cursor-not-allowed disabled:opacity-40"
             >
               Save
             </button>
           </>
         ) : isConfirming ? (
           <>
-            <span className="mr-1 text-xs text-red-300">
+            <span className="mr-1 text-xs text-red-600 dark:text-red-300">
               Delete {job.role} — {job.company}? This removes all its data.
             </span>
             <button
               onClick={onCancelDelete}
-              className="rounded-md px-2.5 py-1 text-xs text-slate-400 hover:bg-ink-700 hover:text-white"
+              className="rounded-md px-2.5 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-ink1"
             >
               Cancel
             </button>
@@ -311,7 +311,7 @@ function JobRow({
           <>
             <button
               onClick={onStartEdit}
-              className="rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-ink-700 hover:text-white"
+              className="rounded-md px-2 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-ink1"
               aria-label="Rename"
               title="Rename"
             >
@@ -321,13 +321,13 @@ function JobRow({
               onClick={onToggleArchive}
               disabled={!canArchive}
               title={canArchive ? undefined : "Can't archive the last remaining active job"}
-              className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-ink-700 disabled:cursor-not-allowed disabled:text-slate-600 disabled:hover:bg-transparent"
+              className="rounded-md px-2.5 py-1 text-xs font-medium text-ink1 hover:bg-surface2 disabled:cursor-not-allowed disabled:text-ink2 disabled:hover:bg-transparent"
             >
               {archived ? "Unarchive" : "Archive"}
             </button>
             <button
               onClick={onExport}
-              className="rounded-md px-2.5 py-1 text-xs font-medium text-slate-300 hover:bg-ink-700"
+              className="rounded-md px-2.5 py-1 text-xs font-medium text-ink1 hover:bg-surface2"
             >
               Export
             </button>
@@ -335,7 +335,7 @@ function JobRow({
               onClick={onRequestDelete}
               disabled={!canDelete}
               title={canDelete ? "Delete this job" : "Can't delete the last remaining job"}
-              className="rounded-md px-2.5 py-1 text-xs font-medium text-red-400 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:text-slate-600 disabled:hover:bg-transparent"
+              className="rounded-md px-2.5 py-1 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:text-ink2 disabled:hover:bg-transparent"
             >
               Delete
             </button>

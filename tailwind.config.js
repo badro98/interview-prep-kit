@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
+  darkMode: ["selector", '[data-theme="dark"]'],
   theme: {
     extend: {
       fontFamily: {
@@ -15,17 +16,14 @@ export default {
         ],
       },
       colors: {
-        ink: {
-          900: "#0b0c0f",
-          800: "#121419",
-          700: "#1a1d24",
-          600: "#242833",
-          500: "#363b49",
-        },
-        accent: {
-          500: "#6366f1",
-          400: "#818cf8",
-        },
+        canvas: "rgb(var(--canvas) / <alpha-value>)",
+        surface: "rgb(var(--surface) / <alpha-value>)",
+        surface2: "rgb(var(--surface-2) / <alpha-value>)",
+        line: "rgb(var(--border) / <alpha-value>)",
+        ink1: "rgb(var(--text-1) / <alpha-value>)",
+        ink2: "rgb(var(--text-2) / <alpha-value>)",
+        accent: "rgb(var(--accent) / <alpha-value>)",
+        accentHover: "rgb(var(--accent-hover) / <alpha-value>)",
       },
     },
   },

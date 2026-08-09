@@ -144,7 +144,7 @@ function TranscribeProgress({ jobProgress, onCancel }) {
   const transcriptReady = step === "summarizing" || (pct >= 82 && pct < 100);
 
   return (
-    <div className="w-full rounded-lg border border-ink-700 bg-ink-800/40 p-4">
+    <div className="w-full rounded-lg border border-line bg-surface/40 p-4">
       <div className="mb-4 flex items-center gap-2">
         {PROGRESS_STEPS.map((group, i) => {
           const done = i < activeGroup || step === "done";
@@ -153,24 +153,24 @@ function TranscribeProgress({ jobProgress, onCancel }) {
             <div key={group.id} className="flex min-w-0 flex-1 items-center gap-2">
               {i > 0 && (
                 <div
-                  className={`h-px flex-1 ${done ? "bg-accent-500/60" : "bg-ink-600"}`}
+                  className={`h-px flex-1 ${done ? "bg-accent/60" : "bg-surface2"}`}
                 />
               )}
               <div className="flex shrink-0 items-center gap-1.5">
                 <span
                   className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-semibold ${
                     done
-                      ? "bg-accent-500 text-white"
+                      ? "bg-accent text-white"
                       : active
-                        ? "border border-accent-400 bg-accent-500/20 text-accent-300"
-                        : "border border-ink-600 text-slate-500"
+                        ? "border border-accent bg-accent/20 text-accent"
+                        : "border border-line text-ink2"
                   }`}
                 >
                   {done ? "✓" : i + 1}
                 </span>
                 <span
                   className={`text-[11px] font-medium ${
-                    active ? "text-slate-100" : done ? "text-slate-400" : "text-slate-500"
+                    active ? "text-ink1" : done ? "text-ink2" : "text-ink2"
                   }`}
                 >
                   {group.label}
@@ -182,23 +182,23 @@ function TranscribeProgress({ jobProgress, onCancel }) {
       </div>
 
       <div className="mb-2 flex items-center justify-between gap-3 text-xs">
-        <span className="font-medium text-slate-200">
+        <span className="font-medium text-ink1">
           {jobProgress?.label || "Processing…"}
         </span>
-        <span className="tabular-nums text-slate-400">{pct}%</span>
+        <span className="tabular-nums text-ink2">{pct}%</span>
       </div>
-      <div className="h-2.5 overflow-hidden rounded-full bg-ink-700">
+      <div className="h-2.5 overflow-hidden rounded-full bg-surface2">
         <div
-          className={`h-full rounded-full bg-accent-500 transition-[width] duration-700 ease-out ${
+          className={`h-full rounded-full bg-accent transition-[width] duration-700 ease-out ${
             step === "processing" ? "animate-pulse" : ""
           }`}
           style={{ width: `${pct}%` }}
         />
       </div>
       {jobProgress?.detail && (
-        <p className="mt-2 text-[11px] text-slate-400">{jobProgress.detail}</p>
+        <p className="mt-2 text-[11px] text-ink2">{jobProgress.detail}</p>
       )}
-      <p className="mt-2 text-[11px] text-slate-500">
+      <p className="mt-2 text-[11px] text-ink2">
         {step === "uploading"
           ? "Upload progress tracks MB sent from your browser. Large .m4a files are slow — mono .mp3 (~64kbps) is ~3× faster."
           : step === "processing"
@@ -214,7 +214,7 @@ function TranscribeProgress({ jobProgress, onCancel }) {
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-ink-600 px-3 py-1.5 text-xs font-medium text-slate-300 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300"
+            className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink1 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
           >
             Cancel
           </button>
@@ -719,20 +719,20 @@ export default function InterviewRecording({ stageId, onChange }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-ink-700 px-8 py-4">
-        <p className="text-sm text-slate-300">
-          Add an audio recording <span className="text-slate-500">or</span> a text transcript for
+      <div className="border-b border-line px-8 py-4">
+        <p className="text-sm text-ink1">
+          Add an audio recording <span className="text-ink2">or</span> a text transcript for
           this stage. Optionally save it into this job&apos;s Context so Advisor and Regenerate
           can use it.
         </p>
-        <div className="mt-3 flex gap-1 rounded-lg bg-ink-800 p-1 text-xs w-fit">
+        <div className="mt-3 flex gap-1 rounded-lg bg-surface p-1 text-xs w-fit">
           <button
             type="button"
             onClick={() => setIntakeMode("audio")}
             className={`rounded-md px-3 py-1.5 font-medium transition ${
               intakeMode === "audio"
-                ? "bg-accent-500 text-white"
-                : "text-slate-300 hover:bg-ink-700"
+                ? "bg-accent text-white"
+                : "text-ink1 hover:bg-surface2"
             }`}
           >
             Audio
@@ -742,8 +742,8 @@ export default function InterviewRecording({ stageId, onChange }) {
             onClick={() => setIntakeMode("text")}
             className={`rounded-md px-3 py-1.5 font-medium transition ${
               intakeMode === "text"
-                ? "bg-accent-500 text-white"
-                : "text-slate-300 hover:bg-ink-700"
+                ? "bg-accent text-white"
+                : "text-ink1 hover:bg-surface2"
             }`}
           >
             Text transcript
@@ -751,63 +751,63 @@ export default function InterviewRecording({ stageId, onChange }) {
         </div>
         {intakeMode === "audio" ? (
           <>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-ink2">
               Accepted formats:{" "}
               {ACCEPTED_TYPES.map((t, i) => (
                 <span key={t.ext}>
                   {i > 0 && " · "}
-                  <span className="font-medium text-slate-400">{t.ext}</span>
+                  <span className="font-medium text-ink2">{t.ext}</span>
                   {t.note ? ` (${t.note})` : ""}
                 </span>
               ))}
               {" · "}
               up to 45 min / 200MB
             </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Tip: export as mono <span className="font-mono text-slate-400">.mp3</span> (~64kbps,
+            <p className="mt-1 text-xs text-ink2">
+              Tip: export as mono <span className="font-mono text-ink2">.mp3</span> (~64kbps,
               ~20MB for 45 min) for ~3× faster uploads vs large .m4a files.
             </p>
           </>
         ) : (
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-ink2">
             Paste a transcript or upload{" "}
             {TEXT_TYPES.map((t, i) => (
               <span key={t.ext}>
                 {i > 0 && " / "}
-                <span className="font-mono text-slate-400">{t.ext}</span>
+                <span className="font-mono text-ink2">{t.ext}</span>
               </span>
             ))}
             . No transcription step — saved as-is for this stage.
           </p>
         )}
         {intakeMode === "audio" && !proxy.reachable && (
-          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
-            Run <code className="text-amber-100">npm run dev</code> and open{" "}
-            <code className="text-amber-100">http://localhost:5173</code> to transcribe.
+          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+            Run <code className="text-amber-900 dark:text-amber-100">npm run dev</code> and open{" "}
+            <code className="text-amber-900 dark:text-amber-100">http://localhost:5173</code> to transcribe.
           </p>
         )}
         {intakeMode === "audio" && proxy.reachable && !proxy.configured && (
-          <p className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          <p className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-200">
             Add GEMINI_API_KEY to .env and restart the proxy.
           </p>
         )}
         {intakeMode === "audio" && proxy.reachable && proxy.configured && !proxy.assemblyai && (
-          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+          <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
             AssemblyAI is off — files over 25MB cannot transcribe. Add{" "}
-            <code className="text-amber-100">ASSEMBLYAI_API_KEY</code> to .env and restart{" "}
-            <code className="text-amber-100">npm run dev</code> (terminal must show{" "}
-            <code className="text-amber-100">assemblyai set ✓</code>).
+            <code className="text-amber-900 dark:text-amber-100">ASSEMBLYAI_API_KEY</code> to .env and restart{" "}
+            <code className="text-amber-900 dark:text-amber-100">npm run dev</code> (terminal must show{" "}
+            <code className="text-amber-900 dark:text-amber-100">assemblyai set ✓</code>).
           </p>
         )}
         {intakeMode === "audio" && proxy.assemblyai && (
-          <p className="mt-2 text-xs text-slate-500">
+          <p className="mt-2 text-xs text-ink2">
             Transcription: AssemblyAI (diarization) + Gemini (summary)
           </p>
         )}
       </div>
 
       {err && (
-        <div className="mx-8 mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mx-8 mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-300">
           {err}
         </div>
       )}
@@ -818,8 +818,8 @@ export default function InterviewRecording({ stageId, onChange }) {
           <label
             className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-10 transition ${
               isProcessing
-                ? "border-ink-600 bg-ink-800/30 opacity-60"
-                : "border-accent-500/30 bg-ink-800/20 hover:border-accent-500/50 hover:bg-ink-800/40"
+                ? "border-line bg-surface/30 opacity-60"
+                : "border-accent/30 bg-surface/20 hover:border-accent/50 hover:bg-surface/40"
             }`}
           >
             <input
@@ -830,14 +830,14 @@ export default function InterviewRecording({ stageId, onChange }) {
               onChange={handleFileSelect}
             />
             <UploadIcon />
-            <p className="mt-3 text-sm font-medium text-slate-200">
+            <p className="mt-3 text-sm font-medium text-ink1">
               {isProcessing
                 ? "Working on your recording…"
                 : hasSavedRecording
                   ? "Replace recording"
                   : "Add recording"}
             </p>
-            <p className="mt-2 text-center text-xs leading-relaxed text-slate-500">
+            <p className="mt-2 text-center text-xs leading-relaxed text-ink2">
               {isProcessing
                 ? null
                 : hasSavedRecording
@@ -845,11 +845,11 @@ export default function InterviewRecording({ stageId, onChange }) {
                   : "Drop a file here or click to browse"}
             </p>
             {!isProcessing && (
-            <p className="mt-3 flex flex-wrap justify-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+            <p className="mt-3 flex flex-wrap justify-center gap-x-2 gap-y-1 text-[11px] text-ink2">
               {ACCEPTED_TYPES.map((t) => (
                 <span
                   key={t.ext}
-                  className="rounded bg-ink-700/80 px-1.5 py-0.5 font-mono text-slate-400"
+                  className="rounded bg-surface2/80 px-1.5 py-0.5 font-mono text-ink2"
                 >
                   {t.ext}
                 </span>
@@ -858,25 +858,25 @@ export default function InterviewRecording({ stageId, onChange }) {
             )}
           </label>
           ) : (
-          <div className="space-y-3 rounded-xl border border-ink-700 bg-ink-800/30 p-4">
+          <div className="space-y-3 rounded-xl border border-line bg-surface/30 p-4">
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               disabled={isProcessing}
               rows={10}
               placeholder="Paste the full interview transcript or notes here…"
-              className="w-full resize-y rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 font-mono text-[13px] leading-relaxed text-slate-200 placeholder:text-slate-600 focus:border-accent-500 focus:outline-none"
+              className="w-full resize-y rounded-lg border border-line bg-canvas px-3 py-2 font-mono text-[13px] leading-relaxed text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none"
             />
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={handlePasteSave}
                 disabled={isProcessing || !pasteText.trim()}
-                className="rounded-md bg-accent-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-400 disabled:opacity-50"
+                className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accentHover disabled:opacity-50"
               >
                 Save transcript
               </button>
-              <label className="cursor-pointer rounded-md border border-ink-600 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-ink-700">
+              <label className="cursor-pointer rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink1 transition hover:bg-surface2">
                 Upload .txt / .md
                 <input
                   type="file"
@@ -895,18 +895,18 @@ export default function InterviewRecording({ stageId, onChange }) {
           )}
 
           {hydrating && !recording && (
-            <p className="text-center text-xs text-slate-500">Checking for saved recording…</p>
+            <p className="text-center text-xs text-ink2">Checking for saved recording…</p>
           )}
 
           {hasSavedRecording && (
             <>
               {/* Metadata + actions */}
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink-700 bg-ink-800/40 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface/40 px-4 py-3">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-white">
+                  <p className="truncate text-sm font-medium text-ink1">
                     {recording.fileName}
                   </p>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-ink2">
                     {isTextOnly
                       ? "text transcript"
                       : fmtDuration(recording.durationMs)}
@@ -918,13 +918,13 @@ export default function InterviewRecording({ stageId, onChange }) {
                     {isTextOnly && " · ready"}
                   </p>
                   {recording.audioBlob?.size > MAX_UPLOAD_BYTES && (
-                    <p className="mt-1 text-xs text-red-300">
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-300">
                       Too large to transcribe — delete and re-upload a compressed file (~64kbps
                       mp3).
                     </p>
                   )}
                   {uploadEstimateMin && !busy && (
-                    <p className="mt-1 text-xs text-slate-500">
+                    <p className="mt-1 text-xs text-ink2">
                       Est. upload ~{uploadEstimateMin} min at typical home speeds — compress to
                       mp3 to speed up.
                     </p>
@@ -941,19 +941,19 @@ export default function InterviewRecording({ stageId, onChange }) {
                       </button>
                       <button
                         onClick={() => handleDownload("txt")}
-                        className="rounded-md border border-ink-600 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-ink-700"
+                        className="rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-ink1 hover:bg-surface2"
                       >
                         .txt
                       </button>
                       <button
                         onClick={() => handleDownload("md")}
-                        className="rounded-md border border-ink-600 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-ink-700"
+                        className="rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-ink1 hover:bg-surface2"
                       >
                         .md
                       </button>
                       <button
                         onClick={() => handleDownload("json")}
-                        className="rounded-md border border-ink-600 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-ink-700"
+                        className="rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-ink1 hover:bg-surface2"
                       >
                         .json
                       </button>
@@ -963,7 +963,7 @@ export default function InterviewRecording({ stageId, onChange }) {
                   <button
                     onClick={handleRetranscribe}
                     disabled={busy || !recording.audioBlob}
-                    className="rounded-md border border-ink-600 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-ink-700 disabled:opacity-50"
+                    className="rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-ink1 hover:bg-surface2 disabled:opacity-50"
                   >
                     {hasTranscript ? "Re-transcribe" : "Transcribe"}
                   </button>
@@ -971,7 +971,7 @@ export default function InterviewRecording({ stageId, onChange }) {
                   {busy && (
                     <button
                       onClick={handleCancel}
-                      className="rounded-md border border-ink-600 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-300"
+                      className="rounded-md border border-line px-2.5 py-1.5 text-xs font-medium text-ink1 hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-300"
                     >
                       Cancel
                     </button>
@@ -979,7 +979,7 @@ export default function InterviewRecording({ stageId, onChange }) {
                   <button
                     onClick={handleDelete}
                     disabled={busy}
-                    className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                    className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 dark:text-red-300 hover:bg-red-500/10 disabled:opacity-50"
                   >
                     Delete
                   </button>
@@ -987,15 +987,15 @@ export default function InterviewRecording({ stageId, onChange }) {
               </div>
 
               {contextSavedName && (
-                <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-200">
                   Saved “{contextSavedName}” to Context (enabled). Advisor and Regenerate will use it.
                 </p>
               )}
 
               {/* Playback */}
               {recording.audioBlob && (
-                <div className="rounded-lg border border-ink-700 bg-ink-800/30 p-4">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <div className="rounded-lg border border-line bg-surface/30 p-4">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink2">
                     Playback
                   </p>
                   <AudioPlayback blob={recording.audioBlob} type={recording.audioType} />
@@ -1004,13 +1004,13 @@ export default function InterviewRecording({ stageId, onChange }) {
 
               {/* Summary */}
               {summaryPending && (
-                <div className="rounded-lg border border-ink-700 bg-ink-800/30 p-4">
-                  <p className="text-sm text-slate-400">Generating debrief summary…</p>
+                <div className="rounded-lg border border-line bg-surface/30 p-4">
+                  <p className="text-sm text-ink2">Generating debrief summary…</p>
                 </div>
               )}
               {recording.summary && (
-                <div className="rounded-lg border border-ink-700 bg-ink-800/30 p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <div className="rounded-lg border border-line bg-surface/30 p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink2">
                     Debrief summary
                   </p>
                   <Markdown>{recording.summary}</Markdown>
@@ -1019,8 +1019,8 @@ export default function InterviewRecording({ stageId, onChange }) {
 
               {/* Transcript */}
               {recording.segments?.length > 0 && (
-                <div className="rounded-lg border border-ink-700 bg-ink-800/30 p-4">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <div className="rounded-lg border border-line bg-surface/30 p-4">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink2">
                     Transcript
                   </p>
                   <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
@@ -1030,11 +1030,11 @@ export default function InterviewRecording({ stageId, onChange }) {
                         `Speaker ${seg.speaker}`;
                       return (
                         <div key={i} className="text-sm leading-relaxed">
-                          <span className="font-mono text-[11px] text-slate-500">
+                          <span className="font-mono text-[11px] text-ink2">
                             {fmtTimestamp(seg.startMs)}
                           </span>{" "}
-                          <span className="font-semibold text-accent-300">{label}:</span>{" "}
-                          <span className="text-slate-200">{seg.text}</span>
+                          <span className="font-semibold text-accent">{label}:</span>{" "}
+                          <span className="text-ink1">{seg.text}</span>
                         </div>
                       );
                     })}
@@ -1070,7 +1070,7 @@ function readAudioDuration(file) {
 function UploadIcon() {
   return (
     <svg
-      className="h-8 w-8 text-slate-400"
+      className="h-8 w-8 text-ink2"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

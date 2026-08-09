@@ -234,18 +234,18 @@ export default function Advisor({ onContextChange, onStagesChange }) {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="border-b border-ink-700 px-6 py-3">
-          <h2 className="text-sm font-semibold text-white">
+        <div className="border-b border-line px-6 py-3">
+          <h2 className="text-sm font-semibold text-ink1">
             {activeThread?.title || "Prep advisor"}
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-ink2">
             {ctx.count} context sources · {deck.length} flashcards ·{" "}
             {getMode() === MODE_API ? "API" : "Paste (fallback)"}
           </p>
         </div>
 
         {err && (
-          <div className="mx-6 mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+          <div className="mx-6 mt-3 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-300">
             {err}
           </div>
         )}
@@ -253,7 +253,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
           {messages.length === 0 ? (
             <div className="mx-auto max-w-2xl pt-8">
-              <p className="mb-4 text-sm text-slate-400">
+              <p className="mb-4 text-sm text-ink2">
                 Ask about readiness, interview questions, recruiter updates, or paste a
                 link to generate flashcards and context — the advisor will ask you to
                 confirm before adding anything. Manage context in the Context tab.
@@ -264,7 +264,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                     key={s}
                     onClick={() => send(s)}
                     disabled={busy}
-                    className="rounded-full border border-ink-600 bg-ink-800 px-3 py-1.5 text-left text-xs text-slate-300 transition hover:border-accent-500/50 hover:text-white disabled:opacity-50"
+                    className="rounded-full border border-line bg-surface px-3 py-1.5 text-left text-xs text-ink1 transition hover:border-accent/50 hover:text-ink1 disabled:opacity-50"
                   >
                     {s}
                   </button>
@@ -282,14 +282,14 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                 />
               ))}
               {busy && (
-                <div className="text-sm italic text-slate-500">Thinking…</div>
+                <div className="text-sm italic text-ink2">Thinking…</div>
               )}
               <div ref={bottomRef} />
             </div>
           )}
         </div>
 
-        <div className="border-t border-ink-700 p-4">
+        <div className="border-t border-line p-4">
           <form
             className="mx-auto flex max-w-2xl flex-col gap-2"
             onSubmit={(e) => {
@@ -310,26 +310,26 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                 rows={2}
                 placeholder="Ask anything, paste recruiter intel, or drop a URL to ingest…"
                 disabled={busy}
-                className="min-h-[52px] flex-1 resize-none rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-accent-500 focus:outline-none disabled:opacity-50"
+                className="min-h-[52px] flex-1 resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
               />
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="shrink-0 self-end rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-400 disabled:opacity-40"
+                className="shrink-0 self-end rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:opacity-40"
               >
                 Send
               </button>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 self-start text-xs text-slate-400">
+            <label className="flex cursor-pointer items-center gap-2 self-start text-xs text-ink2">
               <input
                 type="checkbox"
                 checked={webSearch}
                 onChange={(e) => setWebSearch(e.target.checked)}
                 disabled={busy}
-                className="rounded border-ink-600 bg-ink-900 text-accent-500 focus:ring-accent-500 disabled:opacity-50"
+                className="rounded border-line bg-canvas text-accent focus:ring-accent disabled:opacity-50"
               />
               Web search
-              <span className="text-slate-500">
+              <span className="text-ink2">
                 {getMode() === MODE_API
                   ? "(Google grounding via Gemini)"
                   : "(API mode only — paste has no live search)"}
@@ -359,7 +359,7 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
   if (isNote) {
     return (
       <div className="flex justify-center">
-        <p className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-300 ring-1 ring-inset ring-emerald-500/30">
+        <p className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs text-emerald-600 dark:text-emerald-300 ring-1 ring-inset ring-emerald-500/30">
           {message.content}
         </p>
       </div>
@@ -380,22 +380,22 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
       <div
         className={`max-w-[90%] rounded-2xl px-4 py-3 ${
           isUser
-            ? "bg-accent-500/20 text-slate-100 ring-1 ring-inset ring-accent-500/30"
-            : "bg-ink-800 text-slate-200 ring-1 ring-inset ring-ink-600"
+            ? "bg-accent/15 text-ink1 ring-1 ring-inset ring-accent/30"
+            : "bg-surface text-ink1 ring-1 ring-inset ring-line"
         }`}
       >
         {isUser ? (
           <div>
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{display}</p>
             {message.modelContent && (
-              <p className="mt-2 text-[11px] text-accent-300/80">
+              <p className="mt-2 text-[11px] text-accent">
                 ↳ Linked page content fetched and included for the advisor
               </p>
             )}
           </div>
         ) : (
           <>
-            <div className="prose prose-invert prose-sm max-w-none prose-p:my-2 prose-p:text-sm prose-li:text-sm">
+            <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-2 prose-p:text-sm prose-li:text-sm">
               <Markdown>{display}</Markdown>
             </div>
             <ActionProposals

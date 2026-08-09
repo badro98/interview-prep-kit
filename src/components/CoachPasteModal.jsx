@@ -60,17 +60,17 @@ export default function CoachPasteModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}
     >
-      <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-ink-600 bg-ink-800 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-ink-600 px-5 py-4">
+      <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <div>
-            <h3 className="text-base font-semibold text-white">{title}</h3>
-            <p className="mt-0.5 text-xs text-slate-400">
+            <h3 className="text-base font-semibold text-ink1">{title}</h3>
+            <p className="mt-0.5 text-xs text-ink2">
               Paste mode fallback — use when the proxy is off. Copy prompt, paste reply back.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="rounded-md px-2 py-1 text-slate-400 transition hover:bg-ink-700 hover:text-white"
+            className="rounded-md px-2 py-1 text-ink2 transition hover:bg-surface2 hover:text-ink1"
             aria-label="Close"
           >
             ✕
@@ -81,15 +81,15 @@ export default function CoachPasteModal({
           {/* Step 1 — copy prompt */}
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="flex items-center gap-2 text-sm font-medium text-white">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-500 text-xs font-bold text-white">
+              <h4 className="flex items-center gap-2 text-sm font-medium text-ink1">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
                   1
                 </span>
                 Copy this prompt into a Cursor chat
               </h4>
               <button
                 onClick={copyPrompt}
-                className="rounded-md bg-accent-500 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-400"
+                className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accentHover"
               >
                 {copied ? "Copied ✓" : "Copy prompt"}
               </button>
@@ -98,14 +98,14 @@ export default function CoachPasteModal({
               id="coach-prompt-text"
               readOnly
               value={prompt}
-              className="h-40 w-full resize-none rounded-lg border border-ink-600 bg-ink-900 p-3 font-mono text-xs leading-relaxed text-slate-300 focus:border-accent-500 focus:outline-none"
+              className="h-40 w-full resize-none rounded-lg border border-line bg-canvas p-3 font-mono text-xs leading-relaxed text-ink1 focus:border-accent focus:outline-none"
             />
           </section>
 
           {/* Step 2 — paste reply back */}
           <section>
-            <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-white">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-500 text-xs font-bold text-white">
+            <h4 className="mb-2 flex items-center gap-2 text-sm font-medium text-ink1">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent text-xs font-bold text-white">
                 2
               </span>
               Paste the model's reply back here
@@ -115,22 +115,22 @@ export default function CoachPasteModal({
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               placeholder={replyHint}
-              className="h-48 w-full resize-y rounded-lg border border-ink-600 bg-ink-900 p-3 font-mono text-xs leading-relaxed text-slate-200 placeholder:text-slate-500 focus:border-accent-500 focus:outline-none"
+              className="h-48 w-full resize-y rounded-lg border border-line bg-canvas p-3 font-mono text-xs leading-relaxed text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none"
             />
           </section>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-ink-600 px-5 py-4">
+        <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-4">
           <button
             onClick={onClose}
-            className="rounded-md px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-ink-700"
+            className="rounded-md px-4 py-2 text-sm font-medium text-ink1 transition hover:bg-surface2"
           >
             Cancel
           </button>
           <button
             disabled={!reply.trim()}
             onClick={() => onSave?.(reply.trim())}
-            className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-40"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {saveLabel}
           </button>

@@ -376,12 +376,12 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
   // ---- render -------------------------------------------------------------
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-ink-900 text-slate-200">
+    <div className="flex h-screen flex-col overflow-hidden bg-canvas text-ink1">
       <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">
         <div className="w-full max-w-xl">
           <Header stepIdx={stepIdx} totalSteps={steps.length} />
 
-          <div className="mt-6 rounded-2xl border border-ink-600 bg-ink-800 shadow-2xl">
+          <div className="mt-6 rounded-2xl border border-line bg-surface shadow-sm">
             <div className="px-6 py-6">
               {step === "welcome" && (
                 <WelcomeStep
@@ -469,7 +469,7 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
             <div className="mt-4 text-center">
               <button
                 onClick={onCancel}
-                className="text-xs text-slate-500 hover:text-slate-300"
+                className="text-xs text-ink2 hover:text-ink1"
               >
                 Cancel
               </button>
@@ -484,10 +484,10 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
 function Header({ stepIdx, totalSteps }) {
   return (
     <div className="flex flex-col items-center gap-3 text-center">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-500 text-sm font-extrabold text-white">
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-white">
         IP
       </div>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+      <p className="text-xs font-medium uppercase tracking-wide text-ink2">
         Step {stepIdx + 1} of {totalSteps}
       </p>
     </div>
@@ -500,7 +500,7 @@ function StepFooter({ onBack, onNext, nextDisabled, nextLabel = "Next" }) {
       {onBack ? (
         <button
           onClick={onBack}
-          className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-ink-700 hover:text-white"
+          className="rounded-md px-3 py-1.5 text-xs font-medium text-ink2 hover:bg-surface2 hover:text-ink1"
         >
           Back
         </button>
@@ -510,7 +510,7 @@ function StepFooter({ onBack, onNext, nextDisabled, nextLabel = "Next" }) {
       <button
         onClick={onNext}
         disabled={nextDisabled}
-        className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-40"
+        className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {nextLabel}
       </button>
@@ -531,32 +531,32 @@ function WelcomeStep({
 }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white">Welcome to Interview Prep</h2>
-      <p className="mt-2 text-sm text-slate-400">
+      <h2 className="text-lg font-semibold text-ink1">Welcome to Interview Prep</h2>
+      <p className="mt-2 text-sm text-ink2">
         A local-first study tool for interview loops — prep docs, flashcards, audio
         practice, and an advisor, all grounded in your real background.
       </p>
 
-      <label className="mt-6 block text-xs font-medium text-slate-400">Your name</label>
+      <label className="mt-6 block text-xs font-medium text-ink2">Your name</label>
       <input
         value={name}
         onChange={(e) => onNameChange(e.target.value)}
         placeholder="Your name"
-        className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+        className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink1 focus:border-accent focus:outline-none"
       />
 
       <StepFooter onBack={null} onNext={onContinue} nextLabel="Get started" />
 
-      <div className="mt-6 space-y-2 border-t border-ink-700 pt-5">
+      <div className="mt-6 space-y-2 border-t border-line pt-5">
         {showSampleSetup && (
           <button
             onClick={onUseSampleSetup}
-            className="w-full rounded-lg border border-dashed border-ink-600 py-2.5 text-xs text-slate-400 transition hover:border-ink-500 hover:text-white"
+            className="w-full rounded-lg border border-dashed border-line py-2.5 text-xs text-ink2 transition hover:border-line hover:text-ink1"
           >
             Use the repo's sample setup
           </button>
         )}
-        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-ink-600 py-2.5 text-xs text-slate-400 transition hover:border-ink-500 hover:text-white">
+        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-line py-2.5 text-xs text-ink2 transition hover:border-line hover:text-ink1">
           Import a job export (.json)
           <input
             type="file"
@@ -566,7 +566,7 @@ function WelcomeStep({
           />
         </label>
         {importError && (
-          <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+          <p className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
             {importError}
           </p>
         )}
@@ -636,27 +636,27 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white">Your profile</h2>
-      <p className="mt-2 text-sm text-slate-400">
+      <h2 className="text-lg font-semibold text-ink1">Your profile</h2>
+      <p className="mt-2 text-sm text-ink2">
         Optional — add your resume, stories, or portfolio once. It's shared across every
         job you set up, so you attach relevant pieces per job instead of re-pasting them.
       </p>
 
-      <div className="mt-4 space-y-1 rounded-xl border border-ink-700 bg-ink-900/40 p-2">
+      <div className="mt-4 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
         {entries.length === 0 && !adding && (
-          <p className="px-2 py-3 text-sm text-slate-500">No profile entries yet.</p>
+          <p className="px-2 py-3 text-sm text-ink2">No profile entries yet.</p>
         )}
         {entries.map((entry) => (
           <div
             key={entry.id}
-            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-ink-700/50"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
           >
-            <span className="min-w-0 flex-1 truncate text-sm text-slate-200">
+            <span className="min-w-0 flex-1 truncate text-sm text-ink1">
               {entry.name}
             </span>
             <button
               onClick={() => onRemove(entry.id)}
-              className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 hover:bg-ink-600 hover:text-red-400"
+              className="shrink-0 rounded px-2 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-red-600 dark:hover:text-red-400"
             >
               Remove
             </button>
@@ -665,30 +665,30 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
       </div>
 
       {adding ? (
-        <div className="mt-3 space-y-2 rounded-xl border border-ink-600 bg-ink-900 p-4">
+        <div className="mt-3 space-y-2 rounded-xl border border-line bg-canvas p-4">
           <input
             value={entryName}
             onChange={(e) => setEntryName(e.target.value)}
             placeholder="Title (e.g. Resume, Portfolio, Stories)"
-            className="w-full rounded-lg border border-ink-600 bg-ink-800 px-3 py-2 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink1 focus:border-accent focus:outline-none"
           />
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={6}
             placeholder="Paste content…"
-            className="w-full resize-none rounded-lg border border-ink-600 bg-ink-800 p-3 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+            className="w-full resize-none rounded-lg border border-line bg-surface p-3 text-sm text-ink1 focus:border-accent focus:outline-none"
           />
           <div className="flex gap-2">
             <button
               onClick={() => setAdding(false)}
-              className="text-sm text-slate-400 hover:text-white"
+              className="text-sm text-ink2 hover:text-ink1"
             >
               Cancel
             </button>
             <button
               onClick={handleAdd}
-              className="rounded-lg bg-accent-500 px-3 py-1.5 text-sm font-semibold text-white"
+              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white"
             >
               Add
             </button>
@@ -698,11 +698,11 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <button
             onClick={() => setAdding(true)}
-            className="flex-1 rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white"
+            className="flex-1 rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1"
           >
             + Paste profile entry
           </button>
-          <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-ink-600 py-3 text-sm text-slate-400 transition hover:border-ink-500 hover:text-white">
+          <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1">
             {uploadBusy ? "Converting…" : "Upload .md / .txt / .pdf"}
             <input
               type="file"
@@ -720,37 +720,37 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
           value={portfolioUrl}
           onChange={(e) => setPortfolioUrl(e.target.value)}
           placeholder="https://... portfolio or personal site"
-          className="min-w-0 flex-1 rounded-lg border border-ink-600 bg-ink-900 px-3 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
         />
         <button
           onClick={handleFetchPortfolio}
           disabled={portfolioBusy}
-          className="shrink-0 rounded-md border border-ink-600 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-ink-500 disabled:opacity-50"
+          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink1 transition hover:border-line disabled:opacity-50"
         >
           {portfolioBusy ? "Fetching…" : "Add from URL"}
         </button>
       </div>
       {(uploadError || portfolioError) && (
-        <p className="mt-1 text-xs text-red-300">{uploadError || portfolioError}</p>
+        <p className="mt-1 text-xs text-red-600 dark:text-red-300">{uploadError || portfolioError}</p>
       )}
 
       <div className="mt-6 flex items-center justify-between">
         <button
           onClick={onBack}
-          className="rounded-md px-3 py-1.5 text-xs font-medium text-slate-400 hover:bg-ink-700 hover:text-white"
+          className="rounded-md px-3 py-1.5 text-xs font-medium text-ink2 hover:bg-surface2 hover:text-ink1"
         >
           Back
         </button>
         <div className="flex items-center gap-3">
           <button
             onClick={onSkip}
-            className="text-xs font-medium text-slate-500 hover:text-slate-300"
+            className="text-xs font-medium text-ink2 hover:text-ink1"
           >
             Skip
           </button>
           <button
             onClick={onNext}
-            className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-400"
+            className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover"
           >
             Next
           </button>
@@ -803,31 +803,31 @@ function JobStep({
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white">This job</h2>
-      <p className="mt-2 text-sm text-slate-400">Role and company are required.</p>
+      <h2 className="text-lg font-semibold text-ink1">This job</h2>
+      <p className="mt-2 text-sm text-ink2">Role and company are required.</p>
 
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="block text-xs font-medium text-slate-400">Role</label>
+          <label className="block text-xs font-medium text-ink2">Role</label>
           <input
             value={role}
             onChange={(e) => onRoleChange(e.target.value)}
             placeholder="e.g. Senior QA Engineer"
-            className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink1 focus:border-accent focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-slate-400">Company</label>
+          <label className="block text-xs font-medium text-ink2">Company</label>
           <input
             value={company}
             onChange={(e) => onCompanyChange(e.target.value)}
             placeholder="e.g. Acme Corp"
-            className="mt-1 w-full rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+            className="mt-1 w-full rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink1 focus:border-accent focus:outline-none"
           />
         </div>
       </div>
 
-      <label className="mt-4 block text-xs font-medium text-slate-400">
+      <label className="mt-4 block text-xs font-medium text-ink2">
         Job description (optional)
       </label>
       <textarea
@@ -835,7 +835,7 @@ function JobStep({
         onChange={(e) => onJdChange(e.target.value)}
         rows={6}
         placeholder="Paste the job description…"
-        className="mt-1 w-full resize-none rounded-lg border border-ink-600 bg-ink-900 p-3 text-sm text-slate-200 focus:border-accent-500 focus:outline-none"
+        className="mt-1 w-full resize-none rounded-lg border border-line bg-canvas p-3 text-sm text-ink1 focus:border-accent focus:outline-none"
       />
 
       <div className="mt-2 flex items-center gap-2">
@@ -843,17 +843,17 @@ function JobStep({
           value={fetchUrl}
           onChange={(e) => setFetchUrl(e.target.value)}
           placeholder="https://... job posting URL"
-          className="min-w-0 flex-1 rounded-lg border border-ink-600 bg-ink-900 px-3 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
         />
         <button
           onClick={handleFetch}
           disabled={fetching}
-          className="shrink-0 rounded-md border border-ink-600 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-ink-500 disabled:opacity-50"
+          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink1 transition hover:border-line disabled:opacity-50"
         >
           {fetching ? "Fetching…" : "Fetch from URL"}
         </button>
       </div>
-      {fetchError && <p className="mt-1 text-xs text-red-300">{fetchError}</p>}
+      {fetchError && <p className="mt-1 text-xs text-red-600 dark:text-red-300">{fetchError}</p>}
 
       <StepFooter onBack={onBack} onNext={onNext} nextDisabled={!valid} />
     </div>
@@ -865,8 +865,8 @@ function JobStep({
 function StagesStep({ stages, onChange, onBack, onNext }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white">Interview stages</h2>
-      <p className="mt-2 text-sm text-slate-400">
+      <h2 className="text-lg font-semibold text-ink1">Interview stages</h2>
+      <p className="mt-2 text-sm text-ink2">
         Rename, reorder, or remove stages. At least one is required.
       </p>
 
@@ -884,25 +884,25 @@ function StagesStep({ stages, onChange, onBack, onNext }) {
 function AttachStep({ entries, attached, onToggle, onBack, onNext }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white">Attach profile to this job</h2>
-      <p className="mt-2 text-sm text-slate-400">
+      <h2 className="text-lg font-semibold text-ink1">Attach profile to this job</h2>
+      <p className="mt-2 text-sm text-ink2">
         Choose which profile entries ground prep docs, flashcards, and the advisor for
         this job. You can change this later per job.
       </p>
 
-      <div className="mt-4 space-y-1 rounded-xl border border-ink-700 bg-ink-900/40 p-2">
+      <div className="mt-4 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
         {entries.map((entry) => (
           <label
             key={entry.id}
-            className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-ink-700/50"
+            className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-surface2/50"
           >
             <input
               type="checkbox"
               checked={attached.has(entry.id)}
               onChange={() => onToggle(entry.id)}
-              className="accent-indigo-500"
+              className="accent-accent"
             />
-            <span className="text-sm text-slate-200">{entry.name}</span>
+            <span className="text-sm text-ink1">{entry.name}</span>
           </label>
         ))}
       </div>
@@ -936,13 +936,13 @@ function GenerateStep({
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white">Generate your prep</h2>
-      <p className="mt-2 text-sm text-slate-400">
+      <h2 className="text-lg font-semibold text-ink1">Generate your prep</h2>
+      <p className="mt-2 text-sm text-ink2">
         {aiMode === MODE_API
           ? "Generating a prep doc per stage and a flashcard deck through the local proxy."
           : "Copy each prompt into your AI chat of choice, then paste the reply back."}
       </p>
-      <p className="mt-1 text-xs text-slate-500">
+      <p className="mt-1 text-xs text-ink2">
         Job created — you can edit details and regenerate any doc from the app later.
       </p>
 
@@ -964,7 +964,7 @@ function GenerateStep({
       <div className="mt-6 flex items-center justify-between">
         <button
           onClick={onSkipGeneration}
-          className="text-xs font-medium text-slate-500 hover:text-slate-300"
+          className="text-xs font-medium text-ink2 hover:text-ink1"
         >
           Skip generation
         </button>
@@ -976,13 +976,13 @@ function GenerateStep({
               ? undefined
               : "Wait for generation to finish, or skip/retry the running row"
           }
-          className="rounded-md bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-40"
+          className="rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:cursor-not-allowed disabled:opacity-40"
         >
           Finish
         </button>
       </div>
       {allSettled && (
-        <p className="mt-2 text-right text-xs text-emerald-400">All rows complete.</p>
+        <p className="mt-2 text-right text-xs text-emerald-600 dark:text-emerald-400">All rows complete.</p>
       )}
     </div>
   );
@@ -991,19 +991,19 @@ function GenerateStep({
 function statusBadge(status) {
   switch (status) {
     case "pending":
-      return { label: "Pending", cls: "bg-slate-500/15 text-slate-400" };
+      return { label: "Pending", cls: "bg-slate-500/15 text-ink2" };
     case "running":
-      return { label: "Generating…", cls: "bg-accent-500/15 text-accent-400" };
+      return { label: "Generating…", cls: "bg-accent/15 text-accent" };
     case "done":
-      return { label: "Done", cls: "bg-emerald-500/15 text-emerald-300" };
+      return { label: "Done", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300" };
     case "error":
-      return { label: "Error", cls: "bg-red-500/15 text-red-300" };
+      return { label: "Error", cls: "bg-red-500/15 text-red-600 dark:text-red-300" };
     case "skipped":
-      return { label: "Skipped", cls: "bg-slate-500/15 text-slate-500" };
+      return { label: "Skipped", cls: "bg-slate-500/15 text-ink2" };
     case "paste-ready":
-      return { label: "Awaiting paste", cls: "bg-amber-500/15 text-amber-300" };
+      return { label: "Awaiting paste", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-300" };
     default:
-      return { label: status, cls: "bg-slate-500/15 text-slate-400" };
+      return { label: status, cls: "bg-slate-500/15 text-ink2" };
   }
 }
 
@@ -1018,9 +1018,9 @@ function GenerateRow({ row, aiMode, onRetry, onSkip, onPasteChange, onSavePaste,
   }
 
   return (
-    <div className="rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+    <div className="rounded-lg border border-line bg-canvas/40 p-3">
       <div className="flex items-center gap-3">
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink1">
           {row.label}
         </span>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${badge.cls}`}>
@@ -1029,7 +1029,7 @@ function GenerateRow({ row, aiMode, onRetry, onSkip, onPasteChange, onSavePaste,
         {row.status === "error" && (
           <button
             onClick={onRetry}
-            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-accent-400 hover:bg-ink-700"
+            className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-accent hover:bg-surface2"
           >
             Retry
           </button>
@@ -1037,17 +1037,17 @@ function GenerateRow({ row, aiMode, onRetry, onSkip, onPasteChange, onSavePaste,
         {row.status !== "done" && row.status !== "skipped" && (
           <button
             onClick={onSkip}
-            className="shrink-0 rounded-md px-2 py-1 text-xs text-slate-500 hover:bg-ink-700 hover:text-white"
+            className="shrink-0 rounded-md px-2 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-ink1"
           >
             Skip
           </button>
         )}
       </div>
 
-      {row.error && <p className="mt-1.5 text-xs text-red-300">{row.error}</p>}
+      {row.error && <p className="mt-1.5 text-xs text-red-600 dark:text-red-300">{row.error}</p>}
 
       {aiMode === MODE_API && row.status === "error" && (
-        <p className="mt-1.5 text-xs text-slate-500">
+        <p className="mt-1.5 text-xs text-ink2">
           Proxy unreachable? Copy the prompt into any AI chat and paste the reply back.
         </p>
       )}
@@ -1056,11 +1056,11 @@ function GenerateRow({ row, aiMode, onRetry, onSkip, onPasteChange, onSavePaste,
         (aiMode !== MODE_API || row.status === "error") && (
         <div className="mt-2 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-500">Paste-mode fallback</span>
+            <span className="text-xs text-ink2">Paste-mode fallback</span>
             <button
               onClick={handleCopy}
               disabled={!row.prompt}
-              className="rounded-md bg-accent-500 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-accentHover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {copied ? "Copied ✓" : "Copy prompt"}
             </button>
@@ -1070,13 +1070,13 @@ function GenerateRow({ row, aiMode, onRetry, onSkip, onPasteChange, onSavePaste,
             onChange={(e) => onPasteChange(e.target.value)}
             placeholder="Paste the model's reply here…"
             rows={3}
-            className="w-full resize-none rounded-md border border-ink-600 bg-ink-900 p-2 font-mono text-xs leading-relaxed text-slate-200 focus:border-accent-500 focus:outline-none"
+            className="w-full resize-none rounded-md border border-line bg-canvas p-2 font-mono text-xs leading-relaxed text-ink1 focus:border-accent focus:outline-none"
           />
           <div className="flex justify-end">
             <button
               onClick={onSavePaste}
               disabled={!row.paste?.trim()}
-              className="rounded-md bg-ink-700 px-2.5 py-1 text-xs font-semibold text-slate-200 transition hover:bg-ink-600 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md bg-surface2 px-2.5 py-1 text-xs font-semibold text-ink1 transition hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Save
             </button>

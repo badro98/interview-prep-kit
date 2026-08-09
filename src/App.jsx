@@ -13,6 +13,7 @@ import { getContextSummary } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
 import { getActiveJobId, getJobs } from "./lib/jobs.js";
 import { onQuotaError } from "./lib/storage.js";
+import { getTheme, setTheme, THEME_DARK, THEME_LIGHT } from "./lib/theme.js";
 
 const TABS = [
   { id: "prep", label: "Prep Docs", sub: "Stage-by-stage" },
@@ -26,6 +27,7 @@ export default function App() {
   const [needsOnboarding, setNeedsOnboarding] = useState(() => getJobs().length === 0);
   const [ctx, setCtx] = useState(getContextSummary());
   const [mode, setModeState] = useState(getMode());
+  const [theme, setThemeState] = useState(getTheme);
   const [tab, setTab] = useState("prep");
   const [activeJobId, setActiveJobIdState] = useState(getActiveJobId());
   // Bumped on every handleJobChange call so <main> remounts even when the
@@ -67,6 +69,12 @@ export default function App() {
     setModeState(next);
   }
 
+  function toggleTheme() {
+    const next = theme === THEME_DARK ? THEME_LIGHT : THEME_DARK;
+    setTheme(next);
+    setThemeState(next);
+  }
+
   if (needsOnboarding) {
     return (
       <Onboarding
@@ -99,18 +107,22 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-ink-700 bg-ink-900/80 px-6 py-3 backdrop-blur">
-        <div className="flex min-w-0 items-center gap-5">
+    <div className="flex h-screen flex-col overflow-hidden bg-canvas">
+      <header className="relative z-30 flex shrink-0 items-center gap-3 border-b border-line bg-surface/90 px-4 py-3 shadow-sm backdrop-blur sm:gap-4 sm:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
           <div className="flex shrink-0 items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-500 text-sm font-extrabold text-white">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-white"
+              title={`${APP.title}${APP.subtitle ? ` — ${APP.subtitle}` : ""}`}
+            >
               IP
             </div>
-            <div className="leading-tight">
-              <h1 className="text-sm font-semibold text-white">
+            {/* Title/subtitle compete with the job pill + tabs — show only when wide. */}
+            <div className="hidden leading-tight xl:block">
+              <h1 className="text-sm font-semibold text-ink1">
                 {APP.title}
               </h1>
-              <p className="text-xs text-slate-400">{APP.subtitle}</p>
+              <p className="text-xs text-ink2">{APP.subtitle}</p>
             </div>
           </div>
 
@@ -121,16 +133,16 @@ export default function App() {
             onJobSettings={() => setSettingsOpen(true)}
           />
 
-          <nav className="flex shrink-0 items-center gap-1 rounded-lg bg-ink-800 p-1">
+          <nav className="flex shrink-0 items-center gap-0.5 rounded-lg bg-surface2 p-1 sm:gap-1">
             {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 title={t.sub}
-                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition ${
+                className={`rounded-md px-2 py-1.5 text-xs font-semibold transition sm:px-3 ${
                   tab === t.id
-                    ? "bg-accent-500 text-white"
-                    : "text-slate-300 hover:bg-ink-700"
+                    ? "bg-accent text-white"
+                    : "text-ink1 hover:bg-surface"
                 }`}
               >
                 {t.label}
@@ -139,27 +151,28 @@ export default function App() {
           </nav>
         </div>
 
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
           <span
             title={ctx.names.join(", ")}
-            className="hidden items-center gap-1.5 text-xs text-slate-400 sm:flex"
+            className="hidden items-center gap-1.5 text-xs text-ink2 xl:flex"
           >
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            {ctx.count} context sources active
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400" />
+            {ctx.count} sources
           </span>
+          <ThemeToggle theme={theme} onToggle={toggleTheme} />
           <ModeToggle mode={mode} onToggle={toggleMode} />
         </div>
       </header>
 
       {quotaWarning && (
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-6 py-2 text-xs text-amber-200">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-amber-500/30 bg-amber-500/10 px-6 py-2 text-xs text-amber-800 dark:text-amber-200">
           <span>
             Browser storage is full — your latest change may not have saved. Export
             your jobs from Manage jobs, then clear old data.
           </span>
           <button
             onClick={() => setQuotaWarning(false)}
-            className="shrink-0 rounded px-1.5 py-0.5 text-amber-200/80 hover:bg-amber-500/20 hover:text-amber-100"
+            className="shrink-0 rounded px-1.5 py-0.5 text-amber-700/80 hover:bg-amber-500/20 hover:text-amber-900 dark:text-amber-200/80 dark:hover:text-amber-100"
             aria-label="Dismiss"
           >
             ✕
@@ -229,6 +242,41 @@ function TabPanel({ active, children }) {
   );
 }
 
+function ThemeToggle({ theme, onToggle }) {
+  const isDark = theme === THEME_DARK;
+  return (
+    <button
+      onClick={onToggle}
+      title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-line bg-surface text-ink2 transition hover:border-accent/40 hover:text-ink1"
+    >
+      {isDark ? (
+        <SunIcon />
+      ) : (
+        <MoonIcon />
+      )}
+    </button>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 14.5A8.5 8.5 0 0 1 9.5 3 7 7 0 1 0 21 14.5z" />
+    </svg>
+  );
+}
+
 function ModeToggle({ mode, onToggle }) {
   const isApi = mode === MODE_API;
   return (
@@ -239,10 +287,10 @@ function ModeToggle({ mode, onToggle }) {
           ? "API mode — automated coaching via local proxy (npm run dev + .env keys)"
           : "Paste mode — copy prompts to an external chat when the proxy is off (no API key)"
       }
-      className="flex items-center gap-2 rounded-full border border-ink-600 bg-ink-800 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:border-ink-500"
+      className="flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-medium text-ink1 transition hover:border-accent/40"
     >
       <span
-        className={`h-2 w-2 rounded-full ${isApi ? "bg-amber-400" : "bg-accent-400"}`}
+        className={`h-2 w-2 rounded-full ${isApi ? "bg-amber-400" : "bg-accent"}`}
       />
       AI: {isApi ? "API" : "Paste"} mode
     </button>

@@ -5,8 +5,8 @@ export default function ActionProposals({ proposals, appliedIds, onApply, onDism
   if (pending.length === 0) return null;
 
   return (
-    <div className="mt-3 space-y-2 border-t border-ink-600/80 pt-3">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-accent-400">
+    <div className="mt-3 space-y-2 border-t border-line/80 pt-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
         Proposed changes
       </p>
       {pending.map((p) => (
@@ -24,13 +24,13 @@ export default function ActionProposals({ proposals, appliedIds, onApply, onDism
 function ProposalCard({ proposal, onApply, onDismiss }) {
   return (
     <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3">
-      <p className="text-sm font-medium text-emerald-200">{proposal.label}</p>
+      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-200">{proposal.label}</p>
 
       {proposal.type === "add_flashcards" && (
-        <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-slate-300">
+        <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-ink1">
           {proposal.cards.map((c, i) => (
             <li key={i} className="flex gap-2">
-              <span className="shrink-0 text-slate-500">
+              <span className="shrink-0 text-ink2">
                 {categoryLabel(c.category)}
               </span>
               <span className="min-w-0">{c.question}</span>
@@ -40,29 +40,29 @@ function ProposalCard({ proposal, onApply, onDismiss }) {
       )}
 
       {proposal.type === "add_context" && (
-        <div className="mt-2 text-xs text-slate-400">
+        <div className="mt-2 text-xs text-ink2">
           <p>
-            Context title: <span className="text-slate-300">{proposal.name}</span>
+            Context title: <span className="text-ink1">{proposal.name}</span>
           </p>
           {proposal.sourceUrl && (
             <p className="mt-0.5 truncate" title={proposal.sourceUrl}>
               Source: {proposal.sourceUrl}
             </p>
           )}
-          <p className="mt-1 line-clamp-3 text-slate-500">{proposal.content}</p>
+          <p className="mt-1 line-clamp-3 text-ink2">{proposal.content}</p>
         </div>
       )}
 
       {proposal.type === "add_stage" && (
-        <div className="mt-2 text-xs text-slate-400">
+        <div className="mt-2 text-xs text-ink2">
           <p>
-            Stage: <span className="text-slate-300">{proposal.title}</span>
+            Stage: <span className="text-ink1">{proposal.title}</span>
             {proposal.subtitle ? (
-              <span className="text-slate-500"> — {proposal.subtitle}</span>
+              <span className="text-ink2"> — {proposal.subtitle}</span>
             ) : null}
           </p>
-          <p className="mt-0.5 font-mono text-[11px] text-slate-500">id: {proposal.stageId}</p>
-          <p className="mt-1 line-clamp-3 text-slate-500">{proposal.content}</p>
+          <p className="mt-0.5 font-mono text-[11px] text-ink2">id: {proposal.stageId}</p>
+          <p className="mt-1 line-clamp-3 text-ink2">{proposal.content}</p>
         </div>
       )}
 
@@ -81,7 +81,7 @@ function ProposalCard({ proposal, onApply, onDismiss }) {
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded-md px-3 py-1.5 text-xs text-slate-400 transition hover:bg-ink-700 hover:text-white"
+          className="rounded-md px-3 py-1.5 text-xs text-ink2 transition hover:bg-surface2 hover:text-ink1"
         >
           Dismiss
         </button>

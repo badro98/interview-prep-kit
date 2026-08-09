@@ -297,7 +297,7 @@ export default function PrepDocs() {
       ) : activeId ? (
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {addBusy && (
-            <div className="shrink-0 border-b border-accent-500/30 bg-accent-500/10 px-8 py-2 text-xs text-accent-200">
+            <div className="shrink-0 border-b border-accent/30 bg-accent/10 px-8 py-2 text-xs text-accent">
               Generating prep doc from your active context…
             </div>
           )}
@@ -308,7 +308,7 @@ export default function PrepDocs() {
           />
         </div>
       ) : (
-        <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+        <div className="flex flex-1 items-center justify-center text-sm text-ink2">
           {addBusy ? "Generating prep doc…" : "Select a stage"}
         </div>
       )}
@@ -362,28 +362,28 @@ function StageNav({
   }, [adding]);
 
   return (
-    <nav className="flex h-full min-h-0 w-72 shrink-0 flex-col gap-1 border-r border-ink-700 bg-ink-800/50 p-3">
-      <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+    <nav className="flex h-full min-h-0 w-72 shrink-0 flex-col gap-1 border-r border-line bg-surface/50 p-3">
+      <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-ink2">
         Interview stages
       </p>
 
       {banner && (
-        <div className="mb-2 rounded-lg border border-accent-500/35 bg-accent-500/10 px-3 py-2.5">
+        <div className="mb-2 rounded-lg border border-accent/35 bg-accent/10 px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-accent-300">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
               {banner.eyebrow}
             </p>
             <button
               type="button"
               onClick={onDismissBanner}
-              className="rounded px-1 text-[11px] text-slate-500 hover:bg-ink-700 hover:text-white"
+              className="rounded px-1 text-[11px] text-ink2 hover:bg-surface2 hover:text-ink1"
               aria-label="Dismiss suggestion banner"
             >
               ✕
             </button>
           </div>
-          <p className="mt-1 text-sm font-medium leading-snug text-white">{banner.title}</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{banner.body}</p>
+          <p className="mt-1 text-sm font-medium leading-snug text-ink1">{banner.title}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-ink1">{banner.body}</p>
         </div>
       )}
 
@@ -399,8 +399,8 @@ function StageNav({
               key={s.id}
               className={`rounded-lg transition ${
                 active
-                  ? "bg-accent-500/15 ring-1 ring-inset ring-accent-500/40"
-                  : "hover:bg-ink-700/60"
+                  ? "bg-accent/15 ring-1 ring-inset ring-accent/40"
+                  : "hover:bg-surface2/60"
               }`}
             >
               <div className="flex items-start gap-1 px-1 py-1">
@@ -426,7 +426,7 @@ function StageNav({
                       setStageProgress(s.id, e.target.value);
                       onProgressChange?.();
                     }}
-                    className="max-w-[5.75rem] rounded-md border border-ink-600 bg-ink-900 px-1 py-1 text-[10px] font-medium text-slate-300 focus:border-accent-500 focus:outline-none"
+                    className="max-w-[5.75rem] rounded-md border border-line bg-canvas px-1 py-1 text-[10px] font-medium text-ink1 focus:border-accent focus:outline-none"
                   >
                     {STAGE_PROGRESS_STATUSES.map((status) => (
                       <option key={status} value={status}>
@@ -441,8 +441,8 @@ function StageNav({
         })}
 
         {suggestions.length > 0 && (
-          <div className="mt-3 space-y-1 border-t border-ink-700 pt-3">
-            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <div className="mt-3 space-y-1 border-t border-line pt-3">
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ink2">
               Suggested · review then add
             </p>
             {suggestions.map((s) => {
@@ -452,8 +452,8 @@ function StageNav({
                   key={s.id}
                   className={`rounded-lg border border-dashed transition ${
                     active
-                      ? "border-accent-500/40 bg-ink-800/80"
-                      : "border-ink-600/80 bg-ink-900/30 opacity-60 hover:opacity-90"
+                      ? "border-accent/40 bg-surface/80"
+                      : "border-line/80 bg-canvas/30 opacity-60 hover:opacity-90"
                   }`}
                 >
                   <div className="flex items-start gap-1 px-2 py-2">
@@ -465,7 +465,7 @@ function StageNav({
                         e.stopPropagation();
                         onAcceptSuggestion?.(s);
                       }}
-                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-accent-500/50 bg-accent-500/15 text-sm font-semibold leading-none text-accent-300 transition hover:bg-accent-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-accent/50 bg-accent/15 text-sm font-semibold leading-none text-accent transition hover:bg-accent hover:text-ink1 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       +
                     </button>
@@ -474,9 +474,9 @@ function StageNav({
                       onClick={() => onPreviewSuggestion?.(s.id)}
                       className="min-w-0 flex-1 rounded-md px-1 py-0.5 text-left"
                     >
-                      <span className="text-sm font-medium text-slate-300">{s.title}</span>
+                      <span className="text-sm font-medium text-ink1">{s.title}</span>
                       {s.subtitle && (
-                        <p className="mt-1 text-xs leading-snug text-slate-500">{s.subtitle}</p>
+                        <p className="mt-1 text-xs leading-snug text-ink2">{s.subtitle}</p>
                       )}
                     </button>
                   </div>
@@ -484,14 +484,14 @@ function StageNav({
                     <button
                       type="button"
                       onClick={() => onPreviewSuggestion?.(s.id)}
-                      className="rounded px-1.5 py-0.5 text-[10px] font-medium text-slate-400 hover:bg-ink-700 hover:text-white"
+                      className="rounded px-1.5 py-0.5 text-[10px] font-medium text-ink2 hover:bg-surface2 hover:text-ink1"
                     >
                       Review
                     </button>
                     <button
                       type="button"
                       onClick={() => onDismissSuggestion?.(s.id)}
-                      className="rounded px-1.5 py-0.5 text-[10px] text-slate-500 hover:bg-ink-700 hover:text-slate-300"
+                      className="rounded px-1.5 py-0.5 text-[10px] text-ink2 hover:bg-surface2 hover:text-ink1"
                     >
                       Dismiss
                     </button>
@@ -503,40 +503,40 @@ function StageNav({
         )}
       </div>
 
-      <div className="mt-2 border-t border-ink-700 pt-2">
+      <div className="mt-2 border-t border-line pt-2">
         {adding ? (
-          <form onSubmit={onSubmitAdd} className="space-y-2 rounded-lg border border-ink-600 bg-ink-900/50 p-2">
+          <form onSubmit={onSubmitAdd} className="space-y-2 rounded-lg border border-line bg-canvas/50 p-2">
             <input
               ref={titleRef}
               value={addTitle}
               onChange={(e) => onChangeTitle(e.target.value)}
               placeholder="Stage title"
               disabled={addBusy}
-              className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-accent-500 focus:outline-none disabled:opacity-50"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
             />
             <input
               value={addSubtitle}
               onChange={(e) => onChangeSubtitle(e.target.value)}
               placeholder="Subtitle (optional)"
               disabled={addBusy}
-              className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1.5 text-xs text-slate-300 placeholder:text-slate-600 focus:border-accent-500 focus:outline-none disabled:opacity-50"
+              className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-xs text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
             />
-            <label className="flex items-start gap-2 text-[11px] text-slate-400">
+            <label className="flex items-start gap-2 text-[11px] text-ink2">
               <input
                 type="checkbox"
                 checked={generateOnAdd}
                 onChange={(e) => onChangeGenerate(e.target.checked)}
                 disabled={addBusy}
-                className="mt-0.5 h-3.5 w-3.5 rounded border-ink-600 bg-ink-900 text-accent-500 focus:ring-accent-500"
+                className="mt-0.5 h-3.5 w-3.5 rounded border-line bg-canvas text-accent focus:ring-accent"
               />
               <span>Generate prep doc from active context</span>
             </label>
-            {addErr && <p className="text-[11px] text-red-300">{addErr}</p>}
+            {addErr && <p className="text-[11px] text-red-600 dark:text-red-300">{addErr}</p>}
             <div className="flex gap-1.5">
               <button
                 type="submit"
                 disabled={addBusy}
-                className="flex-1 rounded-md bg-accent-500 px-2 py-1.5 text-xs font-semibold text-white hover:bg-accent-400 disabled:opacity-50"
+                className="flex-1 rounded-md bg-accent px-2 py-1.5 text-xs font-semibold text-white hover:bg-accentHover disabled:opacity-50"
               >
                 {addBusy ? "Working…" : generateOnAdd ? "Add + generate" : "Add stage"}
               </button>
@@ -544,7 +544,7 @@ function StageNav({
                 type="button"
                 onClick={onCancelAdd}
                 disabled={addBusy}
-                className="rounded-md px-2 py-1.5 text-xs text-slate-400 hover:bg-ink-700 hover:text-white disabled:opacity-50"
+                className="rounded-md px-2 py-1.5 text-xs text-ink2 hover:bg-surface2 hover:text-ink1 disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -555,7 +555,7 @@ function StageNav({
             type="button"
             onClick={onOpenAdd}
             title="Add a stage"
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-ink-600 px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:border-accent-500/50 hover:bg-ink-800 hover:text-white"
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2.5 text-sm font-medium text-ink1 transition hover:border-accent/50 hover:bg-surface hover:text-ink1"
           >
             <PlusIcon />
             Add stage
@@ -592,25 +592,25 @@ function StageNavRow({ s, index, active, progress, hasRec, hasOverride }) {
             progress === "complete"
               ? "bg-emerald-600 text-white"
               : progress === "in-progress"
-                ? "bg-accent-500 text-white"
+                ? "bg-accent text-white"
                 : progress === "pending"
-                  ? "bg-ink-700 text-slate-500"
+                  ? "bg-surface2 text-ink2"
                   : active
-                    ? "bg-accent-500 text-white"
-                    : "bg-ink-600 text-slate-300"
+                    ? "bg-accent text-white"
+                    : "bg-surface2 text-ink1"
           }`}
         >
           {progress === "complete" ? <CheckIcon /> : index + 1}
         </span>
         <span
           className={`text-sm font-medium ${
-            active || progress === "in-progress" ? "text-white" : "text-slate-200"
+            active || progress === "in-progress" ? "text-ink1" : "text-ink1"
           }`}
         >
           {s.title}
         </span>
         {progress === "in-progress" && (
-          <span className="rounded bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-300">
+          <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
             now
           </span>
         )}
@@ -629,7 +629,7 @@ function StageNavRow({ s, index, active, progress, hasRec, hasOverride }) {
           )}
         </span>
       </div>
-      <p className="mt-1 pl-7 text-xs leading-snug text-slate-400">{s.subtitle}</p>
+      <p className="mt-1 pl-7 text-xs leading-snug text-ink2">{s.subtitle}</p>
     </>
   );
 }
@@ -637,16 +637,16 @@ function StageNavRow({ s, index, active, progress, hasRec, hasOverride }) {
 function SuggestionPreview({ suggestion, busy, onAdd, onAddDraft, onDismiss }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <header className="flex items-center justify-between gap-4 border-b border-ink-700 px-8 py-4">
+      <header className="flex items-center justify-between gap-4 border-b border-line px-8 py-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-lg font-semibold text-white">{suggestion.title}</h2>
-            <span className="rounded-full bg-ink-700 px-2 py-0.5 text-[11px] font-medium text-slate-300 ring-1 ring-inset ring-ink-500">
+            <h2 className="truncate text-lg font-semibold text-ink1">{suggestion.title}</h2>
+            <span className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-medium text-ink1 ring-1 ring-inset ring-line">
               suggested
             </span>
           </div>
           {suggestion.subtitle && (
-            <p className="text-xs text-slate-400">{suggestion.subtitle}</p>
+            <p className="text-xs text-ink2">{suggestion.subtitle}</p>
           )}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -654,7 +654,7 @@ function SuggestionPreview({ suggestion, busy, onAdd, onAddDraft, onDismiss }) {
             type="button"
             onClick={onDismiss}
             disabled={busy}
-            className="rounded-md px-3 py-2 text-xs font-medium text-slate-400 hover:bg-ink-700 hover:text-white disabled:opacity-50"
+            className="rounded-md px-3 py-2 text-xs font-medium text-ink2 hover:bg-surface2 hover:text-ink1 disabled:opacity-50"
           >
             Dismiss
           </button>
@@ -662,7 +662,7 @@ function SuggestionPreview({ suggestion, busy, onAdd, onAddDraft, onDismiss }) {
             type="button"
             onClick={onAddDraft}
             disabled={busy}
-            className="rounded-md border border-ink-600 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-ink-700 disabled:opacity-50"
+            className="rounded-md border border-line px-3 py-2 text-xs font-semibold text-ink1 hover:bg-surface2 disabled:opacity-50"
           >
             Add draft as-is
           </button>
@@ -670,19 +670,19 @@ function SuggestionPreview({ suggestion, busy, onAdd, onAddDraft, onDismiss }) {
             type="button"
             onClick={onAdd}
             disabled={busy}
-            className="rounded-md bg-accent-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-accent-400 disabled:opacity-50"
+            className="rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white hover:bg-accentHover disabled:opacity-50"
           >
             {busy ? "Adding…" : "Add + refresh from context"}
           </button>
         </div>
       </header>
       {busy && (
-        <div className="shrink-0 border-b border-accent-500/30 bg-accent-500/10 px-8 py-2 text-xs text-accent-200">
+        <div className="shrink-0 border-b border-accent/30 bg-accent/10 px-8 py-2 text-xs text-accent">
           Adding stage and refreshing the prep doc from your active context…
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-        <p className="mb-4 text-xs text-slate-500">
+        <p className="mb-4 text-xs text-ink2">
           Preview only — this stage isn&apos;t on your pipeline until you click Add.
         </p>
         <article className="mx-auto max-w-3xl">
@@ -771,28 +771,28 @@ function StageView({ stageId, onRecordingChange }) {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-ink-700 px-8 py-4">
+      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-8 py-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-lg font-semibold text-white">
+            <h2 className="truncate text-lg font-semibold text-ink1">
               {base.title}
             </h2>
             {isEdited && subTab === "prep" && (
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/30">
+              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-300 ring-1 ring-inset ring-emerald-500/30">
                 edited
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400">{base.subtitle}</p>
+          <p className="text-xs text-ink2">{base.subtitle}</p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
-          <div className="flex gap-1 rounded-lg bg-ink-800 p-1 text-xs">
+          <div className="flex gap-1 rounded-lg bg-surface p-1 text-xs">
             <button
               onClick={() => setSubTab("prep")}
               className={`rounded-md px-3 py-1.5 font-medium transition ${
                 subTab === "prep"
-                  ? "bg-accent-500 text-white"
-                  : "text-slate-300 hover:bg-ink-700"
+                  ? "bg-accent text-white"
+                  : "text-ink1 hover:bg-surface2"
               }`}
             >
               Prep doc
@@ -801,8 +801,8 @@ function StageView({ stageId, onRecordingChange }) {
               onClick={() => setSubTab("recording")}
               className={`rounded-md px-3 py-1.5 font-medium transition ${
                 subTab === "recording"
-                  ? "bg-accent-500 text-white"
-                  : "text-slate-300 hover:bg-ink-700"
+                  ? "bg-accent text-white"
+                  : "text-ink1 hover:bg-surface2"
               }`}
             >
               Recording / Transcript
@@ -814,14 +814,14 @@ function StageView({ stageId, onRecordingChange }) {
             <>
               <span
                 className={`text-xs transition ${
-                  savedTick ? "text-emerald-400" : "text-slate-500"
+                  savedTick ? "text-emerald-600 dark:text-emerald-400" : "text-ink2"
                 }`}
               >
                 {savedTick ? "Saved ✓" : "Autosaves locally"}
               </span>
               <button
                 onClick={() => setEditing(false)}
-                className="flex items-center gap-1.5 rounded-md bg-accent-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent-400"
+                className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accentHover"
               >
                 Done
               </button>
@@ -831,14 +831,14 @@ function StageView({ stageId, onRecordingChange }) {
               {isEdited && (
                 <button
                   onClick={handleReset}
-                  className="rounded-md px-3 py-2 text-xs font-medium text-slate-300 transition hover:bg-ink-700"
+                  className="rounded-md px-3 py-2 text-xs font-medium text-ink1 transition hover:bg-surface2"
                 >
                   Reset to original
                 </button>
               )}
               <button
                 onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 rounded-md border border-ink-600 bg-ink-800 px-3.5 py-2 text-xs font-semibold text-slate-200 transition hover:border-ink-500"
+                className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-ink1 transition hover:border-line"
               >
                 <EditIcon />
                 Edit
@@ -846,7 +846,7 @@ function StageView({ stageId, onRecordingChange }) {
               <button
                 onClick={handleRegenerate}
                 disabled={busy}
-                className="flex items-center gap-1.5 rounded-md bg-accent-500 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accent-400 disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accentHover disabled:opacity-50"
               >
                 <RegenIcon spinning={busy} />
                 {busy ? "Working…" : "Regenerate"}
@@ -859,7 +859,7 @@ function StageView({ stageId, onRecordingChange }) {
       </header>
 
       {err && subTab === "prep" && (
-        <div className="mx-8 mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+        <div className="mx-8 mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-300">
           {err}
         </div>
       )}
@@ -955,7 +955,7 @@ function DocEditor({ initialValue, onChange, onDone }) {
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
       spellCheck={false}
-      className="w-full resize-none overflow-hidden rounded-lg border border-accent-500/40 bg-ink-900 p-4 font-mono text-[13px] leading-relaxed text-slate-200 focus:border-accent-500 focus:outline-none"
+      className="w-full resize-none overflow-hidden rounded-lg border border-accent/40 bg-canvas p-4 font-mono text-[13px] leading-relaxed text-ink1 focus:border-accent focus:outline-none"
     />
   );
 }
