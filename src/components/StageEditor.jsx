@@ -42,14 +42,14 @@ export default function StageEditor({ stages, onChange }) {
         {stages.map((stage, i) => {
           const isOpen = expanded.has(stage.id);
           return (
-            <div key={stage.id} className="rounded-lg border border-ink-700 bg-ink-900/40 p-3">
+            <div key={stage.id} className="rounded-lg border border-line bg-canvas/40 p-3">
               <div className="flex items-start gap-2">
                 <div className="flex shrink-0 flex-col gap-0.5">
                   <button
                     onClick={() => moveStageAt(i, -1)}
                     disabled={i === 0}
                     aria-label="Move up"
-                    className="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-ink-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    className="rounded px-1.5 py-0.5 text-xs text-ink2 hover:bg-surface2 hover:text-ink1 disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     ↑
                   </button>
@@ -57,7 +57,7 @@ export default function StageEditor({ stages, onChange }) {
                     onClick={() => moveStageAt(i, 1)}
                     disabled={i === stages.length - 1}
                     aria-label="Move down"
-                    className="rounded px-1.5 py-0.5 text-xs text-slate-400 hover:bg-ink-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+                    className="rounded px-1.5 py-0.5 text-xs text-ink2 hover:bg-surface2 hover:text-ink1 disabled:cursor-not-allowed disabled:opacity-30"
                   >
                     ↓
                   </button>
@@ -67,18 +67,18 @@ export default function StageEditor({ stages, onChange }) {
                     value={stage.title}
                     onChange={(e) => renameStage(stage.id, { title: e.target.value })}
                     placeholder="Stage title"
-                    className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1 text-sm font-medium text-slate-200 focus:border-accent-500 focus:outline-none"
+                    className="w-full rounded-md border border-line bg-surface px-2 py-1 text-sm font-medium text-ink1 focus:border-accent focus:outline-none"
                   />
                   <input
                     value={stage.subtitle || ""}
                     onChange={(e) => renameStage(stage.id, { subtitle: e.target.value })}
                     placeholder="Subtitle (optional)"
-                    className="w-full rounded-md border border-ink-600 bg-ink-800 px-2 py-1 text-xs text-slate-400 focus:border-accent-500 focus:outline-none"
+                    className="w-full rounded-md border border-line bg-surface px-2 py-1 text-xs text-ink2 focus:border-accent focus:outline-none"
                   />
                 </div>
                 <button
                   onClick={() => removeStage(stage.id)}
-                  className="shrink-0 rounded px-2 py-1 text-xs text-slate-500 hover:bg-ink-600 hover:text-red-400"
+                  className="shrink-0 rounded px-2 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-red-600 dark:hover:text-red-400"
                 >
                   Remove
                 </button>
@@ -87,7 +87,7 @@ export default function StageEditor({ stages, onChange }) {
               <div className="mt-2">
                 <button
                   onClick={() => toggleAdvanced(stage.id)}
-                  className="text-xs font-medium text-slate-500 hover:text-slate-300"
+                  className="text-xs font-medium text-ink2 hover:text-ink1"
                 >
                   {isOpen ? "▾ Advanced" : "▸ Advanced"}
                 </button>
@@ -97,7 +97,7 @@ export default function StageEditor({ stages, onChange }) {
                     onChange={(e) => renameStage(stage.id, { regenTask: e.target.value })}
                     rows={5}
                     placeholder="AI prompt used when regenerating this stage's prep doc."
-                    className="mt-1.5 w-full resize-none rounded-md border border-ink-600 bg-ink-900 p-2 font-mono text-xs leading-relaxed text-slate-200 focus:border-accent-500 focus:outline-none"
+                    className="mt-1.5 w-full resize-none rounded-md border border-line bg-canvas p-2 font-mono text-xs leading-relaxed text-ink1 focus:border-accent focus:outline-none"
                   />
                 )}
               </div>
@@ -108,7 +108,7 @@ export default function StageEditor({ stages, onChange }) {
 
       <button
         onClick={addStage}
-        className="mt-3 w-full rounded-xl border border-dashed border-ink-600 py-2.5 text-xs text-slate-400 transition hover:border-ink-500 hover:text-white"
+        className="mt-3 w-full rounded-xl border border-dashed border-line py-2.5 text-xs text-ink2 transition hover:border-line hover:text-ink1"
       >
         + Add custom stage
       </button>

@@ -197,11 +197,11 @@ export default function Flashcards() {
   return (
     <div className="flex h-full min-h-0">
       {/* Left: filters + list */}
-      <aside className="flex w-72 shrink-0 flex-col border-r border-ink-700 bg-ink-800/50">
-        <div className="space-y-3 border-b border-ink-700 p-4">
+      <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-surface/50">
+        <div className="space-y-3 border-b border-line p-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white">Flashcards</h2>
-            <span className="text-xs text-slate-400">{visible.length} shown</span>
+            <h2 className="text-sm font-semibold text-ink1">Flashcards</h2>
+            <span className="text-xs text-ink2">{visible.length} shown</span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <Stat label="Cards" value={stats.total} />
@@ -211,7 +211,7 @@ export default function Flashcards() {
           <select
             value={cat}
             onChange={(e) => setCat(e.target.value)}
-            className="w-full rounded-md border border-ink-600 bg-ink-900 px-2 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+            className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
           >
             <option value="all">All categories</option>
             {CATEGORIES.map((c) => (
@@ -223,7 +223,7 @@ export default function Flashcards() {
           <select
             value={conf}
             onChange={(e) => setConf(e.target.value)}
-            className="w-full rounded-md border border-ink-600 bg-ink-900 px-2 py-1.5 text-xs text-slate-200 focus:border-accent-500 focus:outline-none"
+            className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
           >
             {CONF_FILTERS.map((f) => (
               <option key={f.id} value={f.id}>
@@ -231,7 +231,7 @@ export default function Flashcards() {
               </option>
             ))}
           </select>
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink1">
             <input
               type="checkbox"
               checked={sortWeak}
@@ -244,7 +244,7 @@ export default function Flashcards() {
 
         <div className="min-h-0 flex-1 overflow-y-auto p-2">
           {visible.length === 0 && (
-            <p className="p-3 text-xs text-slate-500">No cards match these filters.</p>
+            <p className="p-3 text-xs text-ink2">No cards match these filters.</p>
           )}
           {visible.map((c) => (
             <CardRow
@@ -256,11 +256,11 @@ export default function Flashcards() {
           ))}
         </div>
 
-        <div className="border-t border-ink-700 p-3">
+        <div className="border-t border-line p-3">
           <button
             onClick={handleGenerate}
             disabled={busy}
-            className="w-full rounded-md border border-ink-600 bg-ink-800 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-ink-500 disabled:opacity-50"
+            className="w-full rounded-md border border-line bg-surface px-3 py-2 text-xs font-semibold text-ink1 transition hover:border-line disabled:opacity-50"
           >
             {busy ? "Working…" : "+ Generate more questions"}
           </button>
@@ -270,7 +270,7 @@ export default function Flashcards() {
       {/* Right: selected card */}
       <div className="flex min-w-0 flex-1 flex-col">
         {err && (
-          <div className="mx-8 mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-300">
+          <div className="mx-8 mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-300">
             {err}
           </div>
         )}
@@ -293,7 +293,7 @@ export default function Flashcards() {
             onModelUpdated={bump}
           />
         ) : (
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+          <div className="flex flex-1 items-center justify-center text-sm text-ink2">
             Select a card to study.
           </div>
         )}
@@ -314,9 +314,9 @@ export default function Flashcards() {
 
 function Stat({ label, value }) {
   return (
-    <div className="rounded-md bg-ink-900/60 py-1.5">
-      <div className="text-sm font-semibold text-white">{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+    <div className="rounded-md bg-canvas/60 py-1.5">
+      <div className="text-sm font-semibold text-ink1">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-ink2">{label}</div>
     </div>
   );
 }
@@ -327,20 +327,20 @@ function CardRow({ card, active, onClick }) {
       onClick={onClick}
       className={`mb-1 block w-full rounded-lg px-3 py-2.5 text-left transition ${
         active
-          ? "bg-accent-500/15 ring-1 ring-inset ring-accent-500/40"
-          : "hover:bg-ink-700/60"
+          ? "bg-accent/15 ring-1 ring-inset ring-accent/40"
+          : "hover:bg-surface2/60"
       }`}
     >
       <div className="flex items-center gap-2">
         <ConfidenceDot value={card.confidence} />
-        <span className="text-[10px] uppercase tracking-wide text-slate-500">
+        <span className="text-[10px] uppercase tracking-wide text-ink2">
           {categoryLabel(card.category)}
         </span>
         {card.myAnswer.trim() && (
-          <span className="ml-auto text-[10px] text-emerald-400">answered</span>
+          <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400">answered</span>
         )}
       </div>
-      <p className="mt-1 line-clamp-2 text-xs leading-snug text-slate-200">
+      <p className="mt-1 line-clamp-2 text-xs leading-snug text-ink1">
         {card.question}
       </p>
     </button>
@@ -356,7 +356,7 @@ const CONF_COLORS = {
 };
 
 function ConfidenceDot({ value }) {
-  const color = value == null ? "bg-slate-600" : CONF_COLORS[value];
+  const color = value == null ? "bg-ink2" : CONF_COLORS[value];
   return (
     <span
       title={value == null ? "Unrated" : `Confidence ${value}/5`}
@@ -433,13 +433,13 @@ function CardDetail({
     <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 flex items-center justify-between">
-          <span className="rounded-full bg-ink-700 px-2.5 py-1 text-[11px] font-medium text-slate-300">
+          <span className="rounded-full bg-surface2 px-2.5 py-1 text-[11px] font-medium text-ink1">
             {categoryLabel(card.category)}
           </span>
-          <div className="flex items-center gap-2 text-xs text-slate-400">
+          <div className="flex items-center gap-2 text-xs text-ink2">
             <button
               onClick={onPrev}
-              className="rounded-md px-2 py-1 transition hover:bg-ink-700 hover:text-white"
+              className="rounded-md px-2 py-1 transition hover:bg-surface2 hover:text-ink1"
             >
               ← Prev
             </button>
@@ -448,7 +448,7 @@ function CardDetail({
             </span>
             <button
               onClick={onNext}
-              className="rounded-md px-2 py-1 transition hover:bg-ink-700 hover:text-white"
+              className="rounded-md px-2 py-1 transition hover:bg-surface2 hover:text-ink1"
             >
               Next →
             </button>
@@ -471,14 +471,14 @@ function CardDetail({
               }}
               aria-hidden={flipped}
               tabIndex={flipped ? -1 : 0}
-              className={`absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-ink-600 bg-gradient-to-br from-ink-700 to-ink-800 p-8 text-center [backface-visibility:hidden] ${
+              className={`absolute inset-0 flex flex-col items-center justify-center rounded-2xl border border-line bg-gradient-to-br from-surface2 to-surface p-8 text-center shadow-sm [backface-visibility:hidden] ${
                 flipped ? "pointer-events-none" : "z-10"
               }`}
             >
-              <p className="text-lg font-medium leading-relaxed text-white">
+              <p className="text-lg font-medium leading-relaxed text-ink1">
                 {card.question}
               </p>
-              <span className="mt-4 text-xs text-slate-400">
+              <span className="mt-4 text-xs text-ink2">
                 Answer first, then flip to see the model answer →
               </span>
             </button>
@@ -486,18 +486,18 @@ function CardDetail({
             {/* Back — model answer, edit in place */}
             <div
               aria-hidden={!flipped}
-              className={`absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-accent-500/30 bg-ink-800 p-5 text-left [backface-visibility:hidden] [transform:rotateY(180deg)] ${
+              className={`absolute inset-0 flex flex-col overflow-hidden rounded-2xl border border-accent/30 bg-surface p-5 text-left shadow-sm [backface-visibility:hidden] [transform:rotateY(180deg)] ${
                 flipped ? "z-10" : "pointer-events-none"
               }`}
             >
               <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-accent-400">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-accent">
                   Model answer
                   {card.referenceIsCustom && (
-                    <span className="ml-1.5 normal-case text-emerald-400">· customized</span>
+                    <span className="ml-1.5 normal-case text-emerald-600 dark:text-emerald-400">· customized</span>
                   )}
                   {modelSavedTick && (
-                    <span className="ml-1.5 normal-case text-emerald-400">· saved</span>
+                    <span className="ml-1.5 normal-case text-emerald-600 dark:text-emerald-400">· saved</span>
                   )}
                 </span>
                 <div className="flex shrink-0 items-center gap-1">
@@ -507,7 +507,7 @@ function CardDetail({
                         <button
                           type="button"
                           onClick={resetModel}
-                          className="rounded px-2 py-0.5 text-[10px] text-slate-400 hover:bg-ink-700 hover:text-white"
+                          className="rounded px-2 py-0.5 text-[10px] text-ink2 hover:bg-surface2 hover:text-ink1"
                         >
                           Reset
                         </button>
@@ -515,7 +515,7 @@ function CardDetail({
                       <button
                         type="button"
                         onClick={() => setEditingModel(true)}
-                        className="rounded bg-ink-700 px-2 py-0.5 text-[10px] font-semibold text-slate-200 hover:bg-ink-600"
+                        className="rounded bg-surface2 px-2 py-0.5 text-[10px] font-semibold text-ink1 hover:bg-surface2"
                       >
                         Edit
                       </button>
@@ -528,7 +528,7 @@ function CardDetail({
                           setModelText(modelDisplay);
                           setEditingModel(false);
                         }}
-                        className="rounded px-2 py-0.5 text-[10px] text-slate-400 hover:bg-ink-700"
+                        className="rounded px-2 py-0.5 text-[10px] text-ink2 hover:bg-surface2"
                       >
                         Cancel
                       </button>
@@ -536,7 +536,7 @@ function CardDetail({
                         type="button"
                         onClick={handleSaveModelEdit}
                         disabled={!modelText.trim()}
-                        className="rounded bg-accent-500 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-accent-400 disabled:opacity-40"
+                        className="rounded bg-accent px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-accentHover disabled:opacity-40"
                       >
                         Save
                       </button>
@@ -550,14 +550,14 @@ function CardDetail({
                   <textarea
                     value={modelText}
                     onChange={(e) => setModelText(e.target.value)}
-                    className="h-full min-h-[12rem] w-full resize-none rounded-lg border border-ink-600 bg-ink-900 p-3 font-mono text-[13px] leading-relaxed text-slate-200 focus:border-accent-500 focus:outline-none"
+                    className="h-full min-h-[12rem] w-full resize-none rounded-lg border border-line bg-canvas p-3 font-mono text-[13px] leading-relaxed text-ink1 focus:border-accent focus:outline-none"
                   />
                 ) : modelDisplay ? (
-                  <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-slate-200">
+                  <pre className="whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-ink1">
                     {modelDisplay}
                   </pre>
                 ) : (
-                  <p className="text-sm italic text-slate-500">No model answer yet.</p>
+                  <p className="text-sm italic text-ink2">No model answer yet.</p>
                 )}
               </div>
 
@@ -567,7 +567,7 @@ function CardDetail({
                   setEditingModel(false);
                   setFlipped(false);
                 }}
-                className="mt-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-accent-500/40 bg-accent-500/10 px-4 py-2.5 text-sm font-semibold text-accent-300 transition hover:border-accent-400/60 hover:bg-accent-500/20 hover:text-white"
+                className="mt-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/20 hover:text-ink1"
               >
                 <span aria-hidden="true">↩</span>
                 Back to question
@@ -578,9 +578,9 @@ function CardDetail({
 
         {/* Confidence — coach assigns it; you can still override */}
         <div className="mt-6 flex items-center justify-between">
-          <span className="text-xs font-medium text-slate-400">
+          <span className="text-xs font-medium text-ink2">
             Confidence{" "}
-            <span className="text-slate-600">
+            <span className="text-ink2">
               {card.confidence != null
                 ? "(coach-assigned · tap to override)"
                 : "(coach assigns on submit · or set manually)"}
@@ -591,7 +591,7 @@ function CardDetail({
 
         {/* Answer editor + coach */}
         <section className="mt-6">
-          <h3 className="mb-2 text-sm font-semibold text-white">Your answer (draft)</h3>
+          <h3 className="mb-2 text-sm font-semibold text-ink1">Your answer (draft)</h3>
           <AnswerEditor
             card={card}
             onDraftChange={setDraft}
@@ -602,7 +602,7 @@ function CardDetail({
               onClick={() => onCoach(draft)}
               disabled={busy || !draft.trim()}
               title={!draft.trim() ? "Write a draft first" : "Get coaching"}
-              className="rounded-md bg-accent-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-md bg-accent px-4 py-2 text-xs font-semibold text-white transition hover:bg-accentHover disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? "Working…" : "Coach me"}
             </button>
@@ -611,14 +611,14 @@ function CardDetail({
 
         {/* Coaching output */}
         {card.aiCoaching && (
-          <section className="mt-6 rounded-xl border border-ink-700 bg-ink-800/50 p-5">
-            <h3 className="mb-2 text-sm font-semibold text-accent-400">
+          <section className="mt-6 rounded-xl border border-line bg-surface/50 p-5">
+            <h3 className="mb-2 text-sm font-semibold text-accent">
               Coaching
             </h3>
             <Markdown>{card.aiCoaching}</Markdown>
 
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-ink-700 pt-4">
-              <p className="w-full text-[11px] text-slate-500">
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
+              <p className="w-full text-[11px] text-ink2">
                 Promote to the model answer on the card back (flip to see it).
               </p>
               {tightened && (
@@ -634,7 +634,7 @@ function CardDetail({
                 <button
                   type="button"
                   onClick={() => promoteToModel(draft)}
-                  className="rounded-md border border-emerald-600/50 bg-emerald-600/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-600/20"
+                  className="rounded-md border border-emerald-600/50 bg-emerald-600/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-300 transition hover:bg-emerald-600/20"
                 >
                   Use my draft as model
                 </button>
@@ -644,7 +644,7 @@ function CardDetail({
         )}
 
         {card.lastReviewed && (
-          <p className="mt-6 text-center text-[11px] text-slate-600">
+          <p className="mt-6 text-center text-[11px] text-ink2">
             Last reviewed {new Date(card.lastReviewed).toLocaleString()}
           </p>
         )}
@@ -665,8 +665,8 @@ function ConfidencePicker({ value, onPick }) {
             title={`Confidence ${n}/5`}
             className={`h-8 w-8 rounded-md text-sm font-semibold transition ${
               on
-                ? `${CONF_COLORS[n]} text-ink-900`
-                : "bg-ink-700 text-slate-300 hover:bg-ink-600"
+                ? `${CONF_COLORS[n]} text-black`
+                : "bg-surface2 text-ink1 hover:bg-surface2"
             }`}
           >
             {n}
@@ -739,7 +739,7 @@ function AnswerEditor({ card, onDraftChange, onPersist }) {
           onChange={onChange}
           onBlur={onBlur}
           placeholder="Type your answer, or use the mic to answer out loud (STAR-ish: situation, what you did, the result with real numbers)…"
-          className="min-h-[140px] w-full resize-y rounded-lg border border-ink-700 bg-ink-900 p-4 pr-14 text-sm leading-relaxed text-slate-200 placeholder:text-slate-500 focus:border-accent-500 focus:outline-none"
+          className="min-h-[140px] w-full resize-y rounded-lg border border-line bg-canvas p-4 pr-14 text-sm leading-relaxed text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none"
         />
         {speech.supported && (
           <button
@@ -749,7 +749,7 @@ function AnswerEditor({ card, onDraftChange, onPersist }) {
             className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full transition ${
               speech.listening
                 ? "animate-pulse bg-red-500 text-white"
-                : "bg-ink-700 text-slate-300 hover:bg-ink-600 hover:text-white"
+                : "bg-surface2 text-ink1 hover:bg-surface2 hover:text-ink1"
             }`}
           >
             <MicIcon />
@@ -758,16 +758,16 @@ function AnswerEditor({ card, onDraftChange, onPersist }) {
       </div>
 
       <div className="mt-1 flex items-center justify-between text-[11px]">
-        <span className="text-slate-500">
+        <span className="text-ink2">
           {speech.listening ? (
-            <span className="text-red-400">
+            <span className="text-red-600 dark:text-red-400">
               ● Listening{speech.interim ? `: "${speech.interim}"` : "… speak now"}
             </span>
           ) : speech.error ? (
             <span className="text-amber-400">
               {speech.error}
               {speech.error.includes("network") && (
-                <span className="mt-0.5 block text-slate-500">
+                <span className="mt-0.5 block text-ink2">
                   For live transcript: open in standalone Chrome. Or type your answer below.
                 </span>
               )}
@@ -778,7 +778,7 @@ function AnswerEditor({ card, onDraftChange, onPersist }) {
             "Mic transcription needs Chrome — typing works everywhere"
           )}
         </span>
-        <span className="text-slate-500">{saved ? "Saved ✓" : "Autosaves locally"}</span>
+        <span className="text-ink2">{saved ? "Saved ✓" : "Autosaves locally"}</span>
       </div>
     </div>
   );
