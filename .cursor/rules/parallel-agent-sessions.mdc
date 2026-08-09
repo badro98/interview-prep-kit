@@ -1,0 +1,26 @@
+---
+description: Keep parallel Cursor sessions on separate git branches to avoid mixed WIP
+alwaysApply: true
+---
+
+# Parallel agent sessions → separate branches
+
+When two Cursor chats (or any two agents) work in this repo at the same time, **do not share one dirty working tree / one branch**. That is how unrelated features get mixed (e.g. theme WIP + Advisor search on `feat/linkedin-theme-light-dark`).
+
+## Default
+
+1. **Each new session starts on its own branch** from latest `main`, named for the task (`feat/…`, `fix/…`, `chore/…`), **unless the user names an existing branch** to continue.
+2. **Before the first edit**, check `git branch --show-current` (and the IDE branch indicator). If it does not match this session’s task, switch or use a worktree — do not keep editing on the wrong branch.
+3. **One task ↔ one branch.** Never commit feature A’s files on feature B’s branch “because we were already there.”
+
+## Parallel sessions
+
+- Prefer **separate git worktrees** (or separate checkouts) when two sessions both need uncommitted changes at once.
+- Do **not** leave session A’s unfinished edits sitting on session B’s branch after a merge or context switch.
+- After merging a PR for this session’s work, park on `main` or the next task’s branch — not an unrelated feature branch that still has foreign WIP.
+
+## Commits / PRs
+
+- Stage only files for **this** session’s task.
+- Never stage/commit `context/`, `generated/`, or `interview.config.js` (public-repo guardrail).
+- Open a PR from this session’s branch only; do not fold unrelated local WIP into that PR.

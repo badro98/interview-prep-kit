@@ -120,6 +120,10 @@ Most people should just use the in-app onboarding wizard above — it's faster a
 
 **Using the kit for a real interview?** Keep your personal edits to `context/`, `generated/`, and `interview.config.js` local. A pre-commit hook (installed via `npm install` → `prepare`) blocks committing those paths so a real resume or interviewer names cannot land in a public fork by accident. Intentional seed updates only: `ALLOW_SEED_COMMIT=1 git commit …`.
 
+### Parallel Cursor / agent sessions
+
+If two agent chats edit this repo at the same time, give **each session its own git branch** (from latest `main`) unless you explicitly tell the agent to continue on an existing branch. Sharing one dirty checkout across sessions is how unrelated WIP gets mixed. For true parallel dirty work, use separate [git worktrees](https://git-scm.com/docs/git-worktree). Agents also load this as an always-on Cursor rule in [`.cursor/rules/parallel-agent-sessions.mdc`](.cursor/rules/parallel-agent-sessions.mdc).
+
 ---
 
 ## Paste mode
@@ -138,6 +142,7 @@ interview-prep-kit/
 ├── generated/            # Seed prep docs + flashcards (customize via PROMPT.md)
 ├── interview.config.js   # Defaults, stage presets, and the seed job's config
 ├── .githooks/            # pre-commit: blocks personal seed-path commits
+├── .cursor/rules/        # Always-on agent rules (e.g. parallel-session branches)
 ├── server/               # Local proxy — calls your Gemini key
 ├── src/                  # React app — onboarding, jobs, profile, tabs
 ├── .env.example
