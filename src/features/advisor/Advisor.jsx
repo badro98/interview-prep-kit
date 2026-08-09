@@ -40,6 +40,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
   const activeThread = threads.find((t) => t.id === activeId) || null;
   const [messages, setMessages] = useState(() => activeThread?.messages || []);
   const [input, setInput] = useState("");
+  const [webSearch, setWebSearch] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [modal, setModal] = useState(null);
@@ -139,7 +140,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
           }
         }
 
-        const result = await advisorChat({ messages: nextMessages });
+        const result = await advisorChat({ messages: nextMessages, webSearch });
 
         if (result.mode === MODE_PASTE) {
           setModal({
@@ -167,7 +168,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
         setBusy(false);
       }
     },
-    [messages, busy, buildModelContent, activeId]
+    [messages, busy, buildModelContent, activeId, webSearch]
   );
 
   function savePasteReply(text) {
@@ -290,33 +291,50 @@ export default function Advisor({ onContextChange, onStagesChange }) {
 
         <div className="border-t border-ink-700 p-4">
           <form
-            className="mx-auto flex max-w-2xl gap-2"
+            className="mx-auto flex max-w-2xl flex-col gap-2"
             onSubmit={(e) => {
               e.preventDefault();
               send(input);
             }}
           >
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  send(input);
-                }
-              }}
-              rows={2}
-              placeholder="Ask anything, paste recruiter intel, or drop a URL to ingest…"
-              disabled={busy}
-              className="min-h-[52px] flex-1 resize-none rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-accent-500 focus:outline-none disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={busy || !input.trim()}
-              className="shrink-0 self-end rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-400 disabled:opacity-40"
-            >
-              Send
-            </button>
+            <div className="flex gap-2">
+              <textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send(input);
+                  }
+                }}
+                rows={2}
+                placeholder="Ask anything, paste recruiter intel, or drop a URL to ingest…"
+                disabled={busy}
+                className="min-h-[52px] flex-1 resize-none rounded-lg border border-ink-600 bg-ink-900 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-accent-500 focus:outline-none disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={busy || !input.trim()}
+                className="shrink-0 self-end rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-400 disabled:opacity-40"
+              >
+                Send
+              </button>
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 self-start text-xs text-slate-400">
+              <input
+                type="checkbox"
+                checked={webSearch}
+                onChange={(e) => setWebSearch(e.target.checked)}
+                disabled={busy}
+                className="rounded border-ink-600 bg-ink-900 text-accent-500 focus:ring-accent-500 disabled:opacity-50"
+              />
+              Web search
+              <span className="text-slate-500">
+                {getMode() === MODE_API
+                  ? "(Google grounding via Gemini)"
+                  : "(API mode only — paste has no live search)"}
+              </span>
+            </label>
           </form>
         </div>
       </div>

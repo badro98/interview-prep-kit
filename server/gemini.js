@@ -23,18 +23,53 @@ export function isConfigured() {
   return !!process.env.GEMINI_API_KEY;
 }
 
-/** Multi-turn chat (advisor + any feature that sends role-tagged messages). */
-export async function generateChat({ system, messages }) {
+function formatGroundingSources(res) {
+  const chunks = res?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (!Array.isArray(chunks) || chunks.length === 0) return "";
+
+  const seen = new Set();
+  const lines = [];
+  for (const chunk of chunks) {
+    const uri = chunk?.web?.uri;
+    const title = chunk?.web?.title || uri;
+    if (!uri || seen.has(uri)) continue;
+    seen.add(uri);
+    lines.push(`- [${title}](${uri})`);
+  }
+  if (lines.length === 0) return "";
+  return `\n\n**Sources:**\n${lines.join("\n")}`;
+}
+
+async function generateChatOnce({ system, messages, webSearch }) {
   const contents = (messages || []).map((m) => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
+  const config = {};
+  if (system) config.systemInstruction = system;
+  if (webSearch) config.tools = [{ googleSearch: {} }];
+
   const res = await ai().models.generateContent({
     model: MODEL,
     contents,
-    ...(system ? { config: { systemInstruction: system } } : {}),
+    ...(Object.keys(config).length ? { config } : {}),
   });
-  return res.text;
+  const text = res.text || "";
+  return webSearch ? text + formatGroundingSources(res) : text;
+}
+
+/** Multi-turn chat (advisor + any feature that sends role-tagged messages). */
+export async function generateChat({ system, messages, webSearch = false }) {
+  try {
+    return await generateChatOnce({ system, messages, webSearch });
+  } catch (e) {
+    // Some models/configs reject googleSearch — retry without tools.
+    if (webSearch) {
+      console.warn("generateChat with webSearch failed; retrying without tools:", e.message);
+      return generateChatOnce({ system, messages, webSearch: false });
+    }
+    throw e;
+  }
 }
 
 /** Single-turn text (legacy coaching calls). */

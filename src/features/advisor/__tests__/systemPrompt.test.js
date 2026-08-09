@@ -33,4 +33,19 @@ describe("getAdvisorSystem", () => {
     setProfileName("Osama Badr");
     expect(getAdvisorSystem()).toContain("Osama Badr");
   });
+
+  it("appends RESPONSE_STYLE with concise-by-default and search-awareness rules", () => {
+    const job = createJob({ role: "Staff Engineer", company: "Rocket Inc" });
+    setActiveJobId(job.id);
+    const prompt = getAdvisorSystem();
+
+    expect(prompt).toContain("RESPONSE_STYLE:");
+    expect(prompt).toContain("Default to concise answers");
+    expect(prompt).toContain("4–8 tight bullets");
+    expect(prompt).toContain("~150 words");
+    expect(prompt).toMatch(/Expand into full detail only when the user asks/i);
+    expect(prompt).toContain("Never abbreviate the advisor-actions JSON block");
+    expect(prompt).toMatch(/web search/i);
+    expect(prompt).toMatch(/cite sources/i);
+  });
 });

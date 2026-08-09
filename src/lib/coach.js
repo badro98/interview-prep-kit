@@ -103,15 +103,20 @@ function buildAdvisorSystem() {
  *
  * @param {object} opts
  * @param {Array<{role:'user'|'assistant', content:string, modelContent?:string}>} opts.messages
+ * @param {boolean} [opts.webSearch=false]  Enable Gemini Google Search grounding (API mode only).
  * @returns {Promise<{mode:'paste', prompt:string}|{mode:'api', text:string}>}
  */
-export async function advisorChat({ messages }) {
+export async function advisorChat({ messages, webSearch = false }) {
   const mode = getMode();
   const system = buildAdvisorSystem();
   const modelMessages = advisorMessagesForModel(messages);
 
   if (mode === MODE_API) {
-    const text = await askClaude({ system, messages: modelMessages });
+    const text = await askClaude({
+      system,
+      messages: modelMessages,
+      webSearch: !!webSearch,
+    });
     return { mode: MODE_API, text };
   }
 
@@ -124,7 +129,12 @@ export async function advisorChat({ messages }) {
     "CONVERSATION SO FAR:\n",
     transcript,
     "\n\nRespond as the Assistant to the latest User message. Continue the conversation naturally.",
-  ].join("\n");
+    webSearch
+      ? "\n\n(Note: Web search is enabled in the app, but paste mode has no live search — answer from knowledge and note when facts may be stale.)"
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
   return { mode: MODE_PASTE, prompt };
 }
