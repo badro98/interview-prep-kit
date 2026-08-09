@@ -49,11 +49,11 @@ app.get("/api/health", (_req, res) => {
 // Text coaching (API mode for prep-docs / flashcards). coach() posts { system, messages }.
 app.post("/api/chat", async (req, res) => {
   try {
-    const { system, messages } = req.body || {};
+    const { system, messages, webSearch } = req.body || {};
     const list = Array.isArray(messages) ? messages : [];
     const text =
       list.length > 0 && list.some((m) => m.role)
-        ? await generateChat({ system, messages: list })
+        ? await generateChat({ system, messages: list, webSearch: !!webSearch })
         : await generateText({
             system,
             user: list.map((m) => m.content).join("\n\n") || String(messages || ""),

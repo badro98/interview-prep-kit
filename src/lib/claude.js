@@ -3,11 +3,11 @@
 // In paste mode this file is never called. In API mode, coach() routes here, which
 // POSTs to /api/chat (proxied to the local Gemini server, which holds the key server-side).
 
-export async function askClaude({ system, messages }) {
+export async function askClaude({ system, messages, webSearch = false }) {
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ system, messages }),
+    body: JSON.stringify({ system, messages, webSearch: !!webSearch }),
   });
 
   if (!res.ok) {
