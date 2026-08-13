@@ -48,4 +48,17 @@ describe("getAdvisorSystem", () => {
     expect(prompt).toMatch(/web search/i);
     expect(prompt).toMatch(/cite sources/i);
   });
+
+  it("includes stage ids and instructs flashcards to carry stageId", () => {
+    const job = createJob({
+      role: "Staff Engineer",
+      company: "Rocket Inc",
+      stages: [{ id: "takehome", title: "Take-home", subtitle: "Exercise" }],
+    });
+    setActiveJobId(job.id);
+    const prompt = getAdvisorSystem();
+    expect(prompt).toContain('id="takehome"');
+    expect(prompt).toMatch(/stageId/);
+    expect(prompt).toMatch(/Current in-progress stage/i);
+  });
 });

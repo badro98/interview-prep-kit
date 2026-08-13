@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getStages, getStageDoc } from "./stages.js";
 import {
   getSuggestedStages,
@@ -6,6 +6,7 @@ import {
   shouldShowSuggestions,
 } from "./suggestions.js";
 import InterviewRecording from "./InterviewRecording.jsx";
+import RichDocEditor from "./RichDocEditor.jsx";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
@@ -17,8 +18,10 @@ import {
   getDocOverride,
   setDocOverride,
   clearDocOverride,
-  hasRecording,
-  getRecordingFlags,
+  getStagePages,
+  addStagePage,
+  updateStagePage,
+  deleteStagePage,
   setRecordingFlag,
   getCurrentStageId,
   getStageProgress,
@@ -44,7 +47,6 @@ function refreshStagesFromJob() {
 export default function PrepDocs() {
   const [stages, setStages] = useState(refreshStagesFromJob);
   const [activeId, setActiveId] = useState(() => defaultActiveStageId(refreshStagesFromJob()));
-  const [recordingFlags, setRecordingFlags] = useState(() => getRecordingFlags());
   const [progressTick, setProgressTick] = useState(0);
   const [adding, setAdding] = useState(false);
   const [addTitle, setAddTitle] = useState("");
@@ -57,7 +59,14 @@ export default function PrepDocs() {
   const [suggestions, setSuggestions] = useState(() => getSuggestedStages());
   const [previewSuggestionId, setPreviewSuggestionId] = useState(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [activePageId, setActivePageId] = useState(null);
+  const [pagesTick, setPagesTick] = useState(0);
+  const [expandedIds, setExpandedIds] = useState(() => {
+    const id = defaultActiveStageId(refreshStagesFromJob());
+    return id ? { [id]: true } : {};
+  });
   const bumpProgress = () => setProgressTick((t) => t + 1);
+  const bumpPages = () => setPagesTick((t) => t + 1);
 
   const reloadSuggestions = useCallback(() => {
     setSuggestions(getSuggestedStages());
@@ -70,7 +79,9 @@ export default function PrepDocs() {
     setActiveId((prev) => {
       const want = preferActiveId || prev;
       if (want && next.some((s) => s.id === want)) return want;
-      return defaultActiveStageId(next);
+      const fallback = defaultActiveStageId(next);
+      setActivePageId(null);
+      return fallback;
     });
     reloadSuggestions();
     return next;
@@ -85,19 +96,6 @@ export default function PrepDocs() {
   const banner =
     !bannerDismissed && showSuggestions ? buildSuggestionBanner(suggestions) : null;
 
-  // When pipeline suggestions appear after a recruiter call, mark recruiter complete
-  // if it still looks like the active stage.
-  useEffect(() => {
-    if (!showSuggestions || !banner) return;
-    if (!stages.some((s) => s.id === "recruiter")) return;
-    const status = getStageProgress("recruiter", stages.map((s) => s.id));
-    if (status === "in-progress" || status === "upcoming") {
-      setStageProgress("recruiter", "complete");
-      bumpProgress();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot when suggestions first surface
-  }, [showSuggestions, banner?.title]);
-
   useEffect(() => {
     getAllRecordings().then((recs) => {
       const currentIds = new Set(getStages().map((s) => s.id));
@@ -106,13 +104,8 @@ export default function PrepDocs() {
         if (r.status === "done" && currentIds.has(r.stageId)) flags[r.stageId] = true;
       }
       for (const id of Object.keys(flags)) setRecordingFlag(id, true);
-      setRecordingFlags({ ...getRecordingFlags(), ...flags });
     });
   }, [stages]);
-
-  const refreshRecordingFlags = useCallback(() => {
-    setRecordingFlags({ ...getRecordingFlags() });
-  }, []);
 
   function openAddForm() {
     setAddErr("");
@@ -195,6 +188,68 @@ export default function PrepDocs() {
   function handleSelectStage(id) {
     setPreviewSuggestionId(null);
     setActiveId(id);
+    setActivePageId(null);
+  }
+
+  function handleSelectPage(stageId, pageId) {
+    setPreviewSuggestionId(null);
+    setActiveId(stageId);
+    setActivePageId(pageId);
+    setExpandedIds((prev) => ({ ...prev, [stageId]: true }));
+  }
+
+  function handleToggleExpand(stageId) {
+    setExpandedIds((prev) => ({ ...prev, [stageId]: !prev[stageId] }));
+  }
+
+  function handleRenameStage(stageId, title) {
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+    const job = getActiveJob();
+    const jobId = getActiveJobId();
+    if (!job || !jobId) return;
+    updateJobStages(
+      jobId,
+      job.stages.map((s) => (s.id === stageId ? { ...s, title: nextTitle } : s))
+    );
+    reloadStages(stageId);
+  }
+
+  function handleAddPage(stageId) {
+    const page = addStagePage(stageId);
+    bumpPages();
+    handleSelectPage(stageId, page.id);
+  }
+
+  function handleRenamePage(stageId, pageId, title) {
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+    updateStagePage(stageId, pageId, { title: nextTitle });
+    bumpPages();
+  }
+
+  function handleDeletePage(stageId, pageId) {
+    deleteStagePage(stageId, pageId);
+    const remaining = getStagePages(stageId);
+    bumpPages();
+    if (remaining.length === 0) {
+      setExpandedIds((prev) => ({ ...prev, [stageId]: false }));
+    }
+    if (activeId === stageId && activePageId === pageId) setActivePageId(null);
+  }
+
+  function handleDeleteStage(stageId) {
+    const job = getActiveJob();
+    const jobId = getActiveJobId();
+    if (!job || !jobId) return;
+    if (job.stages.length <= 1) {
+      setAddErr("Keep at least one stage.");
+      return;
+    }
+    const next = job.stages.filter((s) => s.id !== stageId);
+    updateJobStages(jobId, next);
+    const prefer = activeId === stageId ? next[0]?.id : activeId;
+    reloadStages(prefer);
   }
 
   function handlePreviewSuggestion(id) {
@@ -262,8 +317,17 @@ export default function PrepDocs() {
       <StageNav
         stages={stages}
         activeId={previewSuggestion ? null : activeId}
+        activePageId={previewSuggestion ? null : activePageId}
         onSelect={handleSelectStage}
-        recordingFlags={recordingFlags}
+        onSelectPage={handleSelectPage}
+        expandedIds={expandedIds}
+        onToggleExpand={handleToggleExpand}
+        onRenameStage={handleRenameStage}
+        onAddPage={handleAddPage}
+        onRenamePage={handleRenamePage}
+        onDeletePage={handleDeletePage}
+        onDeleteStage={handleDeleteStage}
+        pagesTick={pagesTick}
         progressTick={progressTick}
         onProgressChange={bumpProgress}
         adding={adding}
@@ -302,9 +366,11 @@ export default function PrepDocs() {
             </div>
           )}
           <StageView
-            key={`${activeId}:${docNonce}`}
+            key={`${activeId}:${activePageId || "main"}:${docNonce}:${pagesTick}`}
             stageId={activeId}
-            onRecordingChange={refreshRecordingFlags}
+            pageId={activePageId}
+            onRecordingChange={() => {}}
+            onPageDeleted={() => setActivePageId(null)}
           />
         </div>
       ) : (
@@ -328,8 +394,17 @@ export default function PrepDocs() {
 function StageNav({
   stages,
   activeId,
+  activePageId,
   onSelect,
-  recordingFlags,
+  onSelectPage,
+  expandedIds = {},
+  onToggleExpand,
+  onRenameStage,
+  onAddPage,
+  onRenamePage,
+  onDeletePage,
+  onDeleteStage,
+  pagesTick,
   progressTick,
   onProgressChange,
   adding,
@@ -352,17 +427,20 @@ function StageNav({
   banner,
   onDismissBanner,
 }) {
-  // progressTick forces a re-read of localStorage after status edits.
+  // pagesTick / progressTick force a re-read of localStorage after edits.
+  void pagesTick;
   void progressTick;
   const stageIds = stages.map((s) => s.id);
   const titleRef = useRef(null);
+  const [renamingId, setRenamingId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   useEffect(() => {
     if (adding) titleRef.current?.focus();
   }, [adding]);
 
   return (
-    <nav className="flex h-full min-h-0 w-72 shrink-0 flex-col gap-1 border-r border-line bg-surface/50 p-3">
+    <nav className="flex h-full min-h-0 w-80 shrink-0 flex-col gap-1 border-r border-line bg-surface/50 p-3">
       <p className="px-2 pb-2 pt-1 text-xs font-semibold uppercase tracking-wider text-ink2">
         Interview stages
       </p>
@@ -389,53 +467,126 @@ function StageNav({
 
       <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
         {stages.map((s, i) => {
-          const active = s.id === activeId;
-          const hasOverride = !!getDocOverride(s.id);
-          const hasRec = recordingFlags[s.id] || hasRecording(s.id);
+          const active = s.id === activeId && !activePageId;
           const progress = getStageProgress(s.id, stageIds);
+          const pages = getStagePages(s.id);
+          const hasPages = pages.length > 0;
+          const expanded = hasPages && !!expandedIds[s.id];
 
           return (
             <div
               key={s.id}
               className={`rounded-lg transition ${
-                active
+                s.id === activeId
                   ? "bg-accent/15 ring-1 ring-inset ring-accent/40"
                   : "hover:bg-surface2/60"
               }`}
             >
               <div className="flex items-start gap-1 px-1 py-1">
-                <button
-                  type="button"
-                  onClick={() => onSelect(s.id)}
-                  className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left"
-                >
-                  <StageNavRow
-                    s={s}
-                    index={i}
-                    active={active}
-                    progress={progress}
-                    hasRec={hasRec}
-                    hasOverride={hasOverride}
-                  />
-                </button>
-                <label className="mt-1.5 shrink-0" title="Edit stage status">
-                  <span className="sr-only">Status for {s.title}</span>
-                  <select
-                    value={progress}
-                    onChange={(e) => {
-                      setStageProgress(s.id, e.target.value);
-                      onProgressChange?.();
-                    }}
-                    className="max-w-[5.75rem] rounded-md border border-line bg-canvas px-1 py-1 text-[10px] font-medium text-ink1 focus:border-accent focus:outline-none"
+                {hasPages ? (
+                  <button
+                    type="button"
+                    onClick={() => onToggleExpand?.(s.id)}
+                    className="mt-2 shrink-0 rounded p-0.5 text-ink2 hover:bg-surface2 hover:text-ink1"
+                    aria-label={expanded ? `Collapse ${s.title}` : `Expand ${s.title}`}
                   >
-                    {STAGE_PROGRESS_STATUSES.map((status) => (
-                      <option key={status} value={status}>
-                        {STAGE_PROGRESS_LABELS[status]}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                    <ChevronIcon open={expanded} />
+                  </button>
+                ) : null}
+                {renamingId === s.id ? (
+                  <div className="min-w-0 flex-1 rounded-md px-1 py-1.5">
+                    <StageNavRow
+                      s={s}
+                      index={i}
+                      active={active}
+                      progress={progress}
+                      renaming
+                      onTitleSave={(title) => {
+                        onRenameStage?.(s.id, title);
+                        setRenamingId(null);
+                      }}
+                      onTitleCancel={() => setRenamingId(null)}
+                    />
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onSelect(s.id)}
+                    className="min-w-0 flex-1 rounded-md px-1 py-1.5 text-left"
+                  >
+                    <StageNavRow
+                      s={s}
+                      index={i}
+                      active={active}
+                      progress={progress}
+                    />
+                  </button>
+                )}
+                {renamingId !== s.id && (
+                  <label className="mt-1.5 shrink-0" title="Edit stage status">
+                    <span className="sr-only">Status for {s.title}</span>
+                    <select
+                      value={progress}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        setStageProgress(s.id, e.target.value);
+                        onProgressChange?.();
+                      }}
+                      className="max-w-[5.75rem] rounded-md border border-line bg-canvas px-1 py-1 text-[10px] font-medium text-ink1 focus:border-accent focus:outline-none"
+                    >
+                      {STAGE_PROGRESS_STATUSES.map((status) => (
+                        <option key={status} value={status}>
+                          {STAGE_PROGRESS_LABELS[status]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <div className="mt-1.5 shrink-0">
+                  <StageMenu
+                    canDelete={stages.length > 1}
+                    onRename={() => setRenamingId(s.id)}
+                    onAddPage={() => onAddPage?.(s.id)}
+                    onDelete={() => setPendingDelete(s)}
+                  />
+                </div>
               </div>
+              {expanded && (
+                <div className="mb-1 ml-6 space-y-0.5 pb-1 pr-2">
+                  {pages.map((page) => (
+                    <div
+                      key={page.id}
+                      className={`flex items-center gap-1 rounded-md ${
+                        activePageId === page.id && s.id === activeId
+                          ? "bg-surface"
+                          : "hover:bg-surface2/70"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onSelectPage?.(s.id, page.id)}
+                        className="min-w-0 flex-1 break-words px-2 py-1 text-left text-xs text-ink1"
+                      >
+                        {page.title}
+                      </button>
+                      <InlineRename
+                        value={page.title}
+                        onSave={(title) => onRenamePage?.(s.id, page.id, title)}
+                        ariaLabel={`Rename page ${page.title}`}
+                      />
+                      <button
+                        type="button"
+                        title="Delete page"
+                        onClick={() => onDeletePage?.(s.id, page.id)}
+                        className="rounded px-1 text-[11px] text-ink2 hover:bg-surface2 hover:text-ink1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -474,9 +625,11 @@ function StageNav({
                       onClick={() => onPreviewSuggestion?.(s.id)}
                       className="min-w-0 flex-1 rounded-md px-1 py-0.5 text-left"
                     >
-                      <span className="text-sm font-medium text-ink1">{s.title}</span>
+                      <span className="break-words text-sm font-medium leading-snug text-ink1">
+                        {s.title}
+                      </span>
                       {s.subtitle && (
-                        <p className="mt-1 text-xs leading-snug text-ink2">{s.subtitle}</p>
+                        <p className="mt-1 break-words text-xs leading-snug text-ink2">{s.subtitle}</p>
                       )}
                     </button>
                   </div>
@@ -562,6 +715,19 @@ function StageNav({
           </button>
         )}
       </div>
+
+      {pendingDelete && (
+        <ConfirmDeleteDialog
+          title={`Delete “${pendingDelete.title}”?`}
+          body="This removes the stage and any subpages under it. This can’t be undone."
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={() => {
+            const id = pendingDelete.id;
+            setPendingDelete(null);
+            onDeleteStage?.(id);
+          }}
+        />
+      )}
     </nav>
   );
 }
@@ -583,12 +749,219 @@ function PlusIcon() {
   );
 }
 
-function StageNavRow({ s, index, active, progress, hasRec, hasOverride }) {
+function ChevronIcon({ open }) {
+  return (
+    <svg
+      className={`h-3 w-3 transition ${open ? "rotate-90" : ""}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function InlineRename({ value, onSave, ariaLabel }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  useEffect(() => {
+    if (editing) {
+      ref.current?.focus();
+      ref.current?.select();
+    }
+  }, [editing]);
+
+  function commit() {
+    const next = draft.trim();
+    setEditing(false);
+    if (next && next !== value) onSave?.(next);
+    else setDraft(value);
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        title={ariaLabel || "Rename"}
+        aria-label={ariaLabel || "Rename"}
+        onClick={(e) => {
+          e.stopPropagation();
+          setEditing(true);
+        }}
+        className="shrink-0 rounded px-1 py-0.5 text-[11px] leading-none text-ink2 hover:bg-surface2 hover:text-ink1"
+      >
+        ✎
+      </button>
+    );
+  }
+
+  return (
+    <input
+      ref={ref}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          commit();
+        }
+        if (e.key === "Escape") {
+          setDraft(value);
+          setEditing(false);
+        }
+      }}
+      className="w-16 shrink-0 rounded border border-accent/50 bg-canvas px-1 py-0.5 text-[11px] text-ink1 focus:outline-none"
+    />
+  );
+}
+
+function ConfirmDeleteDialog({ title, body, onCancel, onConfirm }) {
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") onCancel?.();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onMouseDown={(e) => e.target === e.currentTarget && onCancel?.()}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="confirm-delete-title"
+    >
+      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+        <h3 id="confirm-delete-title" className="text-base font-semibold text-ink1">
+          {title}
+        </h3>
+        <p className="mt-2 text-sm leading-relaxed text-ink2">{body}</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-md px-3 py-2 text-xs font-medium text-ink1 hover:bg-surface2"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-md bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StageMenu({ canDelete, onRename, onAddPage, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  function pick(fn) {
+    setOpen(false);
+    fn?.();
+  }
+
+  return (
+    <div className="relative shrink-0" ref={ref}>
+      <button
+        type="button"
+        title="Stage options"
+        aria-label="Stage options"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+        className="rounded px-1.5 py-1 text-sm leading-none text-ink2 hover:bg-surface2 hover:text-ink1"
+      >
+        ⋯
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-md border border-line bg-surface py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={() => pick(onRename)}
+            className="block w-full px-3 py-1.5 text-left text-xs text-ink1 hover:bg-surface2"
+          >
+            Rename
+          </button>
+          <button
+            type="button"
+            onClick={() => pick(onAddPage)}
+            className="block w-full px-3 py-1.5 text-left text-xs text-ink1 hover:bg-surface2"
+          >
+            Add subpage
+          </button>
+          <button
+            type="button"
+            disabled={!canDelete}
+            title={canDelete ? "Delete stage" : "Keep at least one stage"}
+            onClick={() => {
+              if (!canDelete) return;
+              pick(onDelete);
+            }}
+            className="block w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300"
+          >
+            Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StageNavRow({ s, index, active, progress, renaming, onTitleSave, onTitleCancel }) {
+  const [draft, setDraft] = useState(s.title);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    setDraft(s.title);
+  }, [s.title]);
+
+  useEffect(() => {
+    if (renaming) {
+      ref.current?.focus();
+      ref.current?.select();
+    }
+  }, [renaming]);
+
+  function commit() {
+    const next = draft.trim();
+    if (next && next !== s.title) onTitleSave?.(next);
+    else onTitleCancel?.();
+  }
+
   return (
     <>
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <span
-          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
             progress === "complete"
               ? "bg-emerald-600 text-white"
               : progress === "in-progress"
@@ -602,34 +975,31 @@ function StageNavRow({ s, index, active, progress, hasRec, hasOverride }) {
         >
           {progress === "complete" ? <CheckIcon /> : index + 1}
         </span>
-        <span
-          className={`text-sm font-medium ${
-            active || progress === "in-progress" ? "text-ink1" : "text-ink1"
-          }`}
-        >
-          {s.title}
-        </span>
-        {progress === "in-progress" && (
-          <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-            now
+        {renaming ? (
+          <input
+            ref={ref}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              }
+              if (e.key === "Escape") onTitleCancel?.();
+            }}
+            className="min-w-0 flex-1 rounded border border-accent/50 bg-canvas px-2 py-0.5 text-sm text-ink1 focus:outline-none"
+          />
+        ) : (
+          <span className="min-w-0 break-words text-sm font-medium leading-snug text-ink1">
+            {s.title}
           </span>
         )}
-        <span className="ml-auto flex items-center gap-1">
-          {hasRec && (
-            <span
-              title="Has interview recording"
-              className="h-1.5 w-1.5 rounded-full bg-sky-400"
-            />
-          )}
-          {hasOverride && (
-            <span
-              title="You've edited this doc"
-              className="h-1.5 w-1.5 rounded-full bg-emerald-400"
-            />
-          )}
-        </span>
       </div>
-      <p className="mt-1 pl-7 text-xs leading-snug text-ink2">{s.subtitle}</p>
+      {s.subtitle && (
+        <p className="mt-1 break-words pl-7 text-xs leading-snug text-ink2">{s.subtitle}</p>
+      )}
     </>
   );
 }
@@ -640,7 +1010,7 @@ function SuggestionPreview({ suggestion, busy, onAdd, onAddDraft, onDismiss }) {
       <header className="flex items-center justify-between gap-4 border-b border-line px-8 py-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="truncate text-lg font-semibold text-ink1">{suggestion.title}</h2>
+            <h2 className="text-lg font-semibold leading-snug text-ink1">{suggestion.title}</h2>
             <span className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-medium text-ink1 ring-1 ring-inset ring-line">
               suggested
             </span>
@@ -711,22 +1081,30 @@ function CheckIcon() {
   );
 }
 
-function StageView({ stageId, onRecordingChange }) {
+function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
   const base = useMemo(() => getStageDoc(stageId), [stageId]);
   const [override, setOverride] = useState(() => getDocOverride(stageId));
   const [subTab, setSubTab] = useState("prep");
   const [modal, setModal] = useState({ open: false, prompt: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [editing, setEditing] = useState(false);
   const [savedTick, setSavedTick] = useState(false);
+  const page = pageId ? getStagePages(stageId).find((p) => p.id === pageId) : null;
+
+  useEffect(() => {
+    if (pageId && !page) onPageDeleted?.();
+  }, [pageId, page, onPageDeleted]);
 
   // Stage may briefly not exist (job switching mid-render / empty stage list) —
   // getStageDoc returns null then. Bail after hooks are called so hook order stays stable.
   if (!base) return null;
 
   const markdown = override?.markdown ?? base.markdown;
+  const html = override?.html;
   const isEdited = !!override;
+  const isPage = !!pageId;
+
+  if (isPage && !page) return null;
 
   async function handleRegenerate() {
     setErr("");
@@ -755,10 +1133,16 @@ function StageView({ stageId, onRecordingChange }) {
     setModal({ open: false, prompt: "" });
   }
 
-  // Called as the user types in edit mode (already debounced by the editor).
-  function persistEdit(text) {
-    setDocOverride(stageId, text);
-    setOverride({ markdown: text, savedAt: Date.now() });
+  function persistMain({ html: nextHtml, markdown: nextMd }) {
+    setDocOverride(stageId, nextMd, { html: nextHtml });
+    setOverride({ markdown: nextMd, html: nextHtml, savedAt: Date.now() });
+    setSavedTick(true);
+    setTimeout(() => setSavedTick(false), 1500);
+  }
+
+  function persistPage({ html: nextHtml }) {
+    if (!pageId) return;
+    updateStagePage(stageId, pageId, { html: nextHtml });
     setSavedTick(true);
     setTimeout(() => setSavedTick(false), 1500);
   }
@@ -766,26 +1150,29 @@ function StageView({ stageId, onRecordingChange }) {
   function handleReset() {
     clearDocOverride(stageId);
     setOverride(null);
-    setEditing(false);
   }
+
+  const heading = isPage ? page.title : base.title;
+  const subheading = isPage ? `${base.title} · page` : base.subtitle;
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-8 py-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-lg font-semibold text-ink1">
-              {base.title}
+            <h2 className="break-words text-lg font-semibold leading-snug text-ink1">
+              {heading}
             </h2>
-            {isEdited && subTab === "prep" && (
-              <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-300 ring-1 ring-inset ring-emerald-500/30">
-                edited
+            {isPage && (
+              <span className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-medium text-ink1 ring-1 ring-inset ring-line">
+                page
               </span>
             )}
           </div>
-          <p className="text-xs text-ink2">{base.subtitle}</p>
+          <p className="text-xs text-ink2">{subheading}</p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
+          {!isPage && (
           <div className="flex gap-1 rounded-lg bg-surface p-1 text-xs">
             <button
               onClick={() => setSubTab("prep")}
@@ -808,78 +1195,67 @@ function StageView({ stageId, onRecordingChange }) {
               Recording / Transcript
             </button>
           </div>
-          {subTab === "prep" && (
+          )}
+          {(isPage || subTab === "prep") && (
         <div className="flex shrink-0 items-center gap-2">
-          {editing ? (
-            <>
-              <span
-                className={`text-xs transition ${
-                  savedTick ? "text-emerald-600 dark:text-emerald-400" : "text-ink2"
-                }`}
-              >
-                {savedTick ? "Saved ✓" : "Autosaves locally"}
-              </span>
-              <button
-                onClick={() => setEditing(false)}
-                className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accentHover"
-              >
-                Done
-              </button>
-            </>
-          ) : (
-            <>
-              {isEdited && (
-                <button
-                  onClick={handleReset}
-                  className="rounded-md px-3 py-2 text-xs font-medium text-ink1 transition hover:bg-surface2"
-                >
-                  Reset to original
-                </button>
-              )}
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 rounded-md border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-ink1 transition hover:border-line"
-              >
-                <EditIcon />
-                Edit
-              </button>
-              <button
-                onClick={handleRegenerate}
-                disabled={busy}
-                className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accentHover disabled:opacity-50"
-              >
-                <RegenIcon spinning={busy} />
-                {busy ? "Working…" : "Regenerate"}
-              </button>
-            </>
+          <span
+            className={`text-xs transition ${
+              savedTick ? "text-emerald-600 dark:text-emerald-400" : "text-ink2"
+            }`}
+          >
+            {savedTick ? "Saved ✓" : "Autosaves locally"}
+          </span>
+          {!isPage && isEdited && (
+            <button
+              onClick={handleReset}
+              className="rounded-md px-3 py-2 text-xs font-medium text-ink1 transition hover:bg-surface2"
+            >
+              Reset to original
+            </button>
+          )}
+          {!isPage && (
+            <button
+              onClick={handleRegenerate}
+              disabled={busy}
+              className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accentHover disabled:opacity-50"
+            >
+              <RegenIcon spinning={busy} />
+              {busy ? "Working…" : "Regenerate"}
+            </button>
           )}
         </div>
           )}
         </div>
       </header>
 
-      {err && subTab === "prep" && (
+      {err && (isPage || subTab === "prep") && (
         <div className="mx-8 mt-4 rounded-md border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-600 dark:text-red-300">
           {err}
         </div>
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className={subTab === "recording" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
-          <InterviewRecording stageId={stageId} onChange={onRecordingChange} />
-        </div>
-        <div className={subTab === "prep" ? "px-8 py-6" : "hidden"}>
+        {!isPage && (
+          <div className={subTab === "recording" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+            <InterviewRecording stageId={stageId} onChange={onRecordingChange} />
+          </div>
+        )}
+        <div className={isPage || subTab === "prep" ? "px-8 py-6" : "hidden"}>
         <article className="mx-auto max-w-3xl">
-          {editing ? (
-            <DocEditor
-              initialValue={markdown}
-              onChange={persistEdit}
-              onDone={() => setEditing(false)}
+          {isPage ? (
+            <RichDocEditor
+              key={page.id}
+              html={page.html}
+              placeholder="Write this page…"
+              onChange={persistPage}
             />
           ) : (
-            <div className="rounded-lg px-4 py-3">
-              <Markdown>{markdown}</Markdown>
-            </div>
+            <RichDocEditor
+              html={html}
+              markdown={markdown}
+              placeholder="Write your prep notes…"
+              onChange={persistMain}
+            />
           )}
         </article>
         </div>
@@ -898,68 +1274,6 @@ function StageView({ stageId, onRecordingChange }) {
   );
 }
 
-// Inline markdown editor: a self-sizing textarea over the doc source.
-// Autosaves (debounced) via onChange; the doc re-renders as Markdown on "Done".
-function DocEditor({ initialValue, onChange, onDone }) {
-  const [text, setText] = useState(initialValue);
-  const ref = useRef(null);
-  const timer = useRef(null);
-
-  function autosize() {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = el.scrollHeight + "px";
-  }
-
-  useLayoutEffect(() => {
-    autosize();
-    const el = ref.current;
-    if (el) {
-      el.focus();
-      const len = el.value.length;
-      el.setSelectionRange(len, len);
-    }
-  }, []);
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  function handleChange(e) {
-    const val = e.target.value;
-    setText(val);
-    autosize();
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => onChange(val), 400);
-  }
-
-  function handleKeyDown(e) {
-    // Cmd/Ctrl+Enter finishes editing.
-    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-      e.preventDefault();
-      clearTimeout(timer.current);
-      onChange(text);
-      onDone?.();
-    }
-  }
-
-  function handleBlur() {
-    clearTimeout(timer.current);
-    onChange(text);
-  }
-
-  return (
-    <textarea
-      ref={ref}
-      value={text}
-      onChange={handleChange}
-      onKeyDown={handleKeyDown}
-      onBlur={handleBlur}
-      spellCheck={false}
-      className="w-full resize-none overflow-hidden rounded-lg border border-accent/40 bg-canvas p-4 font-mono text-[13px] leading-relaxed text-ink1 focus:border-accent focus:outline-none"
-    />
-  );
-}
-
 function RegenIcon({ spinning }) {
   return (
     <svg
@@ -973,23 +1287,6 @@ function RegenIcon({ spinning }) {
     >
       <path d="M21 12a9 9 0 1 1-2.64-6.36" />
       <path d="M21 3v6h-6" />
-    </svg>
-  );
-}
-
-function EditIcon() {
-  return (
-    <svg
-      className="h-3.5 w-3.5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </svg>
   );
 }

@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
-import { getActiveJobId } from "../../lib/jobs.js";
+import { getActiveJob, getActiveJobId } from "../../lib/jobs.js";
 import { setCardProgress, addCustomCards, setModelOverride, clearModelOverride } from "../../lib/store.js";
 import { useSpeechRecognition } from "../audio/useSpeechRecognition.js";
 import {
   getDeck,
   CATEGORIES,
   categoryLabel,
+  stageLabel,
   buildCoachTask,
   buildGenerateTask,
   parseGenerated,
@@ -57,7 +58,10 @@ export default function Flashcards() {
 
   const [cat, setCat] = useState("all");
   const [conf, setConf] = useState("all");
+  const [stageFilter, setStageFilter] = useState("all");
   const [sortWeak, setSortWeak] = useState(true);
+  const [groupByStage, setGroupByStage] = useState(true);
+  const stages = useMemo(() => getActiveJob()?.stages || [], [tick]);
   const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null); // { kind, prompt, title, saveLabel, replyHint }
   const [busy, setBusy] = useState(false);
@@ -65,13 +69,28 @@ export default function Flashcards() {
 
   const visible = useMemo(() => {
     let list = deck.filter(
-      (c) => (cat === "all" || c.category === cat) && matchesConfidence(c, conf)
+      (c) =>
+        (cat === "all" || c.category === cat) &&
+        matchesConfidence(c, conf) &&
+        (stageFilter === "all" ||
+          (stageFilter === "unassigned" && !c.stageId) ||
+          c.stageId === stageFilter)
     );
-    list = sortWeak
-      ? [...list].sort(weakestFirst)
-      : list; // otherwise keep deck order (seed order)
+    const stageIndex = (id) => {
+      if (!id) return stages.length + 1;
+      const i = stages.findIndex((s) => s.id === id);
+      return i === -1 ? stages.length : i;
+    };
+    const byStageThenWeak = (a, b) => {
+      const si = stageIndex(a.stageId) - stageIndex(b.stageId);
+      if (si !== 0) return si;
+      return sortWeak ? weakestFirst(a, b) : 0;
+    };
+    if (groupByStage || sortWeak) {
+      list = [...list].sort(groupByStage ? byStageThenWeak : weakestFirst);
+    }
     return list;
-  }, [deck, cat, conf, sortWeak]);
+  }, [deck, cat, conf, stageFilter, sortWeak, groupByStage, stages]);
 
   // Keep a valid selection as filters change.
   useEffect(() => {
@@ -221,6 +240,19 @@ export default function Flashcards() {
             ))}
           </select>
           <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
+          >
+            <option value="all">All stages</option>
+            <option value="unassigned">Unassigned</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.title}
+              </option>
+            ))}
+          </select>
+          <select
             value={conf}
             onChange={(e) => setConf(e.target.value)}
             className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
@@ -231,6 +263,15 @@ export default function Flashcards() {
               </option>
             ))}
           </select>
+          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink1">
+            <input
+              type="checkbox"
+              checked={groupByStage}
+              onChange={(e) => setGroupByStage(e.target.checked)}
+              className="accent-accent"
+            />
+            Group by stage
+          </label>
           <label className="flex cursor-pointer items-center gap-2 text-xs text-ink1">
             <input
               type="checkbox"
@@ -246,14 +287,27 @@ export default function Flashcards() {
           {visible.length === 0 && (
             <p className="p-3 text-xs text-ink2">No cards match these filters.</p>
           )}
-          {visible.map((c) => (
-            <CardRow
-              key={c.id}
-              card={c}
-              active={c.id === selectedId}
-              onClick={() => setSelectedId(c.id)}
-            />
-          ))}
+          {visible.map((c, i) => {
+            const prev = visible[i - 1];
+            const showHeader =
+              groupByStage &&
+              (i === 0 || (prev?.stageId || "") !== (c.stageId || ""));
+            return (
+              <div key={c.id}>
+                {showHeader && (
+                  <p className="px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-ink2">
+                    {stageLabel(c.stageId, stages)}
+                  </p>
+                )}
+                <CardRow
+                  card={c}
+                  stageTitle={c.stageId ? stageLabel(c.stageId, stages) : null}
+                  active={c.id === selectedId}
+                  onClick={() => setSelectedId(c.id)}
+                />
+              </div>
+            );
+          })}
         </div>
 
         <div className="border-t border-line p-3">
@@ -291,6 +345,7 @@ export default function Flashcards() {
             }}
             onPersistAnswer={bump}
             onModelUpdated={bump}
+            stageTitle={selected.stageId ? stageLabel(selected.stageId, stages) : null}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-ink2">
@@ -321,7 +376,7 @@ function Stat({ label, value }) {
   );
 }
 
-function CardRow({ card, active, onClick }) {
+function CardRow({ card, active, onClick, stageTitle }) {
   return (
     <button
       onClick={onClick}
@@ -336,6 +391,9 @@ function CardRow({ card, active, onClick }) {
         <span className="text-[10px] uppercase tracking-wide text-ink2">
           {categoryLabel(card.category)}
         </span>
+        {stageTitle && (
+          <span className="truncate text-[10px] text-ink2">· {stageTitle}</span>
+        )}
         {card.myAnswer.trim() && (
           <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400">answered</span>
         )}
@@ -376,6 +434,7 @@ function CardDetail({
   onSetConfidence,
   onPersistAnswer,
   onModelUpdated,
+  stageTitle,
 }) {
   const [flipped, setFlipped] = useState(false);
   const [draft, setDraft] = useState(card.myAnswer);
@@ -433,9 +492,16 @@ function CardDetail({
     <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
       <div className="mx-auto max-w-3xl">
         <div className="mb-3 flex items-center justify-between">
-          <span className="rounded-full bg-surface2 px-2.5 py-1 text-[11px] font-medium text-ink1">
-            {categoryLabel(card.category)}
-          </span>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="rounded-full bg-surface2 px-2.5 py-1 text-[11px] font-medium text-ink1">
+              {categoryLabel(card.category)}
+            </span>
+            {stageTitle && (
+              <span className="rounded-full bg-accent/10 px-2.5 py-1 text-[11px] font-medium text-accent">
+                {stageTitle}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2 text-xs text-ink2">
             <button
               onClick={onPrev}

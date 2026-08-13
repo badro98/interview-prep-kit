@@ -146,9 +146,10 @@ describe("updateJobStages", () => {
     expect(getJob(job.id).stages).toEqual(nextStagesCopy);
   });
 
-  it("removing a stage deletes its prepdoc override, recordings flag, and progress entry", () => {
+  it("removing a stage deletes its prepdoc override, subpages, recordings flag, and progress entry", () => {
     const job = createJob({ stages: MULTI_STAGES });
     storageSet(`job:${job.id}:prepdoc:override:recruiter`, { markdown: "r", savedAt: 1 });
+    storageSet(`job:${job.id}:prepdoc:pages:recruiter`, [{ id: "p1", title: "Notes" }]);
     storageSet(`job:${job.id}:prepdoc:override:hm`, { markdown: "h", savedAt: 2 });
     storageSet(`job:${job.id}:recordings:hasByStage`, { recruiter: true, hm: true });
     storageSet(`job:${job.id}:stages:progress`, {
@@ -162,6 +163,7 @@ describe("updateJobStages", () => {
 
     expect(updated.stages.map((s) => s.id)).not.toContain("recruiter");
     expect(storageGet(`job:${job.id}:prepdoc:override:recruiter`)).toBeNull();
+    expect(storageGet(`job:${job.id}:prepdoc:pages:recruiter`)).toBeNull();
     expect(storageGet(`job:${job.id}:prepdoc:override:hm`)).toEqual({ markdown: "h", savedAt: 2 });
     expect(storageGet(`job:${job.id}:recordings:hasByStage`)).toEqual({ hm: true });
     expect(storageGet(`job:${job.id}:stages:progress`)).toEqual({

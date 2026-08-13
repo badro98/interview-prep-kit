@@ -19,6 +19,25 @@ export const CATEGORIES = [
 export const categoryLabel = (id) =>
   CATEGORIES.find((c) => c.id === id)?.label || id;
 
+/** Map a model-supplied stage id or title onto a job stage id. */
+export function resolveStageId(raw, stages = []) {
+  const value = String(raw || "").trim();
+  if (!value || !stages.length) return null;
+  const exact = stages.find((s) => s.id === value);
+  if (exact) return exact.id;
+  const lower = value.toLowerCase();
+  const byTitle = stages.find((s) => {
+    const title = String(s.title || "").toLowerCase();
+    return title === lower || title.startsWith(lower) || lower.startsWith(title);
+  });
+  return byTitle?.id || null;
+}
+
+export function stageLabel(stageId, stages = []) {
+  if (!stageId) return "Unassigned";
+  return stages.find((s) => s.id === stageId)?.title || stageId;
+}
+
 function seedCards() {
   return isSeedBacked(getActiveJob()) ? seed.cards || [] : [];
 }
@@ -47,6 +66,7 @@ export function getDeck() {
     return {
       id: c.id,
       category: c.category,
+      stageId: c.stageId || null,
       question: c.question,
       referenceAnswer: mo?.referenceAnswer ?? c.referenceAnswer ?? "",
       keyPoints: mo?.keyPoints ?? (Array.isArray(c.keyPoints) ? c.keyPoints : []),
@@ -196,9 +216,11 @@ export function buildGenerateTask({ count = 8, existingQuestions = [] }) {
 
 Spread them across these categories: "behavioral", "situational", "role-specific". Focus on skills and scenarios grounded in the job description and my context materials.
 
+If a question clearly belongs to an interview stage, include "stageId" using one of the job's stage ids.
+
 Return ONLY a JSON array, no prose, no code fences, in exactly this shape:
 [
-  { "category": "behavioral", "question": "..." },
+  { "category": "behavioral", "question": "...", "stageId": "optional-stage-id" },
   { "category": "situational", "question": "..." }
 ]${avoid}`;
 }
@@ -231,13 +253,18 @@ export function parseGenerated(text) {
   if (!Array.isArray(arr)) return [];
 
   const validCats = new Set(CATEGORIES.map((c) => c.id));
+  const stages = getActiveJob()?.stages || [];
   return arr
     .filter((x) => x && typeof x.question === "string" && x.question.trim())
-    .map((x) => ({
-      id: `gen-${slug(x.question)}-${Math.random().toString(36).slice(2, 7)}`,
-      category: validCats.has(x.category) ? x.category : "behavioral",
-      question: x.question.trim(),
-    }));
+    .map((x) => {
+      const stageId = resolveStageId(x.stageId || x.stage, stages);
+      return {
+        id: `gen-${slug(x.question)}-${Math.random().toString(36).slice(2, 7)}`,
+        category: validCats.has(x.category) ? x.category : "behavioral",
+        question: x.question.trim(),
+        ...(stageId ? { stageId } : {}),
+      };
+    });
 }
 
 function slug(s) {

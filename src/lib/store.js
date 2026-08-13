@@ -26,13 +26,71 @@ const overrideKey = (stageId) => `prepdoc:override:${stageId}`;
 
 /**
  * The editable doc body for a stage. Inline edits and regenerations both write
- * here, replacing the build-time markdown. Stored as { markdown, savedAt }.
- * Returns null when the user hasn't edited/regenerated (so the original shows).
+ * here, replacing the build-time markdown. Stored as { markdown, html?, savedAt }.
+ * `html` is the rich-editor source of truth when present; `markdown` remains
+ * for generate/advisor writes and as a fallback. Returns null when the user
+ * hasn't edited/regenerated (so the original shows).
  */
 export const getDocOverride = (stageId) => jget(overrideKey(stageId), null);
-export const setDocOverride = (stageId, markdown) =>
-  jset(overrideKey(stageId), { markdown, savedAt: Date.now() });
+export function setDocOverride(stageId, markdown, extra = {}) {
+  const rec = { markdown, savedAt: Date.now() };
+  if (typeof extra.html === "string") rec.html = extra.html;
+  jset(overrideKey(stageId), rec);
+}
 export const clearDocOverride = (stageId) => jremove(overrideKey(stageId));
+
+// ---- Per-stage subpages (extra titled docs under a stage) --------------------
+
+const pagesKey = (stageId) => `prepdoc:pages:${stageId}`;
+
+function newPageId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ||
+    `page-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
+}
+
+export function getStagePages(stageId) {
+  const pages = jget(pagesKey(stageId), []);
+  return Array.isArray(pages) ? pages : [];
+}
+
+function writeStagePages(stageId, pages) {
+  jset(pagesKey(stageId), pages);
+  return pages;
+}
+
+export function addStagePage(stageId, { title = "Untitled page", html = "<p></p>" } = {}) {
+  const page = {
+    id: newPageId(),
+    title: String(title || "Untitled page").trim() || "Untitled page",
+    html: typeof html === "string" && html.trim() ? html : "<p></p>",
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  writeStagePages(stageId, [...getStagePages(stageId), page]);
+  return page;
+}
+
+export function updateStagePage(stageId, pageId, patch) {
+  const pages = getStagePages(stageId);
+  const next = pages.map((p) =>
+    p.id === pageId ? { ...p, ...patch, id: p.id, updatedAt: Date.now() } : p
+  );
+  writeStagePages(stageId, next);
+  return next.find((p) => p.id === pageId) || null;
+}
+
+export function deleteStagePage(stageId, pageId) {
+  writeStagePages(
+    stageId,
+    getStagePages(stageId).filter((p) => p.id !== pageId)
+  );
+}
+
+export function clearStagePages(stageId) {
+  jremove(pagesKey(stageId));
+}
 
 // ---- Flashcard state ----------------------------------------------------------
 //
@@ -317,10 +375,13 @@ function defaultStageProgressMap() {
 
 /**
  * Seed defaults for any known stage ids missing from the stored map.
- * First stage becomes "in-progress" if nothing is marked in-progress yet.
+ * On first init only, the first stage is marked in-progress. After that the
+ * user's dropdown choices are left alone — completing every stage is valid.
  */
 export function ensureStageProgressDefaults(stageIds = []) {
-  const raw = { ...(jget(STAGE_PROGRESS_KEY, null) || defaultStageProgressMap()) };
+  const stored = jget(STAGE_PROGRESS_KEY, null);
+  const isFirstInit = stored === null;
+  const raw = { ...(stored || defaultStageProgressMap()) };
   const map = {};
   let changed = false;
 
@@ -337,13 +398,12 @@ export function ensureStageProgressDefaults(stageIds = []) {
     }
   }
 
-  const hasInProgress = Object.values(map).some((s) => s === "in-progress");
-  if (!hasInProgress && stageIds[0]) {
+  if (isFirstInit && stageIds[0] && !Object.values(map).some((s) => s === "in-progress")) {
     map[stageIds[0]] = "in-progress";
     changed = true;
   }
 
-  if (changed || jget(STAGE_PROGRESS_KEY, null) === null) {
+  if (changed || isFirstInit) {
     jset(STAGE_PROGRESS_KEY, map);
   }
   return map;
