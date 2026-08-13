@@ -116,9 +116,19 @@ export function buildAdvisorSystem(job) {
   const candidateName = job.candidateName ?? APP.candidateName;
   const role = job.role;
   const company = job.company;
-  const stages = job.stages;
+  const stages = job.stages || [];
+  const progress = job.stageProgress || {};
+  const currentId = job.currentStageId;
+  const current = stages.find((s) => s.id === currentId);
+  const currentLine = current
+    ? `Current in-progress stage: id="${current.id}" — ${current.title}. Prefer this stageId on new flashcards unless the question clearly belongs to another round.`
+    : "No stage is marked in-progress — pick the stageId that best matches when that question would be asked.";
   const stageList = stages
-    .map((s, i) => `${i + 1}. ${s.title} — ${s.subtitle}`)
+    .map((s, i) => {
+      const status = progress[s.id] ? ` [${progress[s.id]}]` : "";
+      const mark = s.id === currentId ? " ← current" : "";
+      return `${i + 1}. id="${s.id}" — ${s.title} — ${s.subtitle}${status}${mark}`;
+    })
     .join("\n");
 
   return `You are ${candidateName}'s interview prep advisor for the ${role} role at ${company}.
@@ -142,6 +152,7 @@ When you want to propose adding flashcards and/or saving context, end your messa
       "cards": [
         {
           "category": "behavioral|situational|role-specific",
+          "stageId": "takehome",
           "question": "...",
           "referenceAnswer": "optional gold-standard answer in their voice",
           "keyPoints": ["optional", "bullet", "points"]
@@ -163,12 +174,15 @@ Rules for proposals:
 - Ask in your prose whether they want these changes — the UI will show Add / Dismiss buttons.
 - Only include proposals when you have concrete content ready (questions drafted, context text written).
 - For add_flashcards: avoid duplicating questions already in their deck; include referenceAnswer + keyPoints when you can ground them in their background.
+- For add_flashcards: every card SHOULD include stageId using one of the ids listed below. Prefer the current in-progress stage when the question fits that round; otherwise pick the stage most likely to ask it (intuition is fine).
 - For add_context: use a clear name; content should be useful markdown (summary + key quotes/facts, or full pasted doc).
 - Omit the advisor-actions block entirely when not proposing changes.
 - You may include zero, one, or both proposal types in the same block.
 
-Interview stages (for reference):
-${stageList}
+${currentLine}
+
+Interview stages (use these ids for flashcard stageId):
+${stageList || "(none yet)"}
 
 Tone: supportive but honest. Flag gaps without being discouraging.`;
 }

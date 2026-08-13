@@ -3,6 +3,7 @@
 import { buildAdvisorSystem } from "../../../interview.config.js";
 import { getActiveJob } from "../../lib/jobs.js";
 import { getProfileName } from "../../lib/profile.js";
+import { getCurrentStageId, getStageProgressMap } from "../../lib/store.js";
 
 const RESPONSE_STYLE = `
 RESPONSE_STYLE:
@@ -15,9 +16,13 @@ RESPONSE_STYLE:
 
 /** Built fresh per call from the active job — never cache at module load. */
 export function getAdvisorSystem() {
+  const job = getActiveJob();
+  const stageIds = (job?.stages || []).map((s) => s.id);
   const base = buildAdvisorSystem({
-    ...getActiveJob(),
+    ...job,
     candidateName: getProfileName(),
+    stageProgress: getStageProgressMap(stageIds),
+    currentStageId: getCurrentStageId(stageIds),
   });
   return `${base}\n\n${RESPONSE_STYLE}`;
 }

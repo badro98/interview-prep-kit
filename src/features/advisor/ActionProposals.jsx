@@ -1,4 +1,5 @@
-import { categoryLabel } from "../flashcards/deck.js";
+import { categoryLabel, stageLabel } from "../flashcards/deck.js";
+import { getActiveJob } from "../../lib/jobs.js";
 
 export default function ActionProposals({ proposals, appliedIds, onApply, onDismiss }) {
   const pending = proposals.filter((p) => !appliedIds.includes(p.id));
@@ -32,6 +33,9 @@ function ProposalCard({ proposal, onApply, onDismiss }) {
             <li key={i} className="flex gap-2">
               <span className="shrink-0 text-ink2">
                 {categoryLabel(c.category)}
+                {c.stageId
+                  ? ` · ${stageLabel(c.stageId, getActiveJob()?.stages || [])}`
+                  : ""}
               </span>
               <span className="min-w-0">{c.question}</span>
             </li>

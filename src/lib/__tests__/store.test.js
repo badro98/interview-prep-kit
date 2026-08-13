@@ -9,6 +9,13 @@ import {
   getProgressMap,
   addCustomContextEntry,
   getCustomContextEntries,
+  addStagePage,
+  getStagePages,
+  updateStagePage,
+  deleteStagePage,
+  ensureStageProgressDefaults,
+  setStageProgress,
+  getStageProgress,
 } from "../store.js";
 
 beforeEach(() => localStorage.clear());
@@ -26,6 +33,35 @@ describe("job-scoped store", () => {
 
     setActiveJobId(a.id);
     expect(getDocOverride("onsite").markdown).toBe("# Job A notes");
+  });
+
+  it("stores optional html alongside markdown on prep-doc override", () => {
+    const a = createJob({ role: "A" });
+    setActiveJobId(a.id);
+    setDocOverride("onsite", "plain", { html: "<p>rich</p>" });
+    expect(getDocOverride("onsite")).toMatchObject({
+      markdown: "plain",
+      html: "<p>rich</p>",
+    });
+    setDocOverride("onsite", "regenerated");
+    expect(getDocOverride("onsite").html).toBeUndefined();
+  });
+
+  it("stage subpages are job-scoped and updatable", () => {
+    const a = createJob({ role: "A" });
+    const b = createJob({ role: "B" });
+    setActiveJobId(a.id);
+    const page = addStagePage("onsite", { title: "Stories", html: "<p>hi</p>" });
+    expect(getStagePages("onsite")).toHaveLength(1);
+    updateStagePage("onsite", page.id, { title: "STAR stories" });
+    expect(getStagePages("onsite")[0].title).toBe("STAR stories");
+
+    setActiveJobId(b.id);
+    expect(getStagePages("onsite")).toEqual([]);
+
+    setActiveJobId(a.id);
+    deleteStagePage("onsite", page.id);
+    expect(getStagePages("onsite")).toEqual([]);
   });
 
   it("stores job-scoped keys under job:<id>: prefix", () => {
@@ -59,5 +95,23 @@ describe("job-scoped store", () => {
     setActiveJobId(b.id);
     expect(get("settings:aiMode")).toBe("paste");
     expect(localStorage.getItem("iprep:settings:aiMode")).toBeTruthy();
+  });
+
+  it("does not force the first stage back to in-progress after the user marks it complete", () => {
+    const job = createJob({
+      stages: [
+        { id: "recruiter", title: "Recruiter Screen" },
+        { id: "hm", title: "Hiring Manager" },
+      ],
+    });
+    setActiveJobId(job.id);
+    const ids = ["recruiter", "hm"];
+    ensureStageProgressDefaults(ids);
+    expect(getStageProgress("recruiter", ids)).toBe("in-progress");
+
+    setStageProgress("recruiter", "complete");
+    ensureStageProgressDefaults(ids);
+    expect(getStageProgress("recruiter", ids)).toBe("complete");
+    expect(getStageProgress("hm", ids)).toBe("upcoming");
   });
 });

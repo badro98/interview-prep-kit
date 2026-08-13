@@ -61,3 +61,11 @@ body {
 *::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--scrollbar-hover));
 }
+
+.tiptap p.is-empty:first-child::before {
+  color: rgb(var(--text-2));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

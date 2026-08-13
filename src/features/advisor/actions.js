@@ -1,6 +1,6 @@
 // Parse and execute structured advisor proposals (flashcards, context, stages).
 
-import { CATEGORIES, categoryLabel, getDeck } from "../flashcards/deck.js";
+import { CATEGORIES, categoryLabel, getDeck, resolveStageId } from "../flashcards/deck.js";
 import { addCustomCards, addCustomContextEntry } from "../../lib/store.js";
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { saveStageDoc } from "../../lib/generate.js";
@@ -50,17 +50,22 @@ function normalizeProposal(p, index) {
   if (!p || !p.type) return null;
 
   if (p.type === "add_flashcards") {
+    const stages = getActiveJob()?.stages || [];
     const cards = (p.cards || [])
       .filter((c) => c && typeof c.question === "string" && c.question.trim())
-      .map((c) => ({
-        id: `adv-${slug(c.question)}-${Math.random().toString(36).slice(2, 7)}`,
-        category: VALID_CATS.has(c.category) ? c.category : "behavioral",
-        question: c.question.trim(),
-        referenceAnswer: (c.referenceAnswer || "").trim(),
-        keyPoints: Array.isArray(c.keyPoints)
-          ? c.keyPoints.filter(Boolean).map(String)
-          : [],
-      }));
+      .map((c) => {
+        const stageId = resolveStageId(c.stageId || c.stage, stages);
+        return {
+          id: `adv-${slug(c.question)}-${Math.random().toString(36).slice(2, 7)}`,
+          category: VALID_CATS.has(c.category) ? c.category : "behavioral",
+          question: c.question.trim(),
+          referenceAnswer: (c.referenceAnswer || "").trim(),
+          keyPoints: Array.isArray(c.keyPoints)
+            ? c.keyPoints.filter(Boolean).map(String)
+            : [],
+          ...(stageId ? { stageId } : {}),
+        };
+      });
     if (cards.length === 0) return null;
     return {
       id: p.id || `flashcards-${index}`,
@@ -219,7 +224,8 @@ export function formatFlashcardsForAdvisor(deck) {
       c.keyPoints?.length > 0
         ? ` · ${c.keyPoints.length} key points`
         : "";
-    return `- [${categoryLabel(c.category)}] ${c.question} (${conf}, ${answered}${pts})`;
+    const stageTag = c.stageId ? ` · stage ${c.stageId}` : "";
+    return `- [${categoryLabel(c.category)}${stageTag}] ${c.question} (${conf}, ${answered}${pts})`;
   });
 
   return [

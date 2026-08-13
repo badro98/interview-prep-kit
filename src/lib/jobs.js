@@ -54,9 +54,9 @@ export function deleteJob(id) {
  * Replaces a job's stage list (validated with the same shape floor as
  * importJob's stages). For any stage id present in the OLD list but absent
  * from `nextStages`, cleans up its job-scoped localStorage state: the
- * prep-doc override (`prepdoc:override:<id>`), its entry in the
- * recordings-flag map (`recordings:hasByStage`), and its entry in the
- * stage-progress map (`stages:progress`).
+ * prep-doc override (`prepdoc:override:<id>`), subpages (`prepdoc:pages:<id>`),
+ * its entry in the recordings-flag map (`recordings:hasByStage`), and its
+ * entry in the stage-progress map (`stages:progress`).
  *
  * IndexedDB rows (attempts/recordings) for removed stages are intentionally
  * left in place here — they're keyed by their own record ids and simply
@@ -84,7 +84,10 @@ export function updateJobStages(jobId, nextStages) {
 
   if (removedIds.length) {
     const prefix = jobNamespace(jobId);
-    for (const id of removedIds) remove(`${prefix}prepdoc:override:${id}`);
+    for (const id of removedIds) {
+      remove(`${prefix}prepdoc:override:${id}`);
+      remove(`${prefix}prepdoc:pages:${id}`);
+    }
 
     const flagsKey = `${prefix}recordings:hasByStage`;
     const flags = get(flagsKey, {});

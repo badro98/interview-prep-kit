@@ -64,6 +64,9 @@ function coerceCard(raw) {
     keyPoints: Array.isArray(raw.keyPoints)
       ? raw.keyPoints.filter((k) => typeof k === "string")
       : [],
+    ...(typeof raw.stageId === "string" && raw.stageId.trim()
+      ? { stageId: raw.stageId.trim() }
+      : {}),
   };
 }
 
