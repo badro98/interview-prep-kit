@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -46,6 +47,7 @@ export default function RichDocEditor({
   markdown,
   onChange,
   placeholder,
+  toolbarHost,
 }) {
   const timer = useRef(null);
   const onChangeRef = useRef(onChange);
@@ -98,10 +100,14 @@ export default function RichDocEditor({
   if (!editor) return null;
 
   return (
-    <div className="rounded-lg border border-line bg-canvas">
-      <Toolbar editor={editor} />
-      <EditorContent editor={editor} />
-    </div>
+    <>
+      {toolbarHost
+        ? createPortal(<Toolbar editor={editor} />, toolbarHost)
+        : null}
+      <div className="rounded-lg border border-line bg-canvas">
+        <EditorContent editor={editor} />
+      </div>
+    </>
   );
 }
 
@@ -123,7 +129,7 @@ function Toolbar({ editor }) {
   }
 
   return (
-    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-line bg-surface px-2 py-1.5">
+    <div className="flex w-full flex-wrap items-center gap-0.5">
       <ToolBtn
         className={btn(editor.isActive("heading", { level: 1 }))}
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}

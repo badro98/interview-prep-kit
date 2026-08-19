@@ -1089,6 +1089,7 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [savedTick, setSavedTick] = useState(false);
+  const [toolbarHost, setToolbarHost] = useState(null);
   const page = pageId ? getStagePages(stageId).find((p) => p.id === pageId) : null;
 
   useEffect(() => {
@@ -1154,78 +1155,87 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
 
   const heading = isPage ? page.title : base.title;
   const subheading = isPage ? `${base.title} · page` : base.subtitle;
+  const showEditorChrome = isPage || subTab === "prep";
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center justify-between gap-4 border-b border-line px-8 py-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h2 className="break-words text-lg font-semibold leading-snug text-ink1">
-              {heading}
-            </h2>
-            {isPage && (
-              <span className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-medium text-ink1 ring-1 ring-inset ring-line">
-                page
-              </span>
+      <header className="shrink-0 border-b border-line">
+        <div className="flex items-center justify-between gap-4 px-8 py-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="break-words text-lg font-semibold leading-snug text-ink1">
+                {heading}
+              </h2>
+              {isPage && (
+                <span className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-medium text-ink1 ring-1 ring-inset ring-line">
+                  page
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-ink2">{subheading}</p>
+          </div>
+          <div className="flex shrink-0 items-center gap-3">
+            {!isPage && (
+              <div className="flex gap-1 rounded-lg bg-surface p-1 text-xs">
+                <button
+                  onClick={() => setSubTab("prep")}
+                  className={`rounded-md px-3 py-1.5 font-medium transition ${
+                    subTab === "prep"
+                      ? "bg-accent text-white"
+                      : "text-ink1 hover:bg-surface2"
+                  }`}
+                >
+                  Prep doc
+                </button>
+                <button
+                  onClick={() => setSubTab("recording")}
+                  className={`rounded-md px-3 py-1.5 font-medium transition ${
+                    subTab === "recording"
+                      ? "bg-accent text-white"
+                      : "text-ink1 hover:bg-surface2"
+                  }`}
+                >
+                  Recording / Transcript
+                </button>
+              </div>
+            )}
+            {showEditorChrome && (
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className={`text-xs transition ${
+                    savedTick ? "text-emerald-600 dark:text-emerald-400" : "text-ink2"
+                  }`}
+                >
+                  {savedTick ? "Saved ✓" : "Autosaves locally"}
+                </span>
+                {!isPage && isEdited && (
+                  <button
+                    onClick={handleReset}
+                    className="rounded-md px-3 py-2 text-xs font-medium text-ink1 transition hover:bg-surface2"
+                  >
+                    Reset to original
+                  </button>
+                )}
+                {!isPage && (
+                  <button
+                    onClick={handleRegenerate}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accentHover disabled:opacity-50"
+                  >
+                    <RegenIcon spinning={busy} />
+                    {busy ? "Working…" : "Regenerate"}
+                  </button>
+                )}
+              </div>
             )}
           </div>
-          <p className="text-xs text-ink2">{subheading}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
-          {!isPage && (
-          <div className="flex gap-1 rounded-lg bg-surface p-1 text-xs">
-            <button
-              onClick={() => setSubTab("prep")}
-              className={`rounded-md px-3 py-1.5 font-medium transition ${
-                subTab === "prep"
-                  ? "bg-accent text-white"
-                  : "text-ink1 hover:bg-surface2"
-              }`}
-            >
-              Prep doc
-            </button>
-            <button
-              onClick={() => setSubTab("recording")}
-              className={`rounded-md px-3 py-1.5 font-medium transition ${
-                subTab === "recording"
-                  ? "bg-accent text-white"
-                  : "text-ink1 hover:bg-surface2"
-              }`}
-            >
-              Recording / Transcript
-            </button>
-          </div>
-          )}
-          {(isPage || subTab === "prep") && (
-        <div className="flex shrink-0 items-center gap-2">
-          <span
-            className={`text-xs transition ${
-              savedTick ? "text-emerald-600 dark:text-emerald-400" : "text-ink2"
-            }`}
-          >
-            {savedTick ? "Saved ✓" : "Autosaves locally"}
-          </span>
-          {!isPage && isEdited && (
-            <button
-              onClick={handleReset}
-              className="rounded-md px-3 py-2 text-xs font-medium text-ink1 transition hover:bg-surface2"
-            >
-              Reset to original
-            </button>
-          )}
-          {!isPage && (
-            <button
-              onClick={handleRegenerate}
-              disabled={busy}
-              className="flex items-center gap-1.5 rounded-md bg-accent px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-accentHover disabled:opacity-50"
-            >
-              <RegenIcon spinning={busy} />
-              {busy ? "Working…" : "Regenerate"}
-            </button>
-          )}
-        </div>
-          )}
-        </div>
+        {showEditorChrome && (
+          <div
+            ref={setToolbarHost}
+            className="flex min-h-[2.25rem] items-center border-t border-line bg-surface px-8 py-1.5"
+          />
+        )}
       </header>
 
       {err && (isPage || subTab === "prep") && (
@@ -1248,6 +1258,7 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
               html={page.html}
               placeholder="Write this page…"
               onChange={persistPage}
+              toolbarHost={toolbarHost}
             />
           ) : (
             <RichDocEditor
@@ -1255,6 +1266,7 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
               markdown={markdown}
               placeholder="Write your prep notes…"
               onChange={persistMain}
+              toolbarHost={toolbarHost}
             />
           )}
         </article>
