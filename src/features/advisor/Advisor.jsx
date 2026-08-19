@@ -9,6 +9,7 @@ import { getDeck } from "../flashcards/deck.js";
 import {
   parseAdvisorActions,
   stripAdvisorActions,
+  hasAdvisorActionsFence,
   executeAdvisorProposal,
 } from "./actions.js";
 import { extractUrls, fetchUrlContent } from "../../lib/fetchUrl.js";
@@ -200,7 +201,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
 
     if (result.kind === "flashcards") bumpDeck();
     if (result.kind === "context") onContextChange?.();
-    if (result.kind === "stage") onStagesChange?.();
+    if (result.kind === "stage" || result.kind === "prepdoc") onStagesChange?.();
 
     setMessages((prev) => [
       ...prev,
@@ -366,10 +367,14 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
     );
   }
 
+  const proposals = isUser ? [] : parseAdvisorActions(message.content);
   const display = isUser
     ? message.content
-    : stripAdvisorActions(message.content);
-  const proposals = isUser ? [] : parseAdvisorActions(message.content);
+    : proposals.length
+      ? stripAdvisorActions(message.content)
+      : message.content;
+  const parseFailed =
+    !isUser && proposals.length === 0 && hasAdvisorActionsFence(message.content);
   const appliedIds = [
     ...(message.appliedProposalIds || []),
     ...(message.dismissedProposalIds || []),
@@ -398,6 +403,12 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
             <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-2 prose-p:text-sm prose-li:text-sm">
               <Markdown>{display}</Markdown>
             </div>
+            {parseFailed && (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                A kit-change proposal was included, but it could not be read. Ask the advisor to resend with a tiny{" "}
+                <code>advisor-actions</code> JSON block and a separate <code>prep-doc</code> fence for the markdown.
+              </p>
+            )}
             <ActionProposals
               proposals={proposals}
               appliedIds={appliedIds}
