@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
@@ -46,6 +47,7 @@ export default function RichDocEditor({
   markdown,
   onChange,
   placeholder,
+  toolbarHost,
 }) {
   const timer = useRef(null);
   const onChangeRef = useRef(onChange);
@@ -98,10 +100,12 @@ export default function RichDocEditor({
   if (!editor) return null;
 
   return (
-    <div className="rounded-lg border border-line bg-canvas">
-      <Toolbar editor={editor} />
-      <EditorContent editor={editor} />
-    </div>
+    <>
+      {toolbarHost ? createPortal(<Toolbar editor={editor} />, toolbarHost) : null}
+      <div className="rounded-lg border border-line bg-canvas">
+        <EditorContent editor={editor} />
+      </div>
+    </>
   );
 }
 
@@ -123,7 +127,7 @@ function Toolbar({ editor }) {
   }
 
   return (
-    <div className="sticky top-0 z-10 flex flex-wrap items-center gap-0.5 border-b border-line bg-surface px-2 py-1.5">
+    <div className="flex w-full flex-wrap items-center gap-0.5">
       <ToolBtn
         className={btn(editor.isActive("heading", { level: 1 }))}
         onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
@@ -186,24 +190,55 @@ function Toolbar({ editor }) {
         onClick={setLink}
         label="Link"
       />
-      <div className="ml-auto flex gap-0.5">
-        <ToolBtn
-          className={btn(false)}
-          onClick={() => editor.chain().focus().undo().run()}
-          label="Undo"
-        />
-        <ToolBtn
-          className={btn(false)}
-          onClick={() => editor.chain().focus().redo().run()}
-          label="Redo"
-        />
-      </div>
+      <Sep />
+      <ToolBtn
+        className={btn(false)}
+        onClick={() => editor.chain().focus().undo().run()}
+        label="Undo"
+      />
+      <ToolBtn
+        className={btn(false)}
+        onClick={() => editor.chain().focus().redo().run()}
+        label="Redo"
+      />
     </div>
+  );
+}
+
+export function ToolbarToggle({ open, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={open ? "Collapse formatting toolbar" : "Expand formatting toolbar"}
+      title={open ? "Collapse formatting" : "Expand formatting"}
+      className="shrink-0 rounded p-1 text-ink2 transition hover:bg-surface2 hover:text-ink1"
+    >
+      <CollapseIcon open={open} />
+    </button>
   );
 }
 
 function Sep() {
   return <span className="mx-1 h-4 w-px bg-line" />;
+}
+
+function CollapseIcon({ open }) {
+  return (
+    <svg
+      className={`h-3.5 w-3.5 transition ${open ? "" : "rotate-180"}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 15 6-6 6 6" />
+    </svg>
+  );
 }
 
 function ToolBtn({ className, onClick, label, title }) {

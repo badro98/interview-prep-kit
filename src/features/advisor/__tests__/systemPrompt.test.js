@@ -43,8 +43,11 @@ describe("getAdvisorSystem", () => {
     expect(prompt).toContain("Default to concise answers");
     expect(prompt).toContain("4–8 tight bullets");
     expect(prompt).toContain("~150 words");
-    expect(prompt).toMatch(/Expand into full detail only when the user asks/i);
-    expect(prompt).toContain("Never abbreviate the advisor-actions JSON block");
+    expect(prompt).toContain("Never paste a full prep doc");
+    expect(prompt).toContain("update_prep_doc");
+    expect(prompt).toContain("Never abbreviate proposal fences");
+    expect(prompt).toContain("```prep-doc");
+    expect(prompt).toContain("no markdown inside JSON");
     expect(prompt).toMatch(/web search/i);
     expect(prompt).toMatch(/cite sources/i);
   });

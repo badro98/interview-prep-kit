@@ -1,12 +1,16 @@
 // Parse and execute structured advisor proposals (flashcards, context, stages).
 
 import { CATEGORIES, categoryLabel, getDeck, resolveStageId } from "../flashcards/deck.js";
-import { addCustomCards, addCustomContextEntry } from "../../lib/store.js";
+import { addCustomCards, addCustomContextEntry, getDocOverride, setDocOverride } from "../../lib/store.js";
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { saveStageDoc } from "../../lib/generate.js";
+import { getStageDoc } from "../prep-docs/stages.js";
+import { markdownToHtml } from "../../lib/markdownHtml.js";
 import { buildCustomStage } from "../onboarding/steps.js";
 
-const ACTIONS_FENCE = /```advisor-actions\s*([\s\S]*?)```/i;
+const ACTIONS_FENCE = /```advisor-actions[^\n]*\n([\s\S]*?)(?:```|$)/i;
+const PREP_DOC_FENCE = /```prep-doc[^\n]*\n([\s\S]*?)(?:```|$)/gi;
+const JSON_PROPOSALS_FENCE = /```json[^\n]*\n([\s\S]*?)(?:```|$)/i;
 
 const VALID_CATS = new Set(CATEGORIES.map((c) => c.id));
 
@@ -18,10 +22,90 @@ function slug(s) {
     .slice(0, 32);
 }
 
-/** Remove the machine-readable actions block from chat display text. */
+/** Remove machine-readable proposal fences from chat display text. */
 export function stripAdvisorActions(text) {
   if (!text) return "";
-  return String(text).replace(ACTIONS_FENCE, "").trim();
+  return String(text)
+    .replace(/```advisor-actions[^\n]*\n[\s\S]*?(?:```|$)/gi, "")
+    .replace(/```prep-doc[^\n]*\n[\s\S]*?(?:```|$)/gi, "")
+    .trim();
+}
+
+export function hasAdvisorActionsFence(text) {
+  return /```advisor-actions/i.test(String(text || ""));
+}
+
+function parseJsonPayload(raw) {
+  let s = String(raw || "").trim();
+  s = s.replace(/^json\b/i, "").trim();
+  s = s.replace(/,\s*([}\]])/g, "$1");
+  const tryParse = (value) => {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  };
+  const direct = tryParse(s);
+  if (direct) return direct;
+  const start = s.indexOf("{");
+  const end = s.lastIndexOf("}");
+  if (start >= 0 && end > start) return tryParse(s.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1"));
+  return null;
+}
+
+function extractPrepDocBodies(text) {
+  const bodies = [];
+  const re = new RegExp(PREP_DOC_FENCE.source, "gi");
+  let m;
+  while ((m = re.exec(String(text || "")))) {
+    const body = String(m[1] || "").trim();
+    if (body) bodies.push(body);
+  }
+  return bodies;
+}
+
+function attachPrepDocs(rawProposals, text) {
+  const docs = extractPrepDocBodies(text);
+  if (!docs.length) return rawProposals;
+  let i = 0;
+  return rawProposals.map((p) => {
+    if (
+      p?.type === "update_prep_doc" &&
+      !String(p.markdown || p.content || "").trim() &&
+      i < docs.length
+    ) {
+      return { ...p, markdown: docs[i++] };
+    }
+    return p;
+  });
+}
+
+function salvageUpdatePrepDoc(text, fenceBody) {
+  const blob = `${fenceBody || ""}\n${text || ""}`;
+  if (!/update_prep_doc/.test(blob)) return [];
+  const stageMatch =
+    blob.match(/"stageId"\s*:\s*"([^"]+)"/) || blob.match(/"stage"\s*:\s*"([^"]+)"/);
+  const docs = extractPrepDocBodies(text);
+  if (!stageMatch || !docs[0]) return [];
+  return [
+    {
+      type: "update_prep_doc",
+      stageId: stageMatch[1],
+      mode: /"mode"\s*:\s*"append"/.test(blob) ? "append" : "replace",
+      markdown: docs[0],
+    },
+  ];
+}
+
+function matchProposalsFence(source) {
+  const actions = source.match(ACTIONS_FENCE);
+  if (actions) return actions;
+  const json = source.match(JSON_PROPOSALS_FENCE);
+  if (json && /"proposals"\s*:|"type"\s*:\s*"update_prep_doc"/.test(json[1] || "")) {
+    return json;
+  }
+  return null;
 }
 
 /**
@@ -30,20 +114,13 @@ export function stripAdvisorActions(text) {
  */
 export function parseAdvisorActions(text) {
   if (!text) return [];
-  const m = String(text).match(ACTIONS_FENCE);
-  if (!m) return [];
-
-  let payload;
-  try {
-    payload = JSON.parse(m[1].trim());
-  } catch {
-    return [];
-  }
-
-  const raw = Array.isArray(payload?.proposals) ? payload.proposals : [];
-  return raw
-    .map((p, i) => normalizeProposal(p, i))
-    .filter(Boolean);
+  const source = String(text);
+  const m = matchProposalsFence(source);
+  const payload = m ? parseJsonPayload(m[1]) : null;
+  let raw = Array.isArray(payload?.proposals) ? payload.proposals : [];
+  if (!raw.length) raw = salvageUpdatePrepDoc(source, m?.[1] || "");
+  raw = attachPrepDocs(raw, source);
+  return raw.map((p, i) => normalizeProposal(p, i)).filter(Boolean);
 }
 
 function normalizeProposal(p, index) {
@@ -107,6 +184,27 @@ function normalizeProposal(p, index) {
     };
   }
 
+  if (p.type === "update_prep_doc") {
+    const stages = getActiveJob()?.stages || [];
+    const stageId = resolveStageId(p.stageId || p.stage, stages);
+    const markdown = String(p.markdown || p.content || "").trim();
+    const mode = p.mode === "append" ? "append" : "replace";
+    if (!stageId || !markdown) return null;
+    const title = stages.find((s) => s.id === stageId)?.title || stageId;
+    return {
+      id: p.id || `prepdoc-${stageId}-${index}`,
+      type: "update_prep_doc",
+      label:
+        p.label ||
+        (mode === "append"
+          ? `Append to “${title}” prep doc`
+          : `Replace prep doc for “${title}”`),
+      stageId,
+      mode,
+      markdown,
+    };
+  }
+
   return null;
 }
 
@@ -156,7 +254,51 @@ export function executeAdvisorProposal(proposal) {
     return executeAddStage(proposal);
   }
 
+  if (proposal.type === "update_prep_doc") {
+    return executeUpdatePrepDoc(proposal);
+  }
+
   return { ok: false, message: "Unknown proposal type." };
+}
+
+function existingPrepMarkdown(stageId) {
+  const override = getDocOverride(stageId);
+  if (typeof override?.markdown === "string" && override.markdown.trim()) {
+    return override.markdown;
+  }
+  const stageDoc = getStageDoc(stageId);
+  if (!stageDoc?.file) return "";
+  const md = String(stageDoc.markdown || "");
+  if (md.startsWith("# No prep doc yet")) return "";
+  return md;
+}
+
+function executeUpdatePrepDoc(proposal) {
+  const html = markdownToHtml(proposal.markdown);
+  if (proposal.mode === "append") {
+    const override = getDocOverride(proposal.stageId);
+    const base = existingPrepMarkdown(proposal.stageId);
+    const combined = base.trim()
+      ? `${base.trim()}\n\n${proposal.markdown}`
+      : proposal.markdown;
+    const storedHtml =
+      typeof override?.html === "string" && override.html.trim()
+        ? override.html
+        : null;
+    setDocOverride(proposal.stageId, combined, {
+      html: storedHtml
+        ? `${storedHtml}\n${html}`
+        : markdownToHtml(combined),
+    });
+  } else {
+    setDocOverride(proposal.stageId, proposal.markdown, { html });
+  }
+  return {
+    ok: true,
+    message: proposal.label,
+    kind: "prepdoc",
+    stageId: proposal.stageId,
+  };
 }
 
 function executeAddStage(proposal) {

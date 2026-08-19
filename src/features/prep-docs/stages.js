@@ -11,7 +11,7 @@ const DOCS = import.meta.glob("../../../generated/prep-*.md", {
 });
 
 const NO_DOC_PLACEHOLDER =
-  "# No prep doc yet\n\nUse **Regenerate** to draft this stage from your context.";
+  "# No prep doc yet\n\nAsk Advisor to draft this stage from your context.";
 
 function loadDoc(fileName) {
   const match = Object.entries(DOCS).find(([path]) => path.endsWith(fileName));
