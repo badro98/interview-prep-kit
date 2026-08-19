@@ -6,6 +6,8 @@ import {
   getJob,
   createJob,
   updateJob,
+  attachProfileRef,
+  detachProfileRef,
   updateJobStages,
   deleteJob,
   getActiveJobId,
@@ -91,6 +93,20 @@ describe("jobs collection", () => {
     expect(updated.company).toBe("NewCo");
     expect(getJob(job.id).company).toBe("NewCo");
     expect(updateJob("nope", {})).toBeNull();
+  });
+
+  it("attachProfileRef appends an entry id once", () => {
+    const job = createJob({ profileRefs: ["prof-1"] });
+    expect(attachProfileRef(job.id, "prof-2").profileRefs).toEqual(["prof-1", "prof-2"]);
+    expect(attachProfileRef(job.id, "prof-2").profileRefs).toEqual(["prof-1", "prof-2"]);
+    expect(attachProfileRef("missing", "prof-1")).toBeNull();
+  });
+
+  it("detachProfileRef removes an attached id", () => {
+    const job = createJob({ profileRefs: ["prof-1", "prof-2"] });
+    expect(detachProfileRef(job.id, "prof-1").profileRefs).toEqual(["prof-2"]);
+    expect(detachProfileRef(job.id, "prof-1").profileRefs).toEqual(["prof-2"]);
+    expect(detachProfileRef("missing", "prof-1")).toBeNull();
   });
 
   it("active job falls back to the first job when unset or stale", () => {

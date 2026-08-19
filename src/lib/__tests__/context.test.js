@@ -1,11 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  getContextFiles,
+  getSeedContextFiles,
   getActiveContextBlocks,
   getContext,
+  listJobsWithCustomContext,
+  copySeedContextToJob,
 } from "../context.js";
 import { createJob, setActiveJobId } from "../jobs.js";
-import { addCustomContextEntry, setContextFileEnabled } from "../store.js";
+import {
+  addCustomContextEntry,
+  getCustomContextEntries,
+  getCustomContextEntriesForJob,
+  setContextFileEnabled,
+  setContextOverride,
+  hasCopiedSeedContext,
+} from "../store.js";
 import { addProfileEntry } from "../profile.js";
 import { STAGE_PRESETS } from "../../../interview.config.js";
 
@@ -13,39 +22,81 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-// Note: import.meta.glob DOES resolve ../../context/*.md under Vitest (verified
-// empirically — getContextFiles() returns the real repo /context files), so these
-// assertions check actual content, not just gating behavior.
-
-describe("getContextFiles", () => {
-  it("returns the builtin repo files when the active job is seed-backed", () => {
-    const job = createJob({}); // default stages (config STAGES) => seed-backed
-    setActiveJobId(job.id);
-
-    const files = getContextFiles();
+describe("getSeedContextFiles", () => {
+  it("returns the bundled repo files regardless of the active job", () => {
+    const files = getSeedContextFiles();
     expect(files.length).toBeGreaterThan(0);
     expect(files.some((f) => f.name === "resume.md")).toBe(true);
+    expect(files.some((f) => f.name === "experiences.md")).toBe(true);
   });
+});
 
-  it("returns an empty array when the active job is not seed-backed (preset job)", () => {
-    const job = createJob({ stages: STAGE_PRESETS });
+describe("copySeedContextToJob", () => {
+  it("does not copy placeholder templates when there are no local edits", () => {
+    const job = createJob({});
     setActiveJobId(job.id);
-
-    expect(getContextFiles()).toEqual([]);
+    const { copied, removed } = copySeedContextToJob(job.id);
+    expect(copied).toBe(0);
+    expect(removed).toBe(0);
+    expect(hasCopiedSeedContext(job.id)).toBe(true);
+    expect(getCustomContextEntries()).toEqual([]);
   });
 
-  it("returns an empty array when there is no active job", () => {
-    expect(getContextFiles()).toEqual([]);
+  it("copies local overrides (real edits) and skips remaining placeholders", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    setContextOverride("resume.md", "Tailored MDCalc resume.");
+    const { copied } = copySeedContextToJob(job.id);
+    expect(copied).toBe(1);
+
+    const entries = getCustomContextEntries();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].seedFile).toBe("resume.md");
+    expect(entries[0].content).toBe("Tailored MDCalc resume.");
+  });
+
+  it("replaces a leftover placeholder copy with the saved override", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    addCustomContextEntry({
+      name: "Resume / background",
+      content: "# Resume — [YOUR NAME]\nFill in your tailored resume.",
+      seedFile: "resume.md",
+    });
+    setContextOverride("resume.md", "Osama resume for MDCalc.");
+
+    const { updated } = copySeedContextToJob(job.id);
+    expect(updated).toBe(1);
+    expect(getCustomContextEntries()[0].content).toBe("Osama resume for MDCalc.");
+  });
+
+  it("removes leftover placeholder copies when there is no override", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    addCustomContextEntry({
+      name: "Resume / background",
+      content: "Fill in your tailored resume. [YOUR NAME]",
+      seedFile: "resume.md",
+    });
+    addCustomContextEntry({ name: "My real JD", content: "Actual MDCalc posting." });
+
+    const { removed } = copySeedContextToJob(job.id);
+    expect(removed).toBe(1);
+    expect(getCustomContextEntries().map((e) => e.name)).toEqual(["My real JD"]);
+  });
+
+  it("is a no-op for non-seed jobs", () => {
+    const preset = createJob({ stages: STAGE_PRESETS });
+    expect(copySeedContextToJob(preset.id)).toEqual({ copied: 0, updated: 0, removed: 0 });
+    expect(getCustomContextEntriesForJob(preset.id)).toEqual([]);
   });
 });
 
 describe("getActiveContextBlocks", () => {
-  it("includes builtin + custom blocks for a seed-backed job", () => {
+  it("does not expose builtin files as a live source", () => {
     const job = createJob({});
     setActiveJobId(job.id);
-
-    const blocks = getActiveContextBlocks();
-    expect(blocks.some((b) => b.source === "builtin")).toBe(true);
+    expect(getActiveContextBlocks().some((b) => b.source === "builtin")).toBe(false);
   });
 
   it("includes only custom entries (no builtin) for a non-seed preset job", () => {
@@ -59,7 +110,7 @@ describe("getActiveContextBlocks", () => {
     expect(blocks[0].label).toBe("My note");
   });
 
-  it("includes profile blocks for attached-and-existing refs only, ordered builtin/profile/custom", () => {
+  it("includes profile blocks for attached-and-existing refs only, ordered profile then custom", () => {
     const entry = addProfileEntry({ name: "Resume", content: "Profile resume content." });
     const job = createJob({
       stages: STAGE_PRESETS,
@@ -73,11 +124,10 @@ describe("getActiveContextBlocks", () => {
 
     const profileBlock = blocks.find((b) => b.source === "profile");
     expect(profileBlock.name).toBe(entry.id);
-    expect(profileBlock.label).toBe("Resume (profile)");
+    expect(profileBlock.label).toBe("Resume");
     expect(profileBlock.content).toBe("Profile resume content.");
     expect(profileBlock.enabled).toBe(true);
 
-    // Dangling ref (no matching profile entry) is omitted entirely.
     expect(blocks.some((b) => b.name === "prof-dangling")).toBe(false);
   });
 
@@ -101,7 +151,39 @@ describe("getContext", () => {
     setActiveJobId(job.id);
 
     expect(getContext()).toBe(
-      "(No context loaded — fill in /context/*.md or add custom entries in the Context tab.)"
+      "(No context loaded — add shared or job-only sources in the Context tab.)"
     );
+  });
+});
+
+describe("listJobsWithCustomContext", () => {
+  it("groups job-scoped custom entries without switching the active job", () => {
+    const jobA = createJob({ role: "Staff QA", company: "Loop", stages: STAGE_PRESETS });
+    const jobB = createJob({ role: "EM", company: "Acme", stages: STAGE_PRESETS });
+    setActiveJobId(jobA.id);
+    addCustomContextEntry({ name: "Stories", content: "Impact stories." });
+    addCustomContextEntry({ name: "Job description", content: "Loop JD." });
+
+    setActiveJobId(jobB.id);
+    addCustomContextEntry({ name: "Tailored resume", content: "Acme resume." });
+
+    const groups = listJobsWithCustomContext();
+    expect(groups.map((g) => g.jobId).sort()).toEqual([jobA.id, jobB.id].sort());
+
+    const loop = groups.find((g) => g.jobId === jobA.id);
+    expect(loop.label).toBe("Staff QA — Loop");
+    expect(loop.entries.map((e) => e.name)).toEqual(["Stories", "Job description"]);
+    expect(getCustomContextEntriesForJob(jobA.id).map((e) => e.name)).toEqual([
+      "Stories",
+      "Job description",
+    ]);
+
+    setActiveJobId(jobB.id);
+    expect(getCustomContextEntriesForJob(jobA.id)).toHaveLength(2);
+  });
+
+  it("omits jobs that have no custom context", () => {
+    createJob({ role: "Empty", company: "None", stages: STAGE_PRESETS });
+    expect(listJobsWithCustomContext()).toEqual([]);
   });
 });

@@ -9,7 +9,7 @@ import JobSwitcher from "./components/JobSwitcher.jsx";
 import ManageJobsModal from "./components/ManageJobsModal.jsx";
 import JobSettingsModal from "./components/JobSettingsModal.jsx";
 import { APP } from "../interview.config.js";
-import { getContextSummary } from "./lib/context.js";
+import { getContextSummary, copySeedContextToJob } from "./lib/context.js";
 import { getMode, setMode, MODE_PASTE, MODE_API } from "./lib/coach.js";
 import { getActiveJobId, getJobs } from "./lib/jobs.js";
 import { onQuotaError } from "./lib/storage.js";
@@ -51,7 +51,9 @@ export default function App() {
   }
 
   function handleJobChange(id) {
-    setActiveJobIdState(id ?? getActiveJobId());
+    const nextId = id ?? getActiveJobId();
+    if (nextId) copySeedContextToJob(nextId);
+    setActiveJobIdState(nextId);
     refreshCtx();
   }
 

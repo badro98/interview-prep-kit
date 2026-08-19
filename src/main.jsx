@@ -5,6 +5,7 @@ import "./index.css";
 import { runMigrations, applyDemoResync, DEMO_STATE_KEY } from "./lib/migrate.js";
 import { backfillJobIds } from "./lib/db.js";
 import { getJobs, ensureDefaultJob } from "./lib/jobs.js";
+import { copySeedContextForAllJobs } from "./lib/context.js";
 import * as storage from "./lib/storage.js";
 import { applyTheme } from "./lib/theme.js";
 import { DEMO } from "../interview.config.js";
@@ -30,6 +31,8 @@ async function boot() {
   if (DEMO && getJobs().length === 0) {
     jobId = ensureDefaultJob().id;
   }
+
+  copySeedContextForAllJobs();
 
   if (!jobId) return;
 

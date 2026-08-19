@@ -262,11 +262,16 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
             )}
           </div>
 
-          {profileEntries.length > 0 && (
-            <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink2">
-                Attached profile entries
-              </h4>
+          <div>
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink2">
+              Shared profile
+            </h4>
+            {profileEntries.length === 0 ? (
+              <p className="text-[11px] leading-snug text-ink2">
+                Stories, portfolio, and overall experience live on your local profile.
+                Add them from Context as “shared across jobs”, then attach them here.
+              </p>
+            ) : (
               <div className="space-y-1.5">
                 {profileEntries.map((entry) => (
                   <label
@@ -283,8 +288,8 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
                   </label>
                 ))}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="border-t border-line px-5 py-4">
