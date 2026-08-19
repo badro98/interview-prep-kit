@@ -149,12 +149,13 @@ export function clearModelOverride(cardId) {
 
 // ---- Context preferences (advisor + all coach() calls) ----------------------
 //
-// Built-in /context/*.md files can be toggled off or content-overridden (saved
-// locally — does not edit files on disk). Custom entries are advisor-only additions.
+// Custom entries are job-scoped notes. Seed files from /context/*.md are copied
+// into custom entries once per seed-backed job (see copySeedContextToJob).
 
-const CONTEXT_DISABLED_KEY = "context:disabled"; // string[] of builtin filenames
-const CONTEXT_OVERRIDES_KEY = "context:overrides"; // { [filename]: markdown }
-const CONTEXT_CUSTOM_KEY = "context:custom"; // { id, name, content, enabled }[]
+const CONTEXT_DISABLED_KEY = "context:disabled"; // string[] of entry ids (and legacy filenames)
+const CONTEXT_OVERRIDES_KEY = "context:overrides"; // { [filename]: markdown } — used when copying seed files
+const CONTEXT_CUSTOM_KEY = "context:custom"; // { id, name, content, enabled, seedFile? }[]
+const CONTEXT_SEED_COPIED_KEY = "context:seedCopied";
 const ADVISOR_THREADS_KEY = "advisor:threads";
 const ADVISOR_ACTIVE_KEY = "advisor:activeThreadId";
 const LEGACY_CHAT_KEY = "advisor:chat";
@@ -294,16 +295,80 @@ export function clearContextOverride(fileName) {
 }
 
 export const getCustomContextEntries = () => jget(CONTEXT_CUSTOM_KEY, []);
-export function addCustomContextEntry({ name, content }) {
-  const list = getCustomContextEntries();
+
+/** Job-scoped custom context for any job, without switching the active job. */
+export function getCustomContextEntriesForJob(jobId) {
+  if (!jobId) return [];
+  const list = storage.get(`job:${jobId}:${CONTEXT_CUSTOM_KEY}`, []);
+  return Array.isArray(list) ? list : [];
+}
+
+export function hasCopiedSeedContext(jobId) {
+  if (!jobId) return false;
+  return storage.get(`job:${jobId}:${CONTEXT_SEED_COPIED_KEY}`, false) === true;
+}
+
+export function markSeedContextCopied(jobId) {
+  if (!jobId) return;
+  storage.set(`job:${jobId}:${CONTEXT_SEED_COPIED_KEY}`, true);
+}
+
+export function getContextOverridesForJob(jobId) {
+  if (!jobId) return {};
+  return storage.get(`job:${jobId}:${CONTEXT_OVERRIDES_KEY}`, {}) || {};
+}
+
+export function getDisabledContextFilesForJob(jobId) {
+  if (!jobId) return [];
+  const list = storage.get(`job:${jobId}:${CONTEXT_DISABLED_KEY}`, []);
+  return Array.isArray(list) ? list : [];
+}
+
+export function setDisabledContextFilesForJob(jobId, ids) {
+  if (!jobId) return;
+  storage.set(`job:${jobId}:${CONTEXT_DISABLED_KEY}`, ids);
+}
+
+export function writeCustomContextEntriesForJob(jobId, list) {
+  if (!jobId) return;
+  storage.set(`job:${jobId}:${CONTEXT_CUSTOM_KEY}`, Array.isArray(list) ? list : []);
+}
+
+/** Job-scoped overrides, with a fallback to pre-multi-job leftover keys. */
+export function getMergedContextOverridesForJob(jobId) {
+  const legacy = storage.get("context:overrides", {});
+  const scoped = getContextOverridesForJob(jobId);
+  return {
+    ...(legacy && typeof legacy === "object" ? legacy : {}),
+    ...scoped,
+  };
+}
+
+export function buildCustomContextEntry({ name, content, enabled = true, seedFile }) {
   const entry = {
-    id: `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    name: name.trim(),
-    content: content.trim(),
-    enabled: true,
+    id: seedFile
+      ? `ctx-seed-${String(seedFile).replace(/[^\w.-]+/g, "-")}`
+      : `ctx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name: String(name || "").trim(),
+    content: String(content || "").trim(),
+    enabled: enabled !== false,
     createdAt: Date.now(),
   };
-  jset(CONTEXT_CUSTOM_KEY, [...list, entry]);
+  if (seedFile) entry.seedFile = seedFile;
+  return entry;
+}
+
+export function addCustomContextEntryForJob(jobId, fields) {
+  if (!jobId) return null;
+  const entry = buildCustomContextEntry(fields);
+  const list = getCustomContextEntriesForJob(jobId);
+  storage.set(`job:${jobId}:${CONTEXT_CUSTOM_KEY}`, [...list, entry]);
+  return entry;
+}
+
+export function addCustomContextEntry({ name, content, seedFile }) {
+  const entry = buildCustomContextEntry({ name, content, seedFile });
+  jset(CONTEXT_CUSTOM_KEY, [...getCustomContextEntries(), entry]);
   return entry;
 }
 export function updateCustomContextEntry(id, patch) {

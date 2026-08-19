@@ -46,6 +46,24 @@ export function updateJob(id, patch) {
   return updated;
 }
 
+/** Attach a shared profile entry to a job if it isn't already referenced. */
+export function attachProfileRef(jobId, entryId) {
+  const job = getJob(jobId);
+  if (!job || !entryId) return job || null;
+  const refs = Array.isArray(job.profileRefs) ? job.profileRefs : [];
+  if (refs.includes(entryId)) return job;
+  return updateJob(jobId, { profileRefs: [...refs, entryId] });
+}
+
+/** Drop a shared profile entry from a job's attachments. */
+export function detachProfileRef(jobId, entryId) {
+  const job = getJob(jobId);
+  if (!job || !entryId) return job || null;
+  const refs = Array.isArray(job.profileRefs) ? job.profileRefs : [];
+  if (!refs.includes(entryId)) return job;
+  return updateJob(jobId, { profileRefs: refs.filter((id) => id !== entryId) });
+}
+
 export function deleteJob(id) {
   set(JOBS_KEY, getJobs().filter((j) => j.id !== id));
 }

@@ -9,6 +9,7 @@ import {
 } from "../../lib/profile.js";
 import { createJob, setActiveJobId, importJob } from "../../lib/jobs.js";
 import { addCustomContextEntry, addCustomCards } from "../../lib/store.js";
+import { listJobsWithCustomContext, copySeedContextToJob } from "../../lib/context.js";
 import {
   generateStageDoc,
   saveStageDoc,
@@ -27,6 +28,10 @@ const HAS_SAMPLE_SETUP = STAGES.some((s) => s.file);
 
 const STEP_ORDER = ["welcome", "profile", "job", "stages", "attach", "generate"];
 
+function copyContextKey(jobId, entryId) {
+  return `${jobId}::${entryId}`;
+}
+
 /**
  * First-run / add-job onboarding wizard. `firstRun` starts at Welcome and has
  * no Cancel; `addJob` starts at Job (profile already exists) and shows Cancel.
@@ -40,7 +45,6 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
 
   const [name, setName] = useState(() => getProfileName());
   const [profileEntries, setProfileEntries] = useState(() => getProfileEntries());
-  const [skippedProfile, setSkippedProfile] = useState(false);
 
   const [role, setRole] = useState("");
   const [company, setCompany] = useState("");
@@ -49,6 +53,8 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
   const [stages, setStages] = useState(() => cloneStagePresets(STAGE_PRESETS));
 
   const [attached, setAttached] = useState(() => new Set(profileEntries.map((e) => e.id)));
+  const [jobOnlyDrafts, setJobOnlyDrafts] = useState([]);
+  const [copiedKeys, setCopiedKeys] = useState(() => new Set());
 
   const [importError, setImportError] = useState("");
 
@@ -91,6 +97,7 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
       advisorStarters: ADVISOR_STARTERS,
     });
     setActiveJobId(created.id);
+    copySeedContextToJob(created.id);
     onComplete?.(created.id);
   }
 
@@ -134,14 +141,10 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
   }
 
   function handleProfileNext() {
-    // Back → add entries → Next should un-stick a prior Skip so Attach isn't
-    // bypassed for a profile that now has entries.
-    setSkippedProfile(getProfileEntries().length === 0);
     goNext();
   }
 
   function handleSkipProfile() {
-    setSkippedProfile(true);
     goNext();
   }
 
@@ -169,25 +172,40 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
     });
   }
 
-  // ---- navigation across the optional Profile/Attach coupling -------------
+  function addJobOnlyDraft(entry) {
+    setJobOnlyDrafts((prev) => [
+      ...prev,
+      {
+        id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: entry.name,
+        content: entry.content,
+      },
+    ]);
+  }
 
-  function handleAdvance(fromStep) {
-    if (fromStep === "job") {
-      goNext();
-      return;
+  function removeJobOnlyDraft(id) {
+    setJobOnlyDrafts((prev) => prev.filter((d) => d.id !== id));
+  }
+
+  function toggleCopied(key) {
+    setCopiedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  function saveOtherJobEntryToProfile(entry, key) {
+    addProfileEntry({ name: entry.name, content: entry.content });
+    refreshProfileEntries();
+    if (key) {
+      setCopiedKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
-    if (fromStep === "stages") {
-      const hasEntries = getProfileEntries().length > 0;
-      if (!hasEntries || skippedProfile) {
-        // Jump straight past Attach to Generate.
-        const genIdx = steps.indexOf("generate");
-        setStepIdx(genIdx !== -1 ? genIdx : Math.min(stepIdx + 1, steps.length - 1));
-        return;
-      }
-      goNext();
-      return;
-    }
-    goNext();
   }
 
   // ---- Generate -----------------------------------------------------------
@@ -212,6 +230,19 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
     setActiveJobId(created.id);
     if (jd.trim()) {
       addCustomContextEntry({ name: "Job description", content: jd });
+    }
+    for (const draft of jobOnlyDrafts) {
+      if (draft.name?.trim() && draft.content?.trim()) {
+        addCustomContextEntry({ name: draft.name, content: draft.content });
+      }
+    }
+    const copySet = copiedKeys;
+    for (const group of listJobsWithCustomContext()) {
+      if (group.jobId === created.id) continue;
+      for (const entry of group.entries) {
+        if (!copySet.has(copyContextKey(group.jobId, entry.id))) continue;
+        addCustomContextEntry({ name: entry.name, content: entry.content });
+      }
     }
     jobRef.current = created;
     setJob(created);
@@ -422,7 +453,7 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
                   onJdChange={setJd}
                   onReplaceJd={handleReplaceJd}
                   onBack={isAddJob ? null : goBack}
-                  onNext={() => handleAdvance("job")}
+                  onNext={goNext}
                   valid={jobValid}
                 />
               )}
@@ -432,7 +463,7 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
                   stages={stages}
                   onChange={setStages}
                   onBack={goBack}
-                  onNext={() => handleAdvance("stages")}
+                  onNext={goNext}
                 />
               )}
 
@@ -441,6 +472,21 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
                   entries={profileEntries}
                   attached={attached}
                   onToggle={toggleAttach}
+                  onAddShared={(entry) => {
+                    addProfileEntry(entry);
+                    refreshProfileEntries();
+                  }}
+                  onRemoveShared={(id) => {
+                    removeProfileEntry(id);
+                    refreshProfileEntries();
+                  }}
+                  jobOnlyDrafts={jobOnlyDrafts}
+                  onAddJobOnly={addJobOnlyDraft}
+                  onRemoveJobOnly={removeJobOnlyDraft}
+                  otherJobs={listJobsWithCustomContext()}
+                  copiedKeys={copiedKeys}
+                  onToggleCopy={toggleCopied}
+                  onSaveOtherToProfile={saveOtherJobEntryToProfile}
                   onBack={goBack}
                   onNext={goNext}
                 />
@@ -578,62 +624,6 @@ function WelcomeStep({
 // ---- Profile ------------------------------------------------------------------
 
 function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
-  const [adding, setAdding] = useState(false);
-  const [entryName, setEntryName] = useState("");
-  const [content, setContent] = useState("");
-  const [uploadBusy, setUploadBusy] = useState(false);
-  const [uploadError, setUploadError] = useState("");
-  const [portfolioUrl, setPortfolioUrl] = useState("");
-  const [portfolioBusy, setPortfolioBusy] = useState(false);
-  const [portfolioError, setPortfolioError] = useState("");
-
-  function handleAdd() {
-    if (!entryName.trim() || !content.trim()) return;
-    onAdd({ name: entryName, content });
-    setEntryName("");
-    setContent("");
-    setAdding(false);
-  }
-
-  async function handleUpload(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setUploadBusy(true);
-    setUploadError("");
-    try {
-      onAdd(await readEntryFile(file));
-    } catch (err) {
-      setUploadError(err.message || "Could not read that file.");
-    } finally {
-      setUploadBusy(false);
-    }
-  }
-
-  async function handleFetchPortfolio() {
-    const url = normalizeUrlInput(portfolioUrl);
-    if (!url) {
-      setPortfolioError("Enter a URL to fetch.");
-      return;
-    }
-    setPortfolioBusy(true);
-    setPortfolioError("");
-    try {
-      const proxyOk = await isProxyReachable();
-      if (!proxyOk) {
-        setPortfolioError("Proxy is offline (run npm run dev) — paste the content manually instead.");
-        return;
-      }
-      const { title, text } = await fetchUrlContent(url);
-      onAdd({ name: entryNameFromUrl(url, title), content: text });
-      setPortfolioUrl("");
-    } catch (e) {
-      setPortfolioError(e.message || "Could not fetch that URL.");
-    } finally {
-      setPortfolioBusy(false);
-    }
-  }
-
   return (
     <div>
       <h2 className="text-lg font-semibold text-ink1">Your profile</h2>
@@ -643,7 +633,7 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
       </p>
 
       <div className="mt-4 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
-        {entries.length === 0 && !adding && (
+        {entries.length === 0 && (
           <p className="px-2 py-3 text-sm text-ink2">No profile entries yet.</p>
         )}
         {entries.map((entry) => (
@@ -664,75 +654,11 @@ function ProfileStep({ entries, onAdd, onRemove, onBack, onSkip, onNext }) {
         ))}
       </div>
 
-      {adding ? (
-        <div className="mt-3 space-y-2 rounded-xl border border-line bg-canvas p-4">
-          <input
-            value={entryName}
-            onChange={(e) => setEntryName(e.target.value)}
-            placeholder="Title (e.g. Resume, Portfolio, Stories)"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink1 focus:border-accent focus:outline-none"
-          />
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={6}
-            placeholder="Paste content…"
-            className="w-full resize-none rounded-lg border border-line bg-surface p-3 text-sm text-ink1 focus:border-accent focus:outline-none"
-          />
-          <div className="flex gap-2">
-            <button
-              onClick={() => setAdding(false)}
-              className="text-sm text-ink2 hover:text-ink1"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAdd}
-              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white"
-            >
-              Add
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <button
-            onClick={() => setAdding(true)}
-            className="flex-1 rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1"
-          >
-            + Paste profile entry
-          </button>
-          <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1">
-            {uploadBusy ? "Converting…" : "Upload .md / .txt / .pdf"}
-            <input
-              type="file"
-              accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
-              className="hidden"
-              disabled={uploadBusy}
-              onChange={handleUpload}
-            />
-          </label>
-        </div>
-      )}
-
-      <div className="mt-3 flex items-center gap-2">
-        <input
-          value={portfolioUrl}
-          onChange={(e) => setPortfolioUrl(e.target.value)}
-          placeholder="https://... portfolio or personal site"
-          className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
-        />
-        <button
-          onClick={handleFetchPortfolio}
-          disabled={portfolioBusy}
-          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink1 transition hover:border-line disabled:opacity-50"
-        >
-          {portfolioBusy ? "Fetching…" : "Add from URL"}
-        </button>
-      </div>
-      {(uploadError || portfolioError) && (
-        <p className="mt-1 text-xs text-red-600 dark:text-red-300">{uploadError || portfolioError}</p>
-      )}
+      <AddContextForm
+        onAdd={onAdd}
+        pasteLabel="+ Paste profile entry"
+        urlPlaceholder="https://... portfolio or personal site"
+      />
 
       <div className="mt-6 flex items-center justify-between">
         <button
@@ -881,31 +807,293 @@ function StagesStep({ stages, onChange, onBack, onNext }) {
 
 // ---- Attach -------------------------------------------------------------
 
-function AttachStep({ entries, attached, onToggle, onBack, onNext }) {
+function AddContextForm({
+  onAdd,
+  pasteLabel = "+ Paste",
+  urlPlaceholder = "https://... page to pull in",
+}) {
+  const [adding, setAdding] = useState(false);
+  const [entryName, setEntryName] = useState("");
+  const [content, setContent] = useState("");
+  const [uploadBusy, setUploadBusy] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [sourceUrl, setSourceUrl] = useState("");
+  const [urlBusy, setUrlBusy] = useState(false);
+  const [urlError, setUrlError] = useState("");
+
+  function handleAdd() {
+    if (!entryName.trim() || !content.trim()) return;
+    onAdd({ name: entryName, content });
+    setEntryName("");
+    setContent("");
+    setAdding(false);
+  }
+
+  async function handleUpload(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setUploadBusy(true);
+    setUploadError("");
+    try {
+      onAdd(await readEntryFile(file));
+    } catch (err) {
+      setUploadError(err.message || "Could not read that file.");
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  async function handleFetchUrl() {
+    const url = normalizeUrlInput(sourceUrl);
+    if (!url) {
+      setUrlError("Enter a URL to fetch.");
+      return;
+    }
+    setUrlBusy(true);
+    setUrlError("");
+    try {
+      const proxyOk = await isProxyReachable();
+      if (!proxyOk) {
+        setUrlError("Proxy is offline (run npm run dev) — paste the content manually instead.");
+        return;
+      }
+      const { title, text } = await fetchUrlContent(url);
+      onAdd({ name: entryNameFromUrl(url, title), content: text });
+      setSourceUrl("");
+    } catch (err) {
+      setUrlError(err.message || "Could not fetch that URL.");
+    } finally {
+      setUrlBusy(false);
+    }
+  }
+
+  return (
+    <>
+      {adding ? (
+        <div className="mt-3 space-y-2 rounded-xl border border-line bg-canvas p-4">
+          <input
+            value={entryName}
+            onChange={(e) => setEntryName(e.target.value)}
+            placeholder="Title (e.g. Resume, Stories, Portfolio)"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink1 focus:border-accent focus:outline-none"
+          />
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={6}
+            placeholder="Paste content…"
+            className="w-full resize-none rounded-lg border border-line bg-surface p-3 text-sm text-ink1 focus:border-accent focus:outline-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAdding(false)}
+              className="text-sm text-ink2 hover:text-ink1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAdd}
+              className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="flex-1 rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1"
+          >
+            {pasteLabel}
+          </button>
+          <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1">
+            {uploadBusy ? "Converting…" : "Upload .md / .txt / .pdf"}
+            <input
+              type="file"
+              accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
+              className="hidden"
+              disabled={uploadBusy}
+              onChange={handleUpload}
+            />
+          </label>
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-2">
+        <input
+          value={sourceUrl}
+          onChange={(e) => setSourceUrl(e.target.value)}
+          placeholder={urlPlaceholder}
+          className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={handleFetchUrl}
+          disabled={urlBusy}
+          className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink1 transition hover:border-line disabled:opacity-50"
+        >
+          {urlBusy ? "Fetching…" : "Add from URL"}
+        </button>
+      </div>
+      {(uploadError || urlError) && (
+        <p className="mt-1 text-xs text-red-600 dark:text-red-300">{uploadError || urlError}</p>
+      )}
+    </>
+  );
+}
+
+function AttachStep({
+  entries,
+  attached,
+  onToggle,
+  onAddShared,
+  onRemoveShared,
+  jobOnlyDrafts,
+  onAddJobOnly,
+  onRemoveJobOnly,
+  otherJobs,
+  copiedKeys,
+  onToggleCopy,
+  onSaveOtherToProfile,
+  onBack,
+  onNext,
+}) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-ink1">Attach profile to this job</h2>
+      <h2 className="text-lg font-semibold text-ink1">Context for this job</h2>
       <p className="mt-2 text-sm text-ink2">
-        Choose which profile entries ground prep docs, flashcards, and the advisor for
-        this job. You can change this later per job.
+        Pull in material that should follow you to every role, and drop in anything
+        tailored to this one. You can change this later from Context and Job settings.
       </p>
 
-      <div className="mt-4 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
-        {entries.map((entry) => (
-          <label
-            key={entry.id}
-            className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-surface2/50"
-          >
-            <input
-              type="checkbox"
-              checked={attached.has(entry.id)}
-              onChange={() => onToggle(entry.id)}
-              className="accent-accent"
-            />
-            <span className="text-sm text-ink1">{entry.name}</span>
-          </label>
-        ))}
-      </div>
+      <section className="mt-5">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
+          Shared across every role
+        </h3>
+        <p className="mt-1 text-xs text-ink2">
+          Stories, metrics, portfolio, and overall experience. Stored on your local
+          profile for now — later this will live on your account.
+        </p>
+        <div className="mt-2 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
+          {entries.length === 0 && (
+            <p className="px-2 py-3 text-sm text-ink2">Nothing shared yet.</p>
+          )}
+          {entries.map((entry) => (
+            <label
+              key={entry.id}
+              className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-surface2/50"
+            >
+              <input
+                type="checkbox"
+                checked={attached.has(entry.id)}
+                onChange={() => onToggle(entry.id)}
+                className="accent-accent"
+              />
+              <span className="min-w-0 flex-1 truncate text-sm text-ink1">{entry.name}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onRemoveShared(entry.id);
+                }}
+                className="shrink-0 rounded px-2 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-red-600 dark:hover:text-red-400"
+              >
+                Remove
+              </button>
+            </label>
+          ))}
+        </div>
+        <AddContextForm
+          onAdd={onAddShared}
+          pasteLabel="+ Add shared context"
+          urlPlaceholder="https://... portfolio or personal site"
+        />
+      </section>
+
+      <section className="mt-6">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
+          This role only
+        </h3>
+        <p className="mt-1 text-xs text-ink2">
+          A tailored resume or notes that shouldn't follow you to other jobs.
+        </p>
+        <div className="mt-2 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
+          {jobOnlyDrafts.length === 0 && (
+            <p className="px-2 py-3 text-sm text-ink2">None added yet.</p>
+          )}
+          {jobOnlyDrafts.map((draft) => (
+            <div
+              key={draft.id}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
+            >
+              <span className="min-w-0 flex-1 truncate text-sm text-ink1">{draft.name}</span>
+              <button
+                type="button"
+                onClick={() => onRemoveJobOnly(draft.id)}
+                className="shrink-0 rounded px-2 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-red-600 dark:hover:text-red-400"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+        <AddContextForm
+          onAdd={onAddJobOnly}
+          pasteLabel="+ Add for this job"
+          urlPlaceholder="https://... tailored resume or posting notes"
+        />
+      </section>
+
+      {otherJobs.length > 0 && (
+        <section className="mt-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
+            From other jobs
+          </h3>
+          <p className="mt-1 text-xs text-ink2">
+            Context you added while prepping another role. Copy it here, or save it
+            to your shared library so every future job can use it.
+          </p>
+          <div className="mt-2 space-y-3">
+            {otherJobs.map((group) => (
+              <div
+                key={group.jobId}
+                className="space-y-1 rounded-xl border border-line bg-canvas/40 p-2"
+              >
+                <p className="px-3 pt-1.5 text-[11px] font-medium text-ink2">{group.label}</p>
+                {group.entries.map((entry) => {
+                  const key = copyContextKey(group.jobId, entry.id);
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
+                    >
+                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={copiedKeys.has(key)}
+                          onChange={() => onToggleCopy(key)}
+                          className="accent-accent"
+                        />
+                        <span className="min-w-0 truncate text-sm text-ink1">{entry.name}</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => onSaveOtherToProfile(entry, key)}
+                        className="shrink-0 rounded px-2 py-1 text-xs font-medium text-accent hover:bg-surface2"
+                      >
+                        Save to shared
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <StepFooter onBack={onBack} onNext={onNext} nextLabel="Next" />
     </div>

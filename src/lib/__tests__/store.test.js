@@ -9,6 +9,7 @@ import {
   getProgressMap,
   addCustomContextEntry,
   getCustomContextEntries,
+  getCustomContextEntriesForJob,
   addStagePage,
   getStagePages,
   updateStagePage,
@@ -85,6 +86,8 @@ describe("job-scoped store", () => {
     setActiveJobId(a.id);
     expect(getProgressMap()["card-1"].confidence).toBe(4);
     expect(getCustomContextEntries()).toHaveLength(1);
+    expect(getCustomContextEntriesForJob(a.id)).toHaveLength(1);
+    expect(getCustomContextEntriesForJob(b.id)).toEqual([]);
   });
 
   it("raw get/set remain global (job-independent)", () => {
