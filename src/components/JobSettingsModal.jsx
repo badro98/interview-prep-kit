@@ -246,8 +246,7 @@ export default function JobSettingsModal({ open, onClose, onSaved, onGoToContext
             </div>
             <p className="mb-2 text-[11px] leading-snug text-ink2">
               After a recruiter call, click <span className="text-ink2">Add stages from seed</span> then{" "}
-              <span className="text-ink2">Save</span>. Prep docs load from the repo; use{" "}
-              <span className="text-ink2">Regenerate</span> on a stage to refresh from your latest context.
+              <span className="text-ink2">Save</span>. Prep docs load from the repo; ask Advisor to refresh a stage from your latest context.
             </p>
             <StageEditor stages={stages} onChange={handleStagesChange} />
             {!hasStages && (

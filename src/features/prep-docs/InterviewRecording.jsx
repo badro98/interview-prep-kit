@@ -722,7 +722,7 @@ export default function InterviewRecording({ stageId, onChange }) {
       <div className="border-b border-line px-8 py-4">
         <p className="text-sm text-ink1">
           Add an audio recording <span className="text-ink2">or</span> a text transcript for
-          this stage. Optionally save it into this job&apos;s Context so Advisor and Regenerate
+          this stage. Optionally save it into this job&apos;s Context so Advisor
           can use it.
         </p>
         <div className="mt-3 flex gap-1 rounded-lg bg-surface p-1 text-xs w-fit">
@@ -988,7 +988,7 @@ export default function InterviewRecording({ stageId, onChange }) {
 
               {contextSavedName && (
                 <p className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-200">
-                  Saved “{contextSavedName}” to Context (enabled). Advisor and Regenerate will use it.
+                  Saved “{contextSavedName}” to Context (enabled). Advisor will use it.
                 </p>
               )}
 

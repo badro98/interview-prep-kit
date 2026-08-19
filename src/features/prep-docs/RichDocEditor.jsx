@@ -101,9 +101,7 @@ export default function RichDocEditor({
 
   return (
     <>
-      {toolbarHost
-        ? createPortal(<Toolbar editor={editor} />, toolbarHost)
-        : null}
+      {toolbarHost ? createPortal(<Toolbar editor={editor} />, toolbarHost) : null}
       <div className="rounded-lg border border-line bg-canvas">
         <EditorContent editor={editor} />
       </div>
@@ -192,24 +190,55 @@ function Toolbar({ editor }) {
         onClick={setLink}
         label="Link"
       />
-      <div className="ml-auto flex gap-0.5">
-        <ToolBtn
-          className={btn(false)}
-          onClick={() => editor.chain().focus().undo().run()}
-          label="Undo"
-        />
-        <ToolBtn
-          className={btn(false)}
-          onClick={() => editor.chain().focus().redo().run()}
-          label="Redo"
-        />
-      </div>
+      <Sep />
+      <ToolBtn
+        className={btn(false)}
+        onClick={() => editor.chain().focus().undo().run()}
+        label="Undo"
+      />
+      <ToolBtn
+        className={btn(false)}
+        onClick={() => editor.chain().focus().redo().run()}
+        label="Redo"
+      />
     </div>
+  );
+}
+
+export function ToolbarToggle({ open, onToggle }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-label={open ? "Collapse formatting toolbar" : "Expand formatting toolbar"}
+      title={open ? "Collapse formatting" : "Expand formatting"}
+      className="shrink-0 rounded p-1 text-ink2 transition hover:bg-surface2 hover:text-ink1"
+    >
+      <CollapseIcon open={open} />
+    </button>
   );
 }
 
 function Sep() {
   return <span className="mx-1 h-4 w-px bg-line" />;
+}
+
+function CollapseIcon({ open }) {
+  return (
+    <svg
+      className={`h-3.5 w-3.5 transition ${open ? "" : "rotate-180"}`}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m6 15 6-6 6 6" />
+    </svg>
+  );
 }
 
 function ToolBtn({ className, onClick, label, title }) {
