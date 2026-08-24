@@ -45,7 +45,7 @@ async function generateChatOnce({ system, messages, webSearch }) {
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: m.content }],
   }));
-  const config = {};
+  const config = { maxOutputTokens: 32768 };
   if (system) config.systemInstruction = system;
   if (webSearch) config.tools = [{ googleSearch: {} }];
 

@@ -2,37 +2,33 @@
 name: advisor-prep-doc-updates
 description: >-
   Regenerates or updates interview prep docs through the in-app Advisor via
-  update_prep_doc proposals (never dump the full doc in chat). Use when changing
-  advisor kit actions, systemPrompt KIT ACTIONS, or when the user asks why
-  Advisor printed a prep doc instead of offering Update prep doc.
+  update_prep_doc / add_stage proposals (never dump the full doc in chat). Use
+  when changing advisor kit actions, systemPrompt KIT ACTIONS, or when a
+  prep-doc proposal fails to parse (orange “could not be read” warning).
 ---
 
 # Advisor prep-doc updates
 
 Prep Docs are kit state. The Advisor must **propose** a write, not paste the document into chat.
 
-## When the user asks to regenerate / rewrite / update a prep doc
+## When the user asks to spin up / regenerate / rewrite a prep doc
 
-1. Emit **two fences** in the same reply:
-   - Tiny `advisor-actions` JSON (metadata only — never put the document inside JSON).
-   - A following `prep-doc` fence with the complete markdown.
-2. Keep the chat reply short (what changed + Confirm). Do not recap the doc.
-3. Use `mode: "replace"` for regenerate/rewrite/"based on new context".
-4. Use `mode: "append"` only to add a section without replacing the rest.
-5. Resolve the stage with `stageId` from the interview stages list (title match is ok).
+1. Emit **tiny JSON** (metadata only — never put the document inside JSON).
+2. Emit each document in a `<prep-doc>` tag (not a markdown ` ```prep-doc ` fence). Code samples inside the tag are fine; triple-backtick fences used to close early and leave a broken code block in chat.
+3. Keep the chat reply short (what changed + Confirm). Do not recap the doc.
+4. **New rounds** (coding, system design, …) → `add_stage`.
+5. **Existing stages** → `update_prep_doc` (`replace` by default; `append` only to add a section).
 
 ```advisor-actions
-{"proposals":[{"type":"update_prep_doc","stageId":"recruiter","mode":"replace"}]}
+{"proposals":[{"type":"add_stage","id":"coding","title":"Practical coding"}]}
 ```
 
-```prep-doc
-# Recruiter Screen
+<prep-doc stageId="coding" title="Practical coding">
+# Practical coding
 
 ...complete markdown...
-```
+</prep-doc>
 
-Do not put the full document in JSON — unescaped quotes/newlines silently break parse, and the UI used to strip the fence anyway (chat showed only the intro). Parser now attaches the `prep-doc` fence and leaves a broken `advisor-actions` block visible if parse fails.
+Parser lives in `src/features/advisor/actions.js`: attaches tagged bodies to JSON proposals, salvages `<prep-doc>` tags if JSON is invalid, and promotes unknown `update_prep_doc` stage ids to `add_stage`. Confirm UI is `ActionProposals.jsx` (**Review** for the full draft). Applying remounts Prep Docs via `onStagesChange`.
 
-Parse/execute live in `src/features/advisor/actions.js`. Prompt copy lives in `src/features/advisor/systemPrompt.js` (`KIT_ACTIONS`), not `interview.config.js`. Confirm UI is `ActionProposals.jsx` (card preview is truncated; **Review** opens a scrollable overlay of the full markdown before accept). Applying remounts Prep Docs via `onStagesChange`.
-
-Do not use `add_stage` for an existing stage. Do not tell the user the doc was already saved. Do not ask "should I propose this?" — emit the fences in the same reply.
+Do not tell the user the doc was already saved. Do not ask "should I propose this?" — emit the blocks in the same reply.
