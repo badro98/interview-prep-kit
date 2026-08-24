@@ -7,6 +7,10 @@ import {
   setDocOverride,
   setCardProgress,
   getProgressMap,
+  addCustomCards,
+  getCustomCards,
+  setCardStage,
+  getStageOverrides,
   addCustomContextEntry,
   getCustomContextEntries,
   getCustomContextEntriesForJob,
@@ -88,6 +92,20 @@ describe("job-scoped store", () => {
     expect(getCustomContextEntries()).toHaveLength(1);
     expect(getCustomContextEntriesForJob(a.id)).toHaveLength(1);
     expect(getCustomContextEntriesForJob(b.id)).toEqual([]);
+  });
+
+  it("setCardStage patches custom cards and overrides seed cards", () => {
+    const a = createJob({});
+    setActiveJobId(a.id);
+    addCustomCards([{ id: "c1", question: "Tell me about a conflict.", category: "behavioral" }]);
+    setCardStage("c1", "pm_interview");
+    expect(getCustomCards()[0].stageId).toBe("pm_interview");
+    expect(getStageOverrides()).toEqual({});
+
+    setCardStage("seed-1", "hm");
+    expect(getStageOverrides()["seed-1"]).toBe("hm");
+    setCardStage("seed-1", null);
+    expect(getStageOverrides()["seed-1"]).toBeUndefined();
   });
 
   it("setCardProgress can skip bumping lastReviewed when projecting", () => {

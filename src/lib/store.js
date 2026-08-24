@@ -129,6 +129,32 @@ export function addCustomCards(cards) {
   return additions.length;
 }
 
+// Seed cards keep stageId in generated JSON; custom cards store it on the card.
+// Stage reassignments for seed cards live here so the seed file stays clean.
+
+const STAGE_KEY = "flashcards:stageOverrides";
+
+export const getStageOverrides = () => jget(STAGE_KEY, {});
+
+/** Set or clear a card's interview stage. Custom cards are patched in place. */
+export function setCardStage(cardId, stageId) {
+  const nextStage = String(stageId || "").trim() || null;
+  const custom = getCustomCards();
+  const idx = custom.findIndex((c) => c.id === cardId);
+  if (idx >= 0) {
+    const next = custom.slice();
+    next[idx] = { ...next[idx], stageId: nextStage };
+    if (!nextStage) delete next[idx].stageId;
+    jset(CUSTOM_KEY, next);
+    return next[idx];
+  }
+  const map = getStageOverrides();
+  if (nextStage) map[cardId] = nextStage;
+  else delete map[cardId];
+  jset(STAGE_KEY, map);
+  return { id: cardId, stageId: nextStage };
+}
+
 // Per-card overrides for the gold-standard model answer (referenceAnswer + keyPoints).
 // Seed JSON stays untouched; edits live here until reset.
 

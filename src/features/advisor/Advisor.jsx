@@ -411,8 +411,15 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
             <SearchSources sources={sources} />
             {parseFailed && (
               <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                A kit-change proposal was included, but it could not be read. Ask the advisor to resend with a tiny{" "}
-                <code>advisor-actions</code> JSON block and a separate <code>&lt;prep-doc&gt;</code> tag for each document.
+                A kit-change proposal was included, but it could not be read. Ask the advisor to resend a tiny{" "}
+                <code>advisor-actions</code> JSON block
+                {/prep-doc|update_prep_doc|add_stage/i.test(message.content) ? (
+                  <>
+                    {" "}
+                    and a separate <code>&lt;prep-doc&gt;</code> tag for each document
+                  </>
+                ) : null}
+                .
               </p>
             )}
             <ActionProposals

@@ -1,7 +1,13 @@
 // Parse and execute structured advisor proposals (flashcards, context, stages).
 
 import { CATEGORIES, categoryLabel, getDeck, resolveStageId } from "../flashcards/deck.js";
-import { addCustomCards, addCustomContextEntry, getDocOverride, setDocOverride } from "../../lib/store.js";
+import {
+  addCustomCards,
+  addCustomContextEntry,
+  getDocOverride,
+  setCardStage,
+  setDocOverride,
+} from "../../lib/store.js";
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { saveStageDoc } from "../../lib/generate.js";
 import { getStageDoc } from "../prep-docs/stages.js";
@@ -23,11 +29,18 @@ function slug(s) {
     .slice(0, 32);
 }
 
+function isProposalJson(chunk) {
+  return /"proposals"\s*:/.test(String(chunk || ""));
+}
+
 /** Remove machine-readable proposal fences from chat display text. */
 export function stripAdvisorActions(text) {
   if (!text) return "";
   return String(text)
     .replace(/```advisor-actions[^\n]*\n[\s\S]*?(?:```|$)/gi, "")
+    .replace(/```json[^\n]*\n[\s\S]*?(?:```|$)/gi, (block) =>
+      isProposalJson(block) ? "" : block
+    )
     .replace(/<prep-doc\b[^>]*>[\s\S]*?<\/prep-doc>/gi, "")
     .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?\n\1/gi, "")
     .trim();
@@ -38,7 +51,9 @@ export function hasAdvisorActionsFence(text) {
   return (
     /```advisor-actions/i.test(s) ||
     /<prep-doc\b/i.test(s) ||
-    /```+prep-doc/i.test(s)
+    /```+prep-doc/i.test(s) ||
+    ( /```json/i.test(s) && isProposalJson(s) ) ||
+    /\{\s*"proposals"\s*:/.test(s)
   );
 }
 
@@ -160,7 +175,7 @@ function extractRawProposals(source) {
   const actions = source.match(ACTIONS_FENCE);
   if (actions) chunks.push(actions[1]);
   const json = source.match(JSON_PROPOSALS_FENCE);
-  if (json && /"proposals"\s*:|"type"\s*:\s*"(?:update_prep_doc|add_stage)"/.test(json[1] || "")) {
+  if (json && isProposalJson(json[1])) {
     chunks.push(json[1]);
   }
   const bare = source.search(/\{\s*"proposals"\s*:/);
@@ -184,6 +199,76 @@ export function parseAdvisorActions(text) {
   if (!raw.length) raw = salvageFromPrepDocs(source);
   raw = attachPrepDocs(raw, source);
   return raw.map((p, i) => normalizeProposal(p, i)).filter(Boolean);
+}
+
+function normalizeQuestion(q) {
+  return String(q || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.…]+$/g, "")
+    .trim();
+}
+
+function matchDeckCard(query, deck, usedIds) {
+  const id = String(query.id || query.cardId || "").trim();
+  if (id) {
+    const byId = deck.find((c) => c.id === id && !usedIds.has(c.id));
+    if (byId) return byId;
+  }
+  const q = normalizeQuestion(query.question);
+  if (!q) return null;
+  const unused = deck.filter((c) => !usedIds.has(c.id));
+  const exact = unused.find((c) => normalizeQuestion(c.question) === q);
+  if (exact) return exact;
+  const prefixes = unused.filter((c) => {
+    const cq = normalizeQuestion(c.question);
+    return cq.startsWith(q) || q.startsWith(cq);
+  });
+  if (prefixes.length === 1) return prefixes[0];
+  const startsWithQuery = prefixes.filter((c) =>
+    normalizeQuestion(c.question).startsWith(q)
+  );
+  return startsWithQuery.length === 1 ? startsWithQuery[0] : null;
+}
+
+function resolveAssignStage(raw, stages) {
+  const value = String(raw || "").trim();
+  if (!value || /^unassigned$/i.test(value)) return "";
+  return resolveStageId(value, stages);
+}
+
+function normalizeUpdateFlashcards(p, index) {
+  const stages = getActiveJob()?.stages || [];
+  const deck = getDeck();
+  const usedIds = new Set();
+  const rows = Array.isArray(p.updates) ? p.updates : Array.isArray(p.cards) ? p.cards : [];
+  const updates = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const stageId = resolveAssignStage(row.stageId || row.stage, stages);
+    if (stageId === null) continue;
+    const card = matchDeckCard(row, deck, usedIds);
+    if (!card) continue;
+    usedIds.add(card.id);
+    updates.push({
+      id: card.id,
+      question: card.question,
+      stageId,
+      fromStageId: card.stageId || null,
+    });
+  }
+  if (!updates.length) return null;
+  const title = stages.find((s) => s.id === updates[0].stageId)?.title;
+  return {
+    id: p.id || `update-flashcards-${index}`,
+    type: "update_flashcards",
+    label:
+      p.label ||
+      (title
+        ? `Assign ${updates.length} flashcard${updates.length === 1 ? "" : "s"} to ${title}`
+        : `Update ${updates.length} flashcard stage${updates.length === 1 ? "" : "s"}`),
+    updates,
+  };
 }
 
 function normalizeProposal(p, index) {
@@ -213,6 +298,10 @@ function normalizeProposal(p, index) {
       label: p.label || `Add ${cards.length} flashcard${cards.length === 1 ? "" : "s"}`,
       cards,
     };
+  }
+
+  if (p.type === "update_flashcards" || p.type === "assign_flashcards") {
+    return normalizeUpdateFlashcards(p, index);
   }
 
   if (p.type === "add_context") {
@@ -291,26 +380,61 @@ export function executeAdvisorProposal(proposal) {
   if (!proposal) return { ok: false, message: "Nothing to apply." };
 
   if (proposal.type === "add_flashcards") {
-    const existingQs = new Set(
-      getDeck().map((c) => c.question.toLowerCase().trim())
+    const deck = getDeck();
+    const existingByQ = new Map(
+      deck.map((c) => [c.question.toLowerCase().trim(), c])
     );
-    const novel = proposal.cards.filter(
-      (c) => !existingQs.has(c.question.toLowerCase().trim())
-    );
-    const skipped = proposal.cards.length - novel.length;
+    const novel = [];
+    let reassigned = 0;
+    for (const c of proposal.cards) {
+      const existing = existingByQ.get(c.question.toLowerCase().trim());
+      if (existing) {
+        if (c.stageId && c.stageId !== existing.stageId) {
+          setCardStage(existing.id, c.stageId);
+          reassigned += 1;
+        }
+      } else {
+        novel.push(c);
+      }
+    }
     const added = addCustomCards(novel);
-    let message =
-      added > 0
-        ? `Added ${added} card${added === 1 ? "" : "s"} to your flashcard deck.`
-        : "No new cards added.";
+    const parts = [];
+    if (added > 0) parts.push(`Added ${added} card${added === 1 ? "" : "s"} to your flashcard deck.`);
+    if (reassigned > 0) {
+      parts.push(
+        `Assigned ${reassigned} existing card${reassigned === 1 ? "" : "s"} to a stage.`
+      );
+    }
+    const skipped = proposal.cards.length - novel.length - reassigned;
+    if (!parts.length) parts.push("No new cards added.");
     if (skipped > 0) {
-      message += ` (${skipped} duplicate question${skipped === 1 ? "" : "s"} skipped.)`;
+      parts.push(
+        `(${skipped} duplicate question${skipped === 1 ? "" : "s"} skipped.)`
+      );
     }
     return {
-      ok: added > 0,
-      message,
+      ok: added > 0 || reassigned > 0,
+      message: parts.join(" "),
       kind: "flashcards",
       count: added,
+    };
+  }
+
+  if (proposal.type === "update_flashcards") {
+    let applied = 0;
+    for (const row of proposal.updates || []) {
+      if (!row?.id) continue;
+      setCardStage(row.id, row.stageId || null);
+      applied += 1;
+    }
+    return {
+      ok: applied > 0,
+      message:
+        applied > 0
+          ? `Updated the stage on ${applied} flashcard${applied === 1 ? "" : "s"}.`
+          : "No flashcards were updated.",
+      kind: "flashcards",
+      count: applied,
     };
   }
 

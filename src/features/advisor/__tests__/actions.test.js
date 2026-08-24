@@ -4,9 +4,9 @@ import {
   executeAdvisorProposal,
   stripAdvisorActions,
 } from "../actions.js";
-import { resolveStageId } from "../../flashcards/deck.js";
+import { getDeck, resolveStageId } from "../../flashcards/deck.js";
 import { createJob, setActiveJobId } from "../../../lib/jobs.js";
-import { getDocOverride, setDocOverride } from "../../../lib/store.js";
+import { addCustomCards, getDocOverride, setDocOverride } from "../../../lib/store.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -62,6 +62,109 @@ ${JSON.stringify({
     const [proposal] = parseAdvisorActions(text);
     expect(proposal.cards[0].stageId).toBe("takehome");
     expect(proposal.cards[1].stageId).toBe("hm");
+  });
+});
+
+describe("update_flashcards", () => {
+  function setupDeck() {
+    const job = createJob({
+      role: "PM",
+      company: "Nuro",
+      stages: [
+        { id: "pm_interview", title: "PM interview", subtitle: "" },
+        { id: "hm", title: "Hiring Manager", subtitle: "" },
+      ],
+    });
+    setActiveJobId(job.id);
+    addCustomCards([
+      {
+        id: "q1",
+        category: "behavioral",
+        question: "Tell me about a time you identified a significant problem and drove a solution.",
+      },
+      {
+        id: "q2",
+        category: "behavioral",
+        question: "Describe a situation where you had to make a recommendation with incomplete data.",
+      },
+    ]);
+    return job;
+  }
+
+  it("parses a json fence and matches truncated questions", () => {
+    setupDeck();
+    const text = `Understood. I will propose these stage assignments.\n\n\`\`\`json
+${JSON.stringify({
+  proposals: [
+    {
+      type: "update_flashcards",
+      label: "Assign flashcards to pm_interview stage",
+      updates: [
+        {
+          question: "Tell me about a time you identified a significant problem...",
+          stageId: "pm_interview",
+        },
+        {
+          question: "Describe a situation where you had to make a recommendation...",
+          stageId: "pm_interview",
+        },
+      ],
+    },
+  ],
+})}
+\`\`\``;
+
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("update_flashcards");
+    expect(proposal.updates).toHaveLength(2);
+    expect(proposal.updates.map((u) => u.id)).toEqual(["q1", "q2"]);
+    expect(proposal.updates[0].stageId).toBe("pm_interview");
+    expect(stripAdvisorActions(text)).toBe(
+      "Understood. I will propose these stage assignments."
+    );
+  });
+
+  it("applies stage assignments on confirm", () => {
+    setupDeck();
+    const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
+${JSON.stringify({
+  proposals: [
+    {
+      type: "update_flashcards",
+      updates: [{ question: "Tell me about a time you identified a significant problem", stageId: "pm_interview" }],
+    },
+  ],
+})}
+\`\`\``);
+
+    const result = executeAdvisorProposal(proposal);
+    expect(result.ok).toBe(true);
+    expect(getDeck().find((c) => c.id === "q1").stageId).toBe("pm_interview");
+  });
+
+  it("reassigns existing cards when add_flashcards repeats a question with a stage", () => {
+    setupDeck();
+    const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
+${JSON.stringify({
+  proposals: [
+    {
+      type: "add_flashcards",
+      cards: [
+        {
+          category: "behavioral",
+          stageId: "hm",
+          question: "Tell me about a time you identified a significant problem and drove a solution.",
+        },
+      ],
+    },
+  ],
+})}
+\`\`\``);
+
+    const result = executeAdvisorProposal(proposal);
+    expect(result.ok).toBe(true);
+    expect(result.message).toMatch(/Assigned 1 existing card/);
+    expect(getDeck().find((c) => c.id === "q1").stageId).toBe("hm");
   });
 });
 
