@@ -34,6 +34,14 @@ function formatGroundingSources(res) {
     const title = chunk?.web?.title || uri;
     if (!uri || seen.has(uri)) continue;
     seen.add(uri);
+    let host = "";
+    try {
+      host = new URL(uri).hostname.replace(/^www\./, "");
+    } catch {
+      host = "";
+    }
+    if (host && seen.has(`host:${host}`)) continue;
+    if (host) seen.add(`host:${host}`);
     lines.push(`- [${title}](${uri})`);
   }
   if (lines.length === 0) return "";

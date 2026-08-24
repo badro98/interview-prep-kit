@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import ActionProposals from "./ActionProposals.jsx";
+import SearchSources from "./SearchSources.jsx";
 import ChatHistory from "./ChatHistory.jsx";
 import { advisorChat, getMode, MODE_API, MODE_PASTE } from "../../lib/coach.js";
 import { getContextSummary } from "../../lib/context.js";
@@ -13,6 +14,7 @@ import {
   executeAdvisorProposal,
 } from "./actions.js";
 import { extractUrls, fetchUrlContent } from "../../lib/fetchUrl.js";
+import { splitSearchSources } from "./searchSources.js";
 import {
   getAdvisorThreads,
   getActiveAdvisorThreadId,
@@ -368,11 +370,14 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
   }
 
   const proposals = isUser ? [] : parseAdvisorActions(message.content);
-  const display = isUser
+  const rawDisplay = isUser
     ? message.content
     : proposals.length
       ? stripAdvisorActions(message.content)
       : message.content;
+  const { body: display, sources } = isUser
+    ? { body: rawDisplay, sources: [] }
+    : splitSearchSources(rawDisplay);
   const parseFailed =
     !isUser && proposals.length === 0 && hasAdvisorActionsFence(message.content);
   const appliedIds = [
@@ -403,6 +408,7 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
             <div className="prose dark:prose-invert prose-sm max-w-none prose-p:my-2 prose-p:text-sm prose-li:text-sm">
               <Markdown>{display}</Markdown>
             </div>
+            <SearchSources sources={sources} />
             {parseFailed && (
               <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                 A kit-change proposal was included, but it could not be read. Ask the advisor to resend with a tiny{" "}
