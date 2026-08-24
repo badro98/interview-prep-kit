@@ -1,23 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Markdown from "../../components/Markdown.jsx";
+import { useEffect, useMemo, useRef, useState } from "react";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { getActiveJob, getActiveJobId } from "../../lib/jobs.js";
-import { setCardProgress, addCustomCards, setModelOverride, clearModelOverride, get, set as storeSet } from "../../lib/store.js";
-import { useSpeechRecognition } from "../audio/useSpeechRecognition.js";
+import { addCustomCards, setModelOverride, clearModelOverride, get, set as storeSet } from "../../lib/store.js";
 import {
   getDeck,
   CATEGORIES,
   categoryLabel,
   stageLabel,
-  buildCoachTask,
   buildGenerateTask,
   parseGenerated,
-  parseCoaching,
-  parseTightenedVersion,
-  formatModelAnswerText,
   parseModelAnswerText,
+  formatModelAnswerText,
 } from "./deck.js";
+import AttemptPractice from "./AttemptPractice.jsx";
 
 const CONF_FILTERS = [
   { id: "all", label: "All confidence" },
@@ -135,52 +131,7 @@ export default function Flashcards() {
     setSelectedId(visible[next].id);
   }
 
-  // ---- coach() flows ----------------------------------------------------------
-
-  async function handleCoach(draftAnswer) {
-    const answer = String(draftAnswer ?? selected?.myAnswer ?? "").trim();
-    if (!selected || !answer) return;
-    // Persist the draft we're coaching against (editor may not have blurred yet).
-    setCardProgress(selected.id, { myAnswer: answer });
-    setErr("");
-    setBusy(true);
-    const jobId = getActiveJobId();
-    try {
-      const task = buildCoachTask({ ...selected, myAnswer: answer });
-      const result = await coach({ task });
-      if (jobId !== getActiveJobId()) return; // job switched mid-flight — drop the result
-      if (result.mode === MODE_PASTE) {
-        setModal({
-          kind: "coach",
-          title: "Coach me",
-          prompt: result.prompt,
-          saveLabel: "Save coaching",
-          replyHint: "Paste the coaching reply here…",
-        });
-      } else {
-        saveCoaching(result.text);
-      }
-    } catch (e) {
-      if (jobId !== getActiveJobId()) return;
-      const msg = e.message || "Coaching failed.";
-      setErr(
-        msg.includes("Proxy error") || msg.includes("fetch")
-          ? `${msg} — run npm run dev with .env keys, or switch header to Paste mode.`
-          : msg
-      );
-    } finally {
-      if (jobId === getActiveJobId()) setBusy(false);
-    }
-  }
-
-  function saveCoaching(text) {
-    const { coaching, confidence } = parseCoaching(text);
-    const patch = { aiCoaching: coaching };
-    if (confidence != null) patch.confidence = confidence;
-    setCardProgress(selected.id, patch);
-    setModal(null);
-    bump();
-  }
+  // ---- generate more questions ------------------------------------------------
 
   async function handleGenerate() {
     setErr("");
@@ -224,8 +175,7 @@ export default function Flashcards() {
   }
 
   function handleModalSave(text) {
-    if (modal?.kind === "coach") saveCoaching(text);
-    else if (modal?.kind === "generate") saveGenerated(text);
+    if (modal?.kind === "generate") saveGenerated(text);
   }
 
   function persistNavSplit(next) {
@@ -422,15 +372,9 @@ export default function Flashcards() {
             card={selected}
             position={selectedIdx + 1}
             total={visible.length}
-            busy={busy}
-            onCoach={handleCoach}
             onPrev={() => goRelative(-1)}
             onNext={() => goRelative(1)}
-            onSetConfidence={(n) => {
-              setCardProgress(selected.id, { confidence: n });
-              bump();
-            }}
-            onPersistAnswer={bump}
+            onProgressChange={bump}
             onModelUpdated={bump}
             stageTitle={selected.stageId ? stageLabel(selected.stageId, stages) : null}
           />
@@ -514,35 +458,24 @@ function CardDetail({
   card,
   position,
   total,
-  busy,
-  onCoach,
   onPrev,
   onNext,
-  onSetConfidence,
-  onPersistAnswer,
+  onProgressChange,
   onModelUpdated,
   stageTitle,
 }) {
   const [flipped, setFlipped] = useState(false);
-  const [draft, setDraft] = useState(card.myAnswer);
   const [editingModel, setEditingModel] = useState(false);
   const [modelText, setModelText] = useState(() =>
     formatModelAnswerText(card.referenceAnswer, card.keyPoints)
   );
   const [modelSavedTick, setModelSavedTick] = useState(false);
 
-  const tightened = useMemo(
-    () => parseTightenedVersion(card.aiCoaching),
-    [card.aiCoaching]
-  );
-
-  // Reset draft when switching cards.
   useEffect(() => {
-    setDraft(card.myAnswer);
     setModelText(formatModelAnswerText(card.referenceAnswer, card.keyPoints));
     setEditingModel(false);
     setFlipped(false);
-  }, [card.id, card.myAnswer, card.referenceAnswer, card.keyPoints]);
+  }, [card.id, card.referenceAnswer, card.keyPoints]);
 
   function saveModel(referenceAnswer, keyPoints) {
     setModelOverride(card.id, { referenceAnswer, keyPoints });
@@ -729,227 +662,12 @@ function CardDetail({
           </div>
         </div>
 
-        {/* Confidence — coach assigns it; you can still override */}
-        <div className="mt-6 flex items-center justify-between">
-          <span className="text-xs font-medium text-ink2">
-            Confidence{" "}
-            <span className="text-ink2">
-              {card.confidence != null
-                ? "(coach-assigned · tap to override)"
-                : "(coach assigns on submit · or set manually)"}
-            </span>
-          </span>
-          <ConfidencePicker value={card.confidence} onPick={onSetConfidence} />
-        </div>
-
-        {/* Answer editor + coach */}
-        <section className="mt-6">
-          <h3 className="mb-2 text-sm font-semibold text-ink1">Your answer (draft)</h3>
-          <AnswerEditor
-            card={card}
-            onDraftChange={setDraft}
-            onPersist={onPersistAnswer}
-          />
-          <div className="mt-3 flex items-center justify-end gap-2">
-            <button
-              onClick={() => onCoach(draft)}
-              disabled={busy || !draft.trim()}
-              title={!draft.trim() ? "Write a draft first" : "Get coaching"}
-              className="rounded-md bg-accent px-4 py-2 text-xs font-semibold text-white transition hover:bg-accentHover disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {busy ? "Working…" : "Coach me"}
-            </button>
-          </div>
-        </section>
-
-        {/* Coaching output */}
-        {card.aiCoaching && (
-          <section className="mt-6 rounded-xl border border-line bg-surface/50 p-5">
-            <h3 className="mb-2 text-sm font-semibold text-accent">
-              Coaching
-            </h3>
-            <Markdown>{card.aiCoaching}</Markdown>
-
-            <div className="mt-4 flex flex-wrap gap-2 border-t border-line pt-4">
-              <p className="w-full text-[11px] text-ink2">
-                Promote to the model answer on the card back (flip to see it).
-              </p>
-              {tightened && (
-                <button
-                  type="button"
-                  onClick={() => promoteToModel(tightened)}
-                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
-                >
-                  Use tightened version as model
-                </button>
-              )}
-              {draft.trim() && (
-                <button
-                  type="button"
-                  onClick={() => promoteToModel(draft)}
-                  className="rounded-md border border-emerald-600/50 bg-emerald-600/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-300 transition hover:bg-emerald-600/20"
-                >
-                  Use my draft as model
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-
-        {card.lastReviewed && (
-          <p className="mt-6 text-center text-[11px] text-ink2">
-            Last reviewed {new Date(card.lastReviewed).toLocaleString()}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function ConfidencePicker({ value, onPick }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      {[1, 2, 3, 4, 5].map((n) => {
-        const on = value === n;
-        return (
-          <button
-            key={n}
-            onClick={() => onPick(n)}
-            title={`Confidence ${n}/5`}
-            className={`h-8 w-8 rounded-md text-sm font-semibold transition ${
-              on
-                ? `${CONF_COLORS[n]} text-black`
-                : "bg-surface2 text-ink1 hover:bg-surface2"
-            }`}
-          >
-            {n}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-// Local-state editor with text + audio (Web Speech) input. Persists silently
-// while typing, bumps deck on blur so list indicators/sorting refresh without
-// reordering mid-keystroke. Transcribed speech is appended to the draft.
-function AnswerEditor({ card, onDraftChange, onPersist }) {
-  const [text, setText] = useState(card.myAnswer);
-  const [saved, setSaved] = useState(false);
-  const timer = useRef(null);
-  const textRef = useRef(text);
-  textRef.current = text;
-
-  useEffect(() => {
-    setText(card.myAnswer);
-    onDraftChange?.(card.myAnswer);
-  }, [card.id, card.myAnswer, onDraftChange]);
-
-  const persist = useCallback((val) => {
-    onDraftChange?.(val);
-    setSaved(false);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      setCardProgress(card.id, { myAnswer: val });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1200);
-    }, 400);
-  }, [card.id, onDraftChange]);
-
-  // Append finalized speech chunks to the draft.
-  const appendTranscript = useCallback(
-    (chunk) => {
-      const base = textRef.current;
-      const sep = base && !base.endsWith(" ") && !base.endsWith("\n") ? " " : "";
-      const next = base + sep + chunk;
-      setText(next);
-      persist(next);
-    },
-    [persist]
-  );
-
-  const speech = useSpeechRecognition(appendTranscript);
-
-  useEffect(() => () => clearTimeout(timer.current), []);
-
-  function onChange(e) {
-    const val = e.target.value;
-    setText(val);
-    persist(val);
-  }
-
-  function onBlur() {
-    clearTimeout(timer.current);
-    setCardProgress(card.id, { myAnswer: text });
-    onPersist?.();
-  }
-
-  return (
-    <div>
-      <div className="relative">
-        <textarea
-          value={text}
-          onChange={onChange}
-          onBlur={onBlur}
-          placeholder="Type your answer, or use the mic to answer out loud (STAR-ish: situation, what you did, the result with real numbers)…"
-          className="min-h-[140px] w-full resize-y rounded-lg border border-line bg-canvas p-4 pr-14 text-sm leading-relaxed text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none"
+        <AttemptPractice
+          card={card}
+          onProgressChange={onProgressChange}
+          onPromote={promoteToModel}
         />
-        {speech.supported && (
-          <button
-            type="button"
-            onClick={speech.toggle}
-            title={speech.listening ? "Stop recording" : "Answer out loud"}
-            className={`absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full transition ${
-              speech.listening
-                ? "animate-pulse bg-red-500 text-white"
-                : "bg-surface2 text-ink1 hover:bg-surface2 hover:text-ink1"
-            }`}
-          >
-            <MicIcon />
-          </button>
-        )}
-      </div>
-
-      <div className="mt-1 flex items-center justify-between text-[11px]">
-        <span className="text-ink2">
-          {speech.listening ? (
-            <span className="text-red-600 dark:text-red-400">
-              ● Listening{speech.interim ? `: "${speech.interim}"` : "… speak now"}
-            </span>
-          ) : speech.error ? (
-            <span className="text-amber-400">
-              {speech.error}
-              {speech.error.includes("network") && (
-                <span className="mt-0.5 block text-ink2">
-                  For live transcript: open in standalone Chrome. Or type your answer below.
-                </span>
-              )}
-            </span>
-          ) : speech.supported ? (
-            "Type or tap the mic to answer aloud"
-          ) : (
-            "Mic transcription needs Chrome — typing works everywhere"
-          )}
-        </span>
-        <span className="text-ink2">{saved ? "Saved ✓" : "Autosaves locally"}</span>
       </div>
     </div>
-  );
-}
-
-function MicIcon() {
-  return (
-    <svg
-      className="h-4 w-4"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="9" y="2" width="6" height="12" rx="3" />
-      <path d="M5 10a7 7 0 0 0 14 0M12 19v3" />
-    </svg>
   );
 }

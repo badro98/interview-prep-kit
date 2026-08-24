@@ -5,6 +5,11 @@
 //   can also judge VOCAL tone: pace, pauses, filler words, confidence, warmth, energy.
 
 import { APP } from "../../../interview.config.js";
+import { CONFIDENCE_MARKER } from "../flashcards/deck.js";
+
+const CONFIDENCE_LINE = `Then, as the very last line and nothing after it, output the score on its own line in exactly this format:
+${CONFIDENCE_MARKER}: N
+where N is an integer 1-5 (1 = shaky, 5 = interview-ready).`;
 
 const roleLabel = () => `${APP.role} role at ${APP.company}`;
 
@@ -40,6 +45,8 @@ Respond in Markdown with EXACTLY these sections:
 **Concision & landing** — tight and well-paced, and did I end on a strong note or trail off? Rate 1-5.
 **Top 3 fixes** — the highest-leverage things to change next attempt.
 **Tightened version** — a crisp ~60–90 second spoken version in my own voice, with concrete numbers from my real background, that lands the point and stops.
+
+${CONFIDENCE_LINE}
 
 Be honest about weak delivery — tone feedback is the whole point.`;
 }
@@ -79,6 +86,8 @@ Respond in Markdown with EXACTLY these sections:
 **Concision** — tight and well-paced, or rambling/repetitive? Call out filler and where I should cut. Rate 1-5 with a one-line why.
 **Landing the point** — did it end on a strong, memorable note or trail off? Rate 1-5 with a one-line why.
 **Tightened version** — a crisp ~60–90 second spoken version in my own voice that I could actually say out loud: natural, concrete numbers from my real background, lands the point and stops.
+
+${CONFIDENCE_LINE}
 
 Keep it specific and reference my real stories/metrics. Be honest about weak delivery — that's the point.`;
 }

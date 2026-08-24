@@ -90,6 +90,17 @@ describe("job-scoped store", () => {
     expect(getCustomContextEntriesForJob(b.id)).toEqual([]);
   });
 
+  it("setCardProgress can skip bumping lastReviewed when projecting", () => {
+    const a = createJob({});
+    setActiveJobId(a.id);
+    setCardProgress("card-1", { confidence: 2, lastReviewed: 100 });
+    const before = getProgressMap()["card-1"].lastReviewed;
+    expect(before).toBeGreaterThan(100);
+    setCardProgress("card-1", { myAnswer: "hi", lastReviewed: 50 }, { touch: false });
+    expect(getProgressMap()["card-1"].lastReviewed).toBe(50);
+    expect(getProgressMap()["card-1"].myAnswer).toBe("hi");
+  });
+
   it("raw get/set remain global (job-independent)", () => {
     const a = createJob({});
     const b = createJob({});

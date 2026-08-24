@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import PrepDocs from "./features/prep-docs/PrepDocs.jsx";
 import Flashcards from "./features/flashcards/Flashcards.jsx";
-import Audio from "./features/audio/Audio.jsx";
 import Advisor from "./features/advisor/Advisor.jsx";
 import Context from "./features/context/Context.jsx";
 import Onboarding from "./features/onboarding/Onboarding.jsx";
@@ -17,8 +16,7 @@ import { getTheme, setTheme, THEME_DARK, THEME_LIGHT } from "./lib/theme.js";
 
 const TABS = [
   { id: "prep", label: "Prep Docs", sub: "Stage-by-stage" },
-  { id: "cards", label: "Flashcards", sub: "Behavioral / situational" },
-  { id: "audio", label: "Audio", sub: "Record · transcribe · score" },
+  { id: "cards", label: "Flashcards", sub: "Practice · record · score" },
   { id: "advisor", label: "Advisor", sub: "Chat · readiness · flashcards" },
   { id: "context", label: "Context", sub: "Sources · toggles · custom notes" },
 ];
@@ -183,7 +181,7 @@ export default function App() {
       )}
 
       <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {/* Keep tabs mounted so in-flight work (advisor replies, audio, drafts)
+        {/* Keep tabs mounted so in-flight work (advisor replies, recordings, drafts)
             survives switching away and back. Remount per-job (and prep/cards
             on stage edits) via keys — not by unmounting on tab change. */}
         <TabPanel active={tab === "prep"}>
@@ -191,9 +189,6 @@ export default function App() {
         </TabPanel>
         <TabPanel active={tab === "cards"}>
           <Flashcards key={`cards:${activeJobId}:${refreshKey}`} />
-        </TabPanel>
-        <TabPanel active={tab === "audio"}>
-          <Audio key={`audio:${activeJobId}`} />
         </TabPanel>
         <TabPanel active={tab === "advisor"}>
           <Advisor
