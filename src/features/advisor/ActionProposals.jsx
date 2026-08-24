@@ -57,6 +57,19 @@ function ProposalCard({ proposal, onApply, onDismiss }) {
         </ul>
       )}
 
+      {proposal.type === "update_flashcards" && (
+        <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-ink1">
+          {proposal.updates.map((u, i) => (
+            <li key={i} className="flex gap-2">
+              <span className="shrink-0 text-ink2">
+                {stageLabel(u.stageId, getActiveJob()?.stages || [])}
+              </span>
+              <span className="min-w-0">{u.question}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {proposal.type === "add_context" && (
         <div className="mt-2 text-xs text-ink2">
           <p>
@@ -225,6 +238,7 @@ function reviewSubtitle(proposal) {
 
 function applyLabel(type, mode) {
   if (type === "add_flashcards") return "Add to flashcards";
+  if (type === "update_flashcards") return "Update flashcards";
   if (type === "add_stage") return "Add stage + prep doc";
   if (type === "update_prep_doc") {
     return mode === "append" ? "Append to prep doc" : "Update prep doc";
