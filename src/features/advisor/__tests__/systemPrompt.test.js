@@ -45,9 +45,9 @@ describe("getAdvisorSystem", () => {
     expect(prompt).toContain("~150 words");
     expect(prompt).toContain("Never paste a full prep doc");
     expect(prompt).toContain("update_prep_doc");
-    expect(prompt).toContain("Never abbreviate proposal fences");
-    expect(prompt).toContain("```prep-doc");
-    expect(prompt).toContain("no markdown inside JSON");
+    expect(prompt).toContain("Never abbreviate proposal blocks");
+    expect(prompt).toContain("<prep-doc");
+    expect(prompt).toContain("Never put markdown inside JSON");
     expect(prompt).toMatch(/web search/i);
     expect(prompt).toMatch(/cite sources/i);
   });

@@ -9,8 +9,9 @@ import { markdownToHtml } from "../../lib/markdownHtml.js";
 import { buildCustomStage } from "../onboarding/steps.js";
 
 const ACTIONS_FENCE = /```advisor-actions[^\n]*\n([\s\S]*?)(?:```|$)/i;
-const PREP_DOC_FENCE = /```prep-doc[^\n]*\n([\s\S]*?)(?:```|$)/gi;
 const JSON_PROPOSALS_FENCE = /```json[^\n]*\n([\s\S]*?)(?:```|$)/i;
+const PREP_DOC_XML = /<prep-doc\b([^>]*)>([\s\S]*?)<\/prep-doc>/gi;
+const PREP_DOC_TICKS = /(`{3,})prep-doc([^\n]*)\n([\s\S]*?)\n\1/gi;
 
 const VALID_CATS = new Set(CATEGORIES.map((c) => c.id));
 
@@ -27,12 +28,18 @@ export function stripAdvisorActions(text) {
   if (!text) return "";
   return String(text)
     .replace(/```advisor-actions[^\n]*\n[\s\S]*?(?:```|$)/gi, "")
-    .replace(/```prep-doc[^\n]*\n[\s\S]*?(?:```|$)/gi, "")
+    .replace(/<prep-doc\b[^>]*>[\s\S]*?<\/prep-doc>/gi, "")
+    .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?\n\1/gi, "")
     .trim();
 }
 
 export function hasAdvisorActionsFence(text) {
-  return /```advisor-actions/i.test(String(text || ""));
+  const s = String(text || "");
+  return (
+    /```advisor-actions/i.test(s) ||
+    /<prep-doc\b/i.test(s) ||
+    /```+prep-doc/i.test(s)
+  );
 }
 
 function parseJsonPayload(raw) {
@@ -54,58 +61,116 @@ function parseJsonPayload(raw) {
   return null;
 }
 
-function extractPrepDocBodies(text) {
-  const bodies = [];
-  const re = new RegExp(PREP_DOC_FENCE.source, "gi");
+function parsePrepAttrs(raw) {
+  const s = String(raw || "");
+  const stageId =
+    s.match(/stageId\s*=\s*"([^"]+)"/i)?.[1] ||
+    s.match(/stage\s*=\s*"([^"]+)"/i)?.[1] ||
+    s.match(/^\s+([A-Za-z0-9_-]+)/)?.[1] ||
+    null;
+  const title = s.match(/title\s*=\s*"([^"]+)"/i)?.[1] || null;
+  return { stageId, title };
+}
+
+function extractPrepDocs(text) {
+  const source = String(text || "");
+  const docs = [];
+  const xml = new RegExp(PREP_DOC_XML.source, "gi");
   let m;
-  while ((m = re.exec(String(text || "")))) {
-    const body = String(m[1] || "").trim();
-    if (body) bodies.push(body);
+  while ((m = xml.exec(source))) {
+    const markdown = String(m[2] || "").trim();
+    if (markdown) docs.push({ ...parsePrepAttrs(m[1]), markdown });
   }
-  return bodies;
+  if (docs.length) return docs;
+  const ticks = new RegExp(PREP_DOC_TICKS.source, "gi");
+  while ((m = ticks.exec(source))) {
+    const markdown = String(m[3] || "").trim();
+    if (markdown) docs.push({ ...parsePrepAttrs(m[2]), markdown });
+  }
+  return docs;
+}
+
+function proposalNeedsDoc(p) {
+  if (p?.type === "update_prep_doc") {
+    return !String(p.markdown || p.content || "").trim();
+  }
+  if (p?.type === "add_stage") {
+    return !String(p.content || p.markdown || "").trim();
+  }
+  return false;
+}
+
+function applyPrepDoc(p, doc) {
+  if (p.type === "add_stage") {
+    return {
+      ...p,
+      content: doc.markdown,
+      title: (p.title || doc.title || "").trim() || p.title,
+    };
+  }
+  return { ...p, markdown: doc.markdown };
 }
 
 function attachPrepDocs(rawProposals, text) {
-  const docs = extractPrepDocBodies(text);
+  const docs = extractPrepDocs(text);
   if (!docs.length) return rawProposals;
-  let i = 0;
+  const unused = [...docs];
   return rawProposals.map((p) => {
-    if (
-      p?.type === "update_prep_doc" &&
-      !String(p.markdown || p.content || "").trim() &&
-      i < docs.length
-    ) {
-      return { ...p, markdown: docs[i++] };
-    }
-    return p;
+    if (!proposalNeedsDoc(p)) return p;
+    const key = String(p.stageId || p.stage || p.id || p.title || "").toLowerCase();
+    const tagged = key
+      ? unused.findIndex(
+          (d) =>
+            String(d.stageId || "").toLowerCase() === key ||
+            String(d.title || "").toLowerCase() === key
+        )
+      : -1;
+    const idx = tagged >= 0 ? tagged : unused.findIndex((d) => d.markdown);
+    if (idx < 0) return p;
+    const [doc] = unused.splice(idx, 1);
+    return applyPrepDoc(p, doc);
   });
 }
 
-function salvageUpdatePrepDoc(text, fenceBody) {
-  const blob = `${fenceBody || ""}\n${text || ""}`;
-  if (!/update_prep_doc/.test(blob)) return [];
-  const stageMatch =
-    blob.match(/"stageId"\s*:\s*"([^"]+)"/) || blob.match(/"stage"\s*:\s*"([^"]+)"/);
-  const docs = extractPrepDocBodies(text);
-  if (!stageMatch || !docs[0]) return [];
-  return [
-    {
+function salvageFromPrepDocs(text) {
+  const docs = extractPrepDocs(text);
+  if (!docs.length) return [];
+  const source = String(text || "");
+  const append = /"mode"\s*:\s*"append"/.test(source);
+  const jsonStageIds = [...source.matchAll(/"stageId"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
+  const jsonTitles = [...source.matchAll(/"title"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
+  const jsonStages = [...source.matchAll(/"stage"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
+  return docs.map((doc, i) => {
+    const title = (doc.title || jsonTitles[i] || jsonStages[i] || doc.stageId || jsonStageIds[i] || "Prep doc").trim();
+    const stageId = (doc.stageId || jsonStageIds[i] || title).trim();
+    return {
       type: "update_prep_doc",
-      stageId: stageMatch[1],
-      mode: /"mode"\s*:\s*"append"/.test(blob) ? "append" : "replace",
-      markdown: docs[0],
-    },
-  ];
+      stageId,
+      stage: title,
+      title,
+      mode: append ? "append" : "replace",
+      markdown: doc.markdown,
+      content: doc.markdown,
+    };
+  });
 }
 
-function matchProposalsFence(source) {
+function extractRawProposals(source) {
+  const chunks = [];
   const actions = source.match(ACTIONS_FENCE);
-  if (actions) return actions;
+  if (actions) chunks.push(actions[1]);
   const json = source.match(JSON_PROPOSALS_FENCE);
-  if (json && /"proposals"\s*:|"type"\s*:\s*"update_prep_doc"/.test(json[1] || "")) {
-    return json;
+  if (json && /"proposals"\s*:|"type"\s*:\s*"(?:update_prep_doc|add_stage)"/.test(json[1] || "")) {
+    chunks.push(json[1]);
   }
-  return null;
+  const bare = source.search(/\{\s*"proposals"\s*:/);
+  if (bare >= 0) chunks.push(source.slice(bare));
+
+  for (const chunk of chunks) {
+    const payload = parseJsonPayload(chunk);
+    if (Array.isArray(payload?.proposals)) return payload.proposals;
+  }
+  return [];
 }
 
 /**
@@ -115,10 +180,8 @@ function matchProposalsFence(source) {
 export function parseAdvisorActions(text) {
   if (!text) return [];
   const source = String(text);
-  const m = matchProposalsFence(source);
-  const payload = m ? parseJsonPayload(m[1]) : null;
-  let raw = Array.isArray(payload?.proposals) ? payload.proposals : [];
-  if (!raw.length) raw = salvageUpdatePrepDoc(source, m?.[1] || "");
+  let raw = extractRawProposals(source);
+  if (!raw.length) raw = salvageFromPrepDocs(source);
   raw = attachPrepDocs(raw, source);
   return raw.map((p, i) => normalizeProposal(p, i)).filter(Boolean);
 }
@@ -167,10 +230,10 @@ function normalizeProposal(p, index) {
   }
 
   if (p.type === "add_stage") {
-    const title = (p.title || "").trim();
-    const content = (p.content || "").trim();
+    const title = (p.title || p.stage || "").trim();
+    const content = String(p.content || p.markdown || "").trim();
     if (!title || !content) return null;
-    const stageId = (p.id || slug(title) || `stage-${index}`).trim();
+    const stageId = (p.id || p.stageId || slug(title) || `stage-${index}`).trim();
     if (!stageId) return null;
     return {
       id: p.proposalId || `stage-${stageId}-${index}`,
@@ -186,20 +249,35 @@ function normalizeProposal(p, index) {
 
   if (p.type === "update_prep_doc") {
     const stages = getActiveJob()?.stages || [];
-    const stageId = resolveStageId(p.stageId || p.stage, stages);
+    const resolved = resolveStageId(p.stageId || p.stage, stages);
     const markdown = String(p.markdown || p.content || "").trim();
     const mode = p.mode === "append" ? "append" : "replace";
-    if (!stageId || !markdown) return null;
-    const title = stages.find((s) => s.id === stageId)?.title || stageId;
+    if (!markdown) return null;
+    if (!resolved) {
+      const title = String(p.title || p.stage || p.stageId || "").trim();
+      if (!title) return null;
+      return normalizeProposal(
+        {
+          type: "add_stage",
+          title,
+          id: slug(p.stageId || title),
+          subtitle: p.subtitle,
+          content: markdown,
+          label: p.label,
+        },
+        index
+      );
+    }
+    const title = stages.find((s) => s.id === resolved)?.title || resolved;
     return {
-      id: p.id || `prepdoc-${stageId}-${index}`,
+      id: p.id || `prepdoc-${resolved}-${index}`,
       type: "update_prep_doc",
       label:
         p.label ||
         (mode === "append"
           ? `Append to “${title}” prep doc`
           : `Replace prep doc for “${title}”`),
-      stageId,
+      stageId: resolved,
       mode,
       markdown,
     };
