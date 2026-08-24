@@ -4,6 +4,7 @@ import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import ActionProposals from "./ActionProposals.jsx";
 import SearchSources from "./SearchSources.jsx";
 import ChatHistory from "./ChatHistory.jsx";
+import AdvisorThinking from "./AdvisorThinking.jsx";
 import { advisorChat, getMode, MODE_API, MODE_PASTE } from "../../lib/coach.js";
 import { getContextSummary } from "../../lib/context.js";
 import { getDeck } from "../flashcards/deck.js";
@@ -45,6 +46,8 @@ export default function Advisor({ onContextChange, onStagesChange }) {
   const [input, setInput] = useState("");
   const [webSearch, setWebSearch] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [busyText, setBusyText] = useState("");
+  const [busyPhase, setBusyPhase] = useState("thinking");
   const [err, setErr] = useState("");
   const [modal, setModal] = useState(null);
   const [deckTick, setDeckTick] = useState(0);
@@ -113,6 +116,8 @@ export default function Advisor({ onContextChange, onStagesChange }) {
 
       setErr("");
       setBusy(true);
+      setBusyText(trimmed);
+      setBusyPhase(extractUrls(trimmed).length > 0 ? "fetching" : "thinking");
 
       let modelContent = trimmed;
       try {
@@ -122,6 +127,8 @@ export default function Advisor({ onContextChange, onStagesChange }) {
         setBusy(false);
         return;
       }
+
+      setBusyPhase("thinking");
 
       const userMsg = {
         role: "user",
@@ -284,9 +291,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                   onDismissProposal={(id) => handleDismissProposal(m, id)}
                 />
               ))}
-              {busy && (
-                <div className="text-sm italic text-ink2">Thinking…</div>
-              )}
+              {busy && <AdvisorThinking userText={busyText} phase={busyPhase} />}
               <div ref={bottomRef} />
             </div>
           )}
