@@ -69,3 +69,49 @@ body {
   height: 0;
   pointer-events: none;
 }
+
+@keyframes advisor-think-dot {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.advisor-think-dot {
+  display: inline-block;
+  width: 0.4rem;
+  height: 0.4rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: rgb(var(--accent));
+  animation: advisor-think-dot 1.2s ease-in-out infinite;
+}
+
+@keyframes advisor-think-line {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.advisor-think-line {
+  animation: advisor-think-line 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .advisor-think-dot {
+    animation: none;
+    opacity: 0.8;
+    transform: none;
+  }
+  .advisor-think-line {
+    animation: none;
+  }
+}
