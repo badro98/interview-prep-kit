@@ -104,10 +104,16 @@ const CUSTOM_KEY = "flashcards:custom";
 
 export const getProgressMap = () => jget(PROGRESS_KEY, {});
 
-/** Merge a partial progress object into a card's existing progress. */
-export function setCardProgress(cardId, partial) {
+/**
+ * Merge a partial progress object into a card's existing progress.
+ * Pass `{ touch: false }` when projecting an attempt so merely opening a card
+ * does not bump lastReviewed / weakest-first order.
+ */
+export function setCardProgress(cardId, partial, { touch = true } = {}) {
   const map = getProgressMap();
-  map[cardId] = { ...(map[cardId] || {}), ...partial, lastReviewed: Date.now() };
+  const next = { ...(map[cardId] || {}), ...partial };
+  if (touch) next.lastReviewed = Date.now();
+  map[cardId] = next;
   jset(PROGRESS_KEY, map);
   return map[cardId];
 }

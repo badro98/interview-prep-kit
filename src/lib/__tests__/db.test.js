@@ -91,4 +91,35 @@ describe("job-scoped IndexedDB", () => {
     expect(bRecordings).toHaveLength(1);
     expect(bRecordings[0].fileName).toBe("b.wav");
   });
+
+  it("getAttemptsForQuestion returns oldest-first rows for the active job only", async () => {
+    const { db, jobs } = await freshModules();
+    const a = jobs.createJob({});
+    const b = jobs.createJob({});
+
+    jobs.setActiveJobId(a.id);
+    await db.addAttempt({ questionId: "q1", transcript: "a-old", createdAt: 1 });
+    await db.addAttempt({ questionId: "q1", transcript: "a-new", createdAt: 2 });
+
+    jobs.setActiveJobId(b.id);
+    await db.addAttempt({ questionId: "q1", transcript: "b-only", createdAt: 3 });
+    expect((await db.getAttemptsForQuestion("q1")).map((x) => x.transcript)).toEqual(["b-only"]);
+
+    jobs.setActiveJobId(a.id);
+    expect((await db.getAttemptsForQuestion("q1")).map((x) => x.transcript)).toEqual([
+      "a-old",
+      "a-new",
+    ]);
+  });
+
+  it("updateAttempt can store a per-attempt confidence", async () => {
+    const { db, jobs } = await freshModules();
+    const job = jobs.createJob({});
+    jobs.setActiveJobId(job.id);
+    const saved = await db.addAttempt({ questionId: "q1", transcript: "hello" });
+    expect(saved.confidence).toBeNull();
+    const updated = await db.updateAttempt(saved.id, { confidence: 4, score: "**Tightened version**\nDone." });
+    expect(updated.confidence).toBe(4);
+    expect(updated.score).toContain("Tightened version");
+  });
 });

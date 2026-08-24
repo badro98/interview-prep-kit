@@ -47,12 +47,17 @@ function db() {
   return dbPromise;
 }
 
+/** Drop the cached connection so tests can install a fresh IndexedDB factory. */
+export function _resetDbConnection() {
+  dbPromise = null;
+}
+
 /**
  * An attempt:
  * {
- *   id, questionId, questionText, category, source ('flashcard'|'freeform'),
+ *   id, jobId, questionId, questionText, category, source ('flashcard'|'freeform'),
  *   referenceAnswer, keyPoints, transcript, audioBlob (Blob), audioType,
- *   durationMs, score (markdown coaching), createdAt
+ *   durationMs, score (markdown coaching), confidence (1-5 | null), createdAt
  * }
  */
 export async function addAttempt(attempt) {
@@ -62,6 +67,7 @@ export async function addAttempt(attempt) {
       `a-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: Date.now(),
     score: "",
+    confidence: null,
     jobId: getActiveJobId(),
     ...attempt,
   };
@@ -87,6 +93,15 @@ export async function getAllAttempts() {
   const jobId = getActiveJobId();
   const all = await (await db()).getAllFromIndex(ATTEMPTS_STORE, "byJob", jobId);
   return all.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+/** Attempts for one question in the ACTIVE job, oldest first (Attempt 1…N). */
+export async function getAttemptsForQuestion(questionId) {
+  const jobId = getActiveJobId();
+  const all = await (await db()).getAllFromIndex(ATTEMPTS_STORE, "byQuestion", questionId);
+  return all
+    .filter((a) => a.jobId === jobId)
+    .sort((a, b) => a.createdAt - b.createdAt);
 }
 
 /**

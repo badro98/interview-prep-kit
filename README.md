@@ -6,7 +6,7 @@ I was juggling notes in Google Docs, practice questions in Claude, prep docs som
 
 So I built this instead. One place for everything, always grounded in your resume and the actual job. I put it together in under 24 hours on Cursor to prep for an interview and found it genuinely useful — so here it is.
 
-This is a **local-first** interview prep app. Add your resume, job description, notes, and stories — it generates stage-by-stage prep docs, behavioral flashcards, an audio record-and-coach loop, a chat advisor, and interview recording transcription. Set up one job or several from an in-app onboarding wizard — no config editing required to get started.
+This is a **local-first** interview prep app. Add your resume, job description, notes, and stories — it generates stage-by-stage prep docs, behavioral flashcards with spoken attempts, a chat advisor, and interview recording transcription. Set up one job or several from an in-app onboarding wizard — no config editing required to get started.
 
 You bring your own API keys. Nothing leaves your machine. Feel free to build it out locally and try it for yourself.
 
@@ -32,8 +32,7 @@ See [`demo/DEMO.md`](demo/DEMO.md) for what's pre-loaded.
 | Tab | What it does |
 |-----|--------------|
 | **Prep Docs** | One doc per interview stage — editable, regeneratable on demand |
-| **Flashcards** | Behavioral deck with AI coaching on your answers |
-| **Audio** | Record answers → transcribe → score your structure and delivery |
+| **Flashcards** | Behavioral deck — record or type independent takes, replay, transcribe, and score delivery + content |
 | **Advisor** | Multi-turn chat that proposes flashcards and context updates |
 | **Context** | Paste, upload, or toggle your grounding materials |
 | **Jobs** (header switcher) | Jump between jobs; **Job settings…** edits role/company/stages/profile attachments; **Manage jobs…** renames, archives, exports, imports, and deletes jobs |
@@ -53,7 +52,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Open the local URL printed in your terminal in **Chrome** (required for Web Speech API in the Audio tab).
+Open the local URL printed in your terminal in **Chrome** (required for recording and live transcript on Flashcards).
 
 The app opens straight into an onboarding wizard: your name → an optional profile (resume/stories, shared across every job) → job + description → interview stages → pick which profile entries to attach (skipped if you added none) → generate prep docs and flashcards in-app. Two shortcuts on the first screen if you'd rather skip typing: **Use the repo's sample setup** (loads the job baked into `interview.config.js`) or **import a job export (.json)**.
 
