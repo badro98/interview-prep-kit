@@ -3,7 +3,7 @@ import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { getActiveJob, getActiveJobId } from "../../lib/jobs.js";
-import { setCardProgress, addCustomCards, setModelOverride, clearModelOverride } from "../../lib/store.js";
+import { setCardProgress, addCustomCards, setModelOverride, clearModelOverride, get, set as storeSet } from "../../lib/store.js";
 import { useSpeechRecognition } from "../audio/useSpeechRecognition.js";
 import {
   getDeck,
@@ -26,6 +26,15 @@ const CONF_FILTERS = [
   { id: "mid", label: "Getting there (3)" },
   { id: "high", label: "Solid (4–5)" },
 ];
+
+const NAV_SPLIT_KEY = "flashcards:navSplit";
+const NAV_SPLIT_MIN = 0.18;
+const NAV_SPLIT_MAX = 0.72;
+const NAV_SPLIT_DEFAULT = 0.42;
+
+function clampNavSplit(n) {
+  return Math.min(NAV_SPLIT_MAX, Math.max(NAV_SPLIT_MIN, Number(n) || NAV_SPLIT_DEFAULT));
+}
 
 function matchesConfidence(card, filter) {
   const c = card.confidence;
@@ -66,6 +75,12 @@ export default function Flashcards() {
   const [modal, setModal] = useState(null); // { kind, prompt, title, saveLabel, replyHint }
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [navSplit, setNavSplit] = useState(() =>
+    clampNavSplit(get(NAV_SPLIT_KEY, NAV_SPLIT_DEFAULT))
+  );
+  const navStackRef = useRef(null);
+  const navSplitRef = useRef(navSplit);
+  navSplitRef.current = navSplit;
 
   const visible = useMemo(() => {
     let list = deck.filter(
@@ -213,77 +228,148 @@ export default function Flashcards() {
     else if (modal?.kind === "generate") saveGenerated(text);
   }
 
+  function persistNavSplit(next) {
+    const value = clampNavSplit(next);
+    setNavSplit(value);
+    storeSet(NAV_SPLIT_KEY, value);
+    return value;
+  }
+
+  function onNavSplitPointerDown(e) {
+    e.preventDefault();
+    const stack = navStackRef.current;
+    if (!stack) return;
+    const rect = stack.getBoundingClientRect();
+    if (rect.height < 8) return;
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const prevUserSelect = document.body.style.userSelect;
+    const prevCursor = document.body.style.cursor;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "row-resize";
+
+    function onMove(ev) {
+      setNavSplit(clampNavSplit((ev.clientY - rect.top) / rect.height));
+    }
+    function onUp() {
+      handle.releasePointerCapture(e.pointerId);
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
+      document.body.style.userSelect = prevUserSelect;
+      document.body.style.cursor = prevCursor;
+      storeSet(NAV_SPLIT_KEY, navSplitRef.current);
+    }
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
+  }
+
   return (
     <div className="flex h-full min-h-0">
       {/* Left: filters + list */}
       <aside className="flex w-72 shrink-0 flex-col border-r border-line bg-surface/50">
-        <div className="space-y-3 border-b border-line p-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink1">Flashcards</h2>
-            <span className="text-xs text-ink2">{visible.length} shown</span>
+        <div ref={navStackRef} className="flex min-h-0 flex-1 flex-col">
+          <div
+            className="min-h-[5.5rem] space-y-3 overflow-y-auto p-4"
+            style={{ flex: `0 0 ${navSplit * 100}%` }}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-ink1">Flashcards</h2>
+              <span className="text-xs text-ink2">{visible.length} shown</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <Stat label="Cards" value={stats.total} />
+              <Stat label="Answered" value={stats.answered} />
+              <Stat label="Avg conf" value={stats.avg} />
+            </div>
+            <select
+              value={cat}
+              onChange={(e) => setCat(e.target.value)}
+              className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
+            >
+              <option value="all">All categories</option>
+              {CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={stageFilter}
+              onChange={(e) => setStageFilter(e.target.value)}
+              className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
+            >
+              <option value="all">All stages</option>
+              <option value="unassigned">Unassigned</option>
+              {stages.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+            </select>
+            <select
+              value={conf}
+              onChange={(e) => setConf(e.target.value)}
+              className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
+            >
+              {CONF_FILTERS.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-ink1">
+              <input
+                type="checkbox"
+                checked={groupByStage}
+                onChange={(e) => setGroupByStage(e.target.checked)}
+                className="accent-accent"
+              />
+              Group by stage
+            </label>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-ink1">
+              <input
+                type="checkbox"
+                checked={sortWeak}
+                onChange={(e) => setSortWeak(e.target.checked)}
+                className="accent-accent"
+              />
+              Sort weakest-first
+            </label>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <Stat label="Cards" value={stats.total} />
-            <Stat label="Answered" value={stats.answered} />
-            <Stat label="Avg conf" value={stats.avg} />
-          </div>
-          <select
-            value={cat}
-            onChange={(e) => setCat(e.target.value)}
-            className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
-          >
-            <option value="all">All categories</option>
-            {CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          <select
-            value={stageFilter}
-            onChange={(e) => setStageFilter(e.target.value)}
-            className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
-          >
-            <option value="all">All stages</option>
-            <option value="unassigned">Unassigned</option>
-            {stages.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.title}
-              </option>
-            ))}
-          </select>
-          <select
-            value={conf}
-            onChange={(e) => setConf(e.target.value)}
-            className="w-full rounded-md border border-line bg-canvas px-2 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
-          >
-            {CONF_FILTERS.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink1">
-            <input
-              type="checkbox"
-              checked={groupByStage}
-              onChange={(e) => setGroupByStage(e.target.checked)}
-              className="accent-accent"
-            />
-            Group by stage
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-xs text-ink1">
-            <input
-              type="checkbox"
-              checked={sortWeak}
-              onChange={(e) => setSortWeak(e.target.checked)}
-              className="accent-accent"
-            />
-            Sort weakest-first
-          </label>
-        </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          <div
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Resize filters and question list"
+            aria-valuemin={Math.round(NAV_SPLIT_MIN * 100)}
+            aria-valuemax={Math.round(NAV_SPLIT_MAX * 100)}
+            aria-valuenow={Math.round(navSplit * 100)}
+            tabIndex={0}
+            onPointerDown={onNavSplitPointerDown}
+            onDoubleClick={() => persistNavSplit(NAV_SPLIT_DEFAULT)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowUp") {
+                e.preventDefault();
+                persistNavSplit(navSplit - 0.04);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                persistNavSplit(navSplit + 0.04);
+              } else if (e.key === "Home") {
+                e.preventDefault();
+                persistNavSplit(NAV_SPLIT_MIN);
+              } else if (e.key === "End") {
+                e.preventDefault();
+                persistNavSplit(NAV_SPLIT_MAX);
+              }
+            }}
+            className="group flex h-2 shrink-0 cursor-row-resize items-center justify-center border-y border-line bg-surface hover:bg-surface2 focus:outline-none focus-visible:bg-accent/10"
+          >
+            <span className="h-0.5 w-8 rounded-full bg-line transition group-hover:bg-accent/50 group-focus-visible:bg-accent" />
+          </div>
+
+          <div className="min-h-[6rem] flex-1 overflow-y-auto p-2">
           {visible.length === 0 && (
             <p className="p-3 text-xs text-ink2">No cards match these filters.</p>
           )}
@@ -308,6 +394,7 @@ export default function Flashcards() {
               </div>
             );
           })}
+          </div>
         </div>
 
         <div className="border-t border-line p-3">
