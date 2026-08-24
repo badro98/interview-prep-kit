@@ -412,7 +412,7 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
             {parseFailed && (
               <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                 A kit-change proposal was included, but it could not be read. Ask the advisor to resend with a tiny{" "}
-                <code>advisor-actions</code> JSON block and a separate <code>prep-doc</code> fence for the markdown.
+                <code>advisor-actions</code> JSON block and a separate <code>&lt;prep-doc&gt;</code> tag for each document.
               </p>
             )}
             <ActionProposals

@@ -120,15 +120,18 @@ ${JSON.stringify({
     expect(getDocOverride("recruiter").markdown).toContain("## New section");
   });
 
-  it("drops proposals for unknown stages", () => {
+  it("promotes unknown update_prep_doc stages into add_stage proposals", () => {
     const job = createJob({});
     setActiveJobId(job.id);
     const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
 ${JSON.stringify({
-  proposals: [{ type: "update_prep_doc", stageId: "nope", markdown: "# x" }],
+  proposals: [{ type: "update_prep_doc", stageId: "coding", title: "Practical coding", markdown: "# x" }],
 })}
 \`\`\``);
-    expect(proposal).toBeUndefined();
+    expect(proposal.type).toBe("add_stage");
+    expect(proposal.stageId).toBe("coding");
+    expect(proposal.title).toBe("Practical coding");
+    expect(proposal.content).toBe("# x");
   });
 
   it("parses language-tagged fences and companion prep-doc markdown", () => {
@@ -169,5 +172,42 @@ ${markdown}
 {"proposals":[{"type":"update_prep_doc","stageId":"recruiter","markdown":"# Doc with "quotes"}]}
 \`\`\``;
     expect(parseAdvisorActions(text)).toEqual([]);
+  });
+
+  it("attaches XML prep-doc bodies to add_stage even when they contain code fences", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const markdown = "# Practical coding\n\n```js\nfunction twoSum() {}\n```\n\nTalk through tests.";
+    const text = `Rating: 9/10.\n\n\`\`\`advisor-actions
+{"proposals":[{"type":"add_stage","id":"coding","title":"Practical coding","subtitle":"Virtual"}]}
+\`\`\`
+
+<prep-doc stageId="coding" title="Practical coding">
+${markdown}
+</prep-doc>`;
+
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("add_stage");
+    expect(proposal.stageId).toBe("coding");
+    expect(proposal.content).toBe(markdown);
+    expect(stripAdvisorActions(text)).toBe("Rating: 9/10.");
+  });
+
+  it("salvages XML prep-doc tags when the JSON block is malformed", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const markdown = "# System design\n\nFocus on APIs.";
+    const text = `Here you go.\n\n\`\`\`advisor-actions
+{"proposals":[{"type":"add_stage","title":"System design","content":"broken "quotes"}]}
+\`\`\`
+
+<prep-doc stageId="system-design" title="System design">
+${markdown}
+</prep-doc>`;
+
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("add_stage");
+    expect(proposal.title).toBe("System design");
+    expect(proposal.content).toBe(markdown);
   });
 });
