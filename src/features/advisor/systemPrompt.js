@@ -24,6 +24,7 @@ add_flashcards — NEW questions only. Do not re-send questions already in the d
 update_flashcards — assign EXISTING cards to a stage (or unassigned). Use this when they ask to audit unassigned cards, suggest assignments, "assign", "move", or "put these on [stage]".
 - updates[]: { "question": "unique prefix or full question", "stageId": "existing-stage-id" }
 - A unique prefix is enough (the app matches the deck). Do not invent new cards here.
+- Tiny JSON only — never put referenceAnswer, keyPoints, or markdown in update_flashcards (quotes break parsing and the Confirm card disappears).
 add_context — save notes/material to context.
 add_stage — NEW interview round + prep doc (e.g. they just learned there will be a coding round or system design). Use a new id (slug of the title).
 update_prep_doc — rewrite or append a prep doc for an EXISTING stage id from the interview stages list (title match is ok).

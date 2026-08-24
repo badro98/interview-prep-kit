@@ -9,6 +9,8 @@ import {
   getCustomCards,
   getModelOverrides,
   getStageOverrides,
+  getCategoryOverrides,
+  getHiddenCardIds,
 } from "../../lib/store.js";
 
 export const CATEGORIES = [
@@ -61,13 +63,15 @@ export function getDeck() {
   const progress = getProgressMap();
   const modelOverrides = getModelOverrides();
   const stageOverrides = getStageOverrides();
-  const all = [...seedCards(), ...getCustomCards()];
+  const categoryOverrides = getCategoryOverrides();
+  const hidden = new Set(getHiddenCardIds());
+  const all = [...seedCards(), ...getCustomCards()].filter((c) => !hidden.has(c.id));
   return all.map((c) => {
     const p = progress[c.id] || {};
     const mo = modelOverrides[c.id];
     return {
       id: c.id,
-      category: c.category,
+      category: categoryOverrides[c.id] ?? c.category,
       stageId: stageOverrides[c.id] ?? c.stageId ?? null,
       question: c.question,
       referenceAnswer: mo?.referenceAnswer ?? c.referenceAnswer ?? "",

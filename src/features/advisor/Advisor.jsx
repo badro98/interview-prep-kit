@@ -372,9 +372,7 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
   const proposals = isUser ? [] : parseAdvisorActions(message.content);
   const rawDisplay = isUser
     ? message.content
-    : proposals.length
-      ? stripAdvisorActions(message.content)
-      : message.content;
+    : stripAdvisorActions(message.content);
   const { body: display, sources } = isUser
     ? { body: rawDisplay, sources: [] }
     : splitSearchSources(rawDisplay);

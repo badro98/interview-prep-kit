@@ -124,6 +124,35 @@ ${JSON.stringify({
     );
   });
 
+  it("salvages truncated json dumps that stuffed answers into update_flashcards", () => {
+    setupDeck();
+    const text = `I'll regenerate the same assignments.
+
+\`\`\`json
+{
+  "proposals": [
+    {
+      "type": "update_flashcards",
+      "label": "Assign flashcards to pm_interview stage",
+      "updates": [
+        {
+          "question": "Tell me about a time you identified a significant problem...",
+          "stageId": "pm_interview",
+          "referenceAnswer": "I found a gap in "eval" coverage and shipped a rubric.",
+          "keyPoints": ["gap", "rubric"]
+        },
+        {
+          "question": "Describe a situation where you had to make a recommendation...",
+          "stageId": "pm_interview",
+          "referenceAnswer": "I used incomplete data to
+`;
+
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("update_flashcards");
+    expect(proposal.updates.map((u) => u.id)).toEqual(["q1", "q2"]);
+    expect(stripAdvisorActions(text)).toBe("I'll regenerate the same assignments.");
+  });
+
   it("applies stage assignments on confirm", () => {
     setupDeck();
     const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
@@ -140,6 +169,79 @@ ${JSON.stringify({
     const result = executeAdvisorProposal(proposal);
     expect(result.ok).toBe(true);
     expect(getDeck().find((c) => c.id === "q1").stageId).toBe("pm_interview");
+  });
+
+  it("keeps existing stage when updates only include a model answer", () => {
+    setupDeck();
+    const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
+${JSON.stringify({
+  proposals: [
+    {
+      type: "update_flashcards",
+      updates: [
+        {
+          question: "Tell me about a time you identified a significant problem",
+          referenceAnswer: "I found a coverage gap and shipped a rubric.",
+          keyPoints: ["gap", "rubric"],
+        },
+      ],
+    },
+  ],
+})}
+\`\`\``);
+
+    expect(proposal.updates[0].stageChanged).toBe(false);
+    expect(proposal.updates[0].stageId).toBeNull();
+    expect(proposal.updates[0].referenceAnswer).toContain("coverage gap");
+
+    const result = executeAdvisorProposal(proposal);
+    expect(result.ok).toBe(true);
+    const card = getDeck().find((c) => c.id === "q1");
+    expect(card.stageId).toBeNull();
+    expect(card.referenceAnswer).toContain("coverage gap");
+    expect(card.keyPoints).toEqual(["gap", "rubric"]);
+  });
+
+  it("does not unassign when stageId is omitted and still applies the model answer", () => {
+    setupDeck();
+    const assign = parseAdvisorActions(`\`\`\`advisor-actions
+${JSON.stringify({
+  proposals: [
+    {
+      type: "update_flashcards",
+      updates: [{ question: "Tell me about a time you identified a significant problem", stageId: "pm_interview" }],
+    },
+  ],
+})}
+\`\`\``)[0];
+    expect(executeAdvisorProposal(assign).ok).toBe(true);
+    expect(getDeck().find((c) => c.id === "q1").stageId).toBe("pm_interview");
+
+    const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
+${JSON.stringify({
+  proposals: [
+    {
+      type: "update_flashcards",
+      updates: [
+        {
+          question: "Tell me about a time you identified a significant problem",
+          referenceAnswer: "I found a coverage gap and shipped a rubric.",
+        },
+      ],
+    },
+  ],
+})}
+\`\`\``);
+
+    expect(proposal.updates[0].stageChanged).toBe(false);
+    expect(proposal.updates[0].stageId).toBe("pm_interview");
+    expect(proposal.updates[0].fromStageId).toBe("pm_interview");
+
+    const result = executeAdvisorProposal(proposal);
+    expect(result.ok).toBe(true);
+    const card = getDeck().find((c) => c.id === "q1");
+    expect(card.stageId).toBe("pm_interview");
+    expect(card.referenceAnswer).toContain("coverage gap");
   });
 
   it("reassigns existing cards when add_flashcards repeats a question with a stage", () => {

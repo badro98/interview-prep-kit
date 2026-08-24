@@ -5,8 +5,10 @@ import {
   addCustomCards,
   addCustomContextEntry,
   getDocOverride,
+  setCardCategory,
   setCardStage,
   setDocOverride,
+  setModelOverride,
 } from "../../lib/store.js";
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { saveStageDoc } from "../../lib/generate.js";
@@ -14,8 +16,6 @@ import { getStageDoc } from "../prep-docs/stages.js";
 import { markdownToHtml } from "../../lib/markdownHtml.js";
 import { buildCustomStage } from "../onboarding/steps.js";
 
-const ACTIONS_FENCE = /```advisor-actions[^\n]*\n([\s\S]*?)(?:```|$)/i;
-const JSON_PROPOSALS_FENCE = /```json[^\n]*\n([\s\S]*?)(?:```|$)/i;
 const PREP_DOC_XML = /<prep-doc\b([^>]*)>([\s\S]*?)<\/prep-doc>/gi;
 const PREP_DOC_TICKS = /(`{3,})prep-doc([^\n]*)\n([\s\S]*?)\n\1/gi;
 
@@ -36,14 +36,16 @@ function isProposalJson(chunk) {
 /** Remove machine-readable proposal fences from chat display text. */
 export function stripAdvisorActions(text) {
   if (!text) return "";
-  return String(text)
+  let s = String(text)
     .replace(/```advisor-actions[^\n]*\n[\s\S]*?(?:```|$)/gi, "")
-    .replace(/```json[^\n]*\n[\s\S]*?(?:```|$)/gi, (block) =>
+    .replace(/```[^\n]*\n[\s\S]*?(?:```|$)/gi, (block) =>
       isProposalJson(block) ? "" : block
     )
     .replace(/<prep-doc\b[^>]*>[\s\S]*?<\/prep-doc>/gi, "")
-    .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?\n\1/gi, "")
-    .trim();
+    .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?\n\1/gi, "");
+  const bare = s.search(/\{\s*"proposals"\s*:/);
+  if (bare >= 0) s = s.slice(0, bare);
+  return s.trim();
 }
 
 export function hasAdvisorActionsFence(text) {
@@ -170,13 +172,64 @@ function salvageFromPrepDocs(text) {
   });
 }
 
+function unescapeJsonString(raw) {
+  try {
+    return JSON.parse(`"${raw}"`);
+  } catch {
+    return String(raw || "").replace(/\\"/g, '"');
+  }
+}
+
+function salvageFromFlashcardUpdates(source) {
+  const s = String(source || "");
+  if (!/"question"\s*:/.test(s) || !/"stageId"\s*:/.test(s)) return [];
+  if (
+    !/"type"\s*:\s*"(?:update_flashcards|assign_flashcards|add_flashcards)"/.test(s) &&
+    !/"updates"\s*:\s*\[/.test(s)
+  ) {
+    return [];
+  }
+  const questions = [];
+  const qRe = /"question"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+  let m;
+  while ((m = qRe.exec(s))) {
+    questions.push({
+      question: unescapeJsonString(m[1]),
+      index: m.index,
+      end: m.index + m[0].length,
+    });
+  }
+  const updates = [];
+  for (let i = 0; i < questions.length; i++) {
+    const beforeStart = i === 0 ? 0 : questions[i - 1].end;
+    const before = s.slice(beforeStart, questions[i].index);
+    const after = s.slice(
+      questions[i].end,
+      i + 1 < questions.length ? questions[i + 1].index : s.length
+    );
+    const stageMatch =
+      after.match(/"stageId"\s*:\s*"((?:\\.|[^"\\])*)"/) ||
+      after.match(/"stage"\s*:\s*"((?:\\.|[^"\\])*)"/) ||
+      before.match(/"stageId"\s*:\s*"((?:\\.|[^"\\])*)"/) ||
+      before.match(/"stage"\s*:\s*"((?:\\.|[^"\\])*)"/);
+    if (!stageMatch) continue;
+    updates.push({
+      question: questions[i].question,
+      stageId: unescapeJsonString(stageMatch[1]),
+    });
+  }
+  if (!updates.length) return [];
+  return [{ type: "update_flashcards", updates }];
+}
+
 function extractRawProposals(source) {
   const chunks = [];
-  const actions = source.match(ACTIONS_FENCE);
-  if (actions) chunks.push(actions[1]);
-  const json = source.match(JSON_PROPOSALS_FENCE);
-  if (json && isProposalJson(json[1])) {
-    chunks.push(json[1]);
+  const fenceRe = /```([^\n]*)\n([\s\S]*?)(?:```|$)/g;
+  let m;
+  while ((m = fenceRe.exec(source))) {
+    const lang = m[1] || "";
+    const body = m[2];
+    if (/advisor-actions/i.test(lang) || isProposalJson(body)) chunks.push(body);
   }
   const bare = source.search(/\{\s*"proposals"\s*:/);
   if (bare >= 0) chunks.push(source.slice(bare));
@@ -185,7 +238,7 @@ function extractRawProposals(source) {
     const payload = parseJsonPayload(chunk);
     if (Array.isArray(payload?.proposals)) return payload.proposals;
   }
-  return [];
+  return salvageFromFlashcardUpdates(source);
 }
 
 /**
@@ -232,8 +285,9 @@ function matchDeckCard(query, deck, usedIds) {
 }
 
 function resolveAssignStage(raw, stages) {
-  const value = String(raw || "").trim();
-  if (!value || /^unassigned$/i.test(value)) return "";
+  if (raw == null || String(raw).trim() === "") return undefined;
+  const value = String(raw).trim();
+  if (/^unassigned$/i.test(value)) return "";
   return resolveStageId(value, stages);
 }
 
@@ -245,28 +299,46 @@ function normalizeUpdateFlashcards(p, index) {
   const updates = [];
   for (const row of rows) {
     if (!row || typeof row !== "object") continue;
-    const stageId = resolveAssignStage(row.stageId || row.stage, stages);
-    if (stageId === null) continue;
+    const rawStage = row.stageId ?? row.stage;
+    const hasStage = rawStage != null && String(rawStage).trim() !== "";
+    const stageId = hasStage ? resolveAssignStage(rawStage, stages) : undefined;
+    if (hasStage && stageId === null) {
+      // Unknown stage id — keep the card for answer/category updates.
+    }
     const card = matchDeckCard(row, deck, usedIds);
     if (!card) continue;
     usedIds.add(card.id);
+    const category = VALID_CATS.has(row.category) ? row.category : undefined;
+    const referenceAnswer =
+      typeof row.referenceAnswer === "string" ? row.referenceAnswer.trim() : "";
+    const keyPoints = Array.isArray(row.keyPoints)
+      ? row.keyPoints.filter(Boolean).map(String)
+      : [];
+    const nextStage =
+      !hasStage || stageId === null || stageId === undefined
+        ? card.stageId || null
+        : stageId || null;
+    const stageChanged =
+      hasStage && stageId !== null && stageId !== undefined && nextStage !== (card.stageId || null);
     updates.push({
       id: card.id,
       question: card.question,
-      stageId,
+      stageId: nextStage,
       fromStageId: card.stageId || null,
+      stageChanged,
+      category: category || card.category,
+      fromCategory: card.category,
+      categoryChanged: !!category && category !== card.category,
+      referenceAnswer,
+      keyPoints,
     });
   }
   if (!updates.length) return null;
-  const title = stages.find((s) => s.id === updates[0].stageId)?.title;
+  const n = updates.length;
   return {
     id: p.id || `update-flashcards-${index}`,
     type: "update_flashcards",
-    label:
-      p.label ||
-      (title
-        ? `Assign ${updates.length} flashcard${updates.length === 1 ? "" : "s"} to ${title}`
-        : `Update ${updates.length} flashcard stage${updates.length === 1 ? "" : "s"}`),
+    label: p.label || `Update ${n} flashcard${n === 1 ? "" : "s"}`,
     updates,
   };
 }
@@ -393,6 +465,12 @@ export function executeAdvisorProposal(proposal) {
           setCardStage(existing.id, c.stageId);
           reassigned += 1;
         }
+        if (c.referenceAnswer || c.keyPoints?.length) {
+          setModelOverride(existing.id, {
+            referenceAnswer: c.referenceAnswer || existing.referenceAnswer,
+            keyPoints: c.keyPoints?.length ? c.keyPoints : existing.keyPoints,
+          });
+        }
       } else {
         novel.push(c);
       }
@@ -421,18 +499,35 @@ export function executeAdvisorProposal(proposal) {
   }
 
   if (proposal.type === "update_flashcards") {
-    let applied = 0;
+    let stages = 0;
+    let answers = 0;
+    let categories = 0;
     for (const row of proposal.updates || []) {
       if (!row?.id) continue;
-      setCardStage(row.id, row.stageId || null);
-      applied += 1;
+      if (row.stageChanged) {
+        setCardStage(row.id, row.stageId || null);
+        stages += 1;
+      }
+      if (row.categoryChanged && row.category) {
+        setCardCategory(row.id, row.category);
+        categories += 1;
+      }
+      if (row.referenceAnswer || row.keyPoints?.length) {
+        setModelOverride(row.id, {
+          referenceAnswer: row.referenceAnswer || "",
+          keyPoints: row.keyPoints || [],
+        });
+        answers += 1;
+      }
     }
+    const applied = stages + answers + categories;
+    const bits = [];
+    if (stages) bits.push(`stage on ${stages}`);
+    if (categories) bits.push(`category on ${categories}`);
+    if (answers) bits.push(`model answer on ${answers}`);
     return {
       ok: applied > 0,
-      message:
-        applied > 0
-          ? `Updated the stage on ${applied} flashcard${applied === 1 ? "" : "s"}.`
-          : "No flashcards were updated.",
+      message: applied > 0 ? `Updated ${bits.join(", ")}.` : "No flashcards were updated.",
       kind: "flashcards",
       count: applied,
     };

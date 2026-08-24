@@ -1,8 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { getActiveJob, getActiveJobId } from "../../lib/jobs.js";
-import { addCustomCards, setModelOverride, clearModelOverride, get, set as storeSet } from "../../lib/store.js";
+import {
+  addCustomCards,
+  deleteCard,
+  setCardCategory,
+  setCardStage,
+  setModelOverride,
+  clearModelOverride,
+  get,
+  set as storeSet,
+} from "../../lib/store.js";
 import {
   getDeck,
   CATEGORIES,
@@ -337,9 +347,11 @@ export default function Flashcards() {
                 )}
                 <CardRow
                   card={c}
+                  stages={stages}
                   stageTitle={c.stageId ? stageLabel(c.stageId, stages) : null}
                   active={c.id === selectedId}
                   onClick={() => setSelectedId(c.id)}
+                  onChanged={bump}
                 />
               </div>
             );
@@ -407,32 +419,250 @@ function Stat({ label, value }) {
   );
 }
 
-function CardRow({ card, active, onClick, stageTitle }) {
+function CardRow({ card, active, onClick, stageTitle, stages, onChanged }) {
   return (
-    <button
-      onClick={onClick}
-      className={`mb-1 block w-full rounded-lg px-3 py-2.5 text-left transition ${
-        active
-          ? "bg-accent/15 ring-1 ring-inset ring-accent/40"
-          : "hover:bg-surface2/60"
+    <div
+      className={`mb-1 flex items-start rounded-lg ${
+        active ? "bg-accent/15 ring-1 ring-inset ring-accent/40" : "hover:bg-surface2/60"
       }`}
     >
-      <div className="flex items-center gap-2">
-        <ConfidenceDot value={card.confidence} />
-        <span className="text-[10px] uppercase tracking-wide text-ink2">
-          {categoryLabel(card.category)}
-        </span>
-        {stageTitle && (
-          <span className="truncate text-[10px] text-ink2">· {stageTitle}</span>
-        )}
-        {card.myAnswer.trim() && (
-          <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400">answered</span>
-        )}
-      </div>
-      <p className="mt-1 line-clamp-2 text-xs leading-snug text-ink1">
-        {card.question}
-      </p>
+      <button onClick={onClick} className="min-w-0 flex-1 px-3 py-2.5 text-left">
+        <div className="flex items-center gap-2">
+          <ConfidenceDot value={card.confidence} />
+          <span className="text-[10px] uppercase tracking-wide text-ink2">
+            {categoryLabel(card.category)}
+          </span>
+          {stageTitle && (
+            <span className="truncate text-[10px] text-ink2">· {stageTitle}</span>
+          )}
+          {card.myAnswer.trim() && (
+            <span className="ml-auto text-[10px] text-emerald-600 dark:text-emerald-400">
+              answered
+            </span>
+          )}
+        </div>
+        <p className="mt-1 line-clamp-2 text-xs leading-snug text-ink1">{card.question}</p>
+      </button>
+      <CardOverflowMenu card={card} stages={stages} onChanged={onChanged} />
+    </div>
+  );
+}
+
+function MenuAccordion({ label, current, open, onToggle }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      aria-expanded={open}
+      onClick={onToggle}
+      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-ink1 hover:bg-surface2"
+    >
+      <span className="w-3 shrink-0 text-ink2" aria-hidden="true">
+        {open ? "▾" : "▸"}
+      </span>
+      <span>{label}</span>
+      <span className="ml-auto min-w-0 truncate text-[10px] text-ink2">{current}</span>
     </button>
+  );
+}
+
+function CardOverflowMenu({ card, stages, onChanged }) {
+  const [open, setOpen] = useState(false);
+  const [section, setSection] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0, maxHeight: 320 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  function closeMenu() {
+    setOpen(false);
+    setSection(null);
+  }
+
+  useEffect(() => {
+    if (!open) return undefined;
+    function onDoc(e) {
+      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+      closeMenu();
+    }
+    function onKey(e) {
+      if (e.key === "Escape") closeMenu();
+    }
+    document.addEventListener("mousedown", onDoc);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open || !menuRef.current || !btnRef.current) return;
+    const pad = 8;
+    const btn = btnRef.current.getBoundingClientRect();
+    const menu = menuRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - btn.bottom - pad;
+    const spaceAbove = btn.top - pad;
+    const openUp = spaceBelow < Math.min(menu.height, 240) && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(160, Math.min(window.innerHeight * 0.7, openUp ? spaceAbove : spaceBelow));
+    let top = openUp ? Math.max(pad, btn.top - Math.min(menu.height, maxHeight) - 4) : btn.bottom + 4;
+    let left = btn.right - menu.width;
+    left = Math.max(pad, Math.min(left, window.innerWidth - menu.width - pad));
+    setPos({ top, left, maxHeight });
+  }, [open, section]);
+
+  function toggle(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (open) {
+      closeMenu();
+      return;
+    }
+    const r = e.currentTarget.getBoundingClientRect();
+    const width = 220;
+    setPos({
+      top: r.bottom + 4,
+      left: Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8)),
+      maxHeight: Math.max(160, window.innerHeight - r.bottom - 12),
+    });
+    setSection(null);
+    setOpen(true);
+  }
+
+  function pick(fn) {
+    closeMenu();
+    fn?.();
+    onChanged?.();
+  }
+
+  const itemClass = "block w-full px-3 py-1.5 pl-8 text-left text-xs text-ink1 hover:bg-surface2";
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        title="Card options"
+        aria-label="Card options"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={toggle}
+        className="mr-1 mt-1.5 shrink-0 rounded px-1.5 py-1 text-sm leading-none text-ink2 hover:bg-surface2 hover:text-ink1"
+      >
+        ⋯
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            style={{ top: pos.top, left: pos.left, maxHeight: pos.maxHeight }}
+            className="fixed z-50 w-[220px] overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-lg"
+          >
+            <MenuAccordion
+              label="Category"
+              current={categoryLabel(card.category)}
+              open={section === "category"}
+              onToggle={() => setSection((s) => (s === "category" ? null : "category"))}
+            />
+            {section === "category" &&
+              CATEGORIES.map((cat) => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => pick(() => setCardCategory(card.id, cat.id))}
+                  className={itemClass}
+                >
+                  {card.category === cat.id ? "✓ " : ""}
+                  {cat.label}
+                </button>
+              ))}
+            <MenuAccordion
+              label="Stage"
+              current={stageLabel(card.stageId, stages)}
+              open={section === "stage"}
+              onToggle={() => setSection((s) => (s === "stage" ? null : "stage"))}
+            />
+            {section === "stage" && (
+              <>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => pick(() => setCardStage(card.id, null))}
+                  className={itemClass}
+                >
+                  {!card.stageId ? "✓ " : ""}
+                  Unassigned
+                </button>
+                {(stages || []).map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => pick(() => setCardStage(card.id, s.id))}
+                    className={itemClass}
+                  >
+                    {card.stageId === s.id ? "✓ " : ""}
+                    {s.title}
+                  </button>
+                ))}
+              </>
+            )}
+            <div className="my-1 border-t border-line" />
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                closeMenu();
+                setConfirmDelete(true);
+              }}
+              className="block w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-red-500/10 dark:text-red-300"
+            >
+              Delete
+            </button>
+          </div>,
+          document.body
+        )}
+      {confirmDelete &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+            onMouseDown={(e) => e.target === e.currentTarget && setConfirmDelete(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-card-title"
+          >
+            <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-5 shadow-2xl">
+              <h3 id="delete-card-title" className="text-sm font-semibold text-ink1">
+                Delete this flashcard?
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-ink2">{card.question}</p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-ink1 hover:bg-surface2"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    deleteCard(card.id);
+                    setConfirmDelete(false);
+                    onChanged?.();
+                  }}
+                  className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 
