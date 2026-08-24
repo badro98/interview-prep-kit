@@ -68,7 +68,8 @@ export default function Advisor({ onContextChange, onStagesChange }) {
     setErr("");
   }, [activeId]);
 
-  // Persist messages for the active thread.
+  // Persist messages for the active thread. Skip the hydration write after a
+  // thread switch so merely opening a chat does not count as activity.
   useEffect(() => {
     if (skipSaveRef.current) {
       skipSaveRef.current = false;
@@ -77,7 +78,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
     if (!activeId) return;
     saveAdvisorThreadMessages(activeId, messages);
     refreshThreads();
-  }, [messages, activeId]);
+  }, [messages]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -199,33 +200,73 @@ export default function Advisor({ onContextChange, onStagesChange }) {
 
   function patchMessage(at, patch) {
     setMessages((prev) =>
-      prev.map((m) => (m.at === at ? { ...m, ...patch } : m))
+      prev.map((m) => {
+        if (m.at !== at) return m;
+        const extra = typeof patch === "function" ? patch(m) : patch;
+        return { ...m, ...extra };
+      })
     );
   }
 
-  function handleApplyProposal(message, proposal) {
+  function handleApplyProposal(message, proposal, { keepOpen = false, quiet = false } = {}) {
     const result = executeAdvisorProposal(proposal);
-    const applied = [...(message.appliedProposalIds || []), proposal.id];
-    patchMessage(message.at, { appliedProposalIds: applied });
+    if (!keepOpen) {
+      patchMessage(message.at, (m) => {
+        const applied = m.appliedProposalIds || [];
+        if (applied.includes(proposal.id)) return {};
+        return { appliedProposalIds: [...applied, proposal.id] };
+      });
+    }
 
     if (result.kind === "flashcards") bumpDeck();
     if (result.kind === "context") onContextChange?.();
     if (result.kind === "stage" || result.kind === "prepdoc") onStagesChange?.();
 
-    setMessages((prev) => [
-      ...prev,
-      {
-        role: "assistant",
-        content: result.message,
-        at: Date.now() + 1,
-        isSystemNote: true,
-      },
-    ]);
+    if (!quiet) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: result.message,
+          at: Date.now() + 1,
+          isSystemNote: true,
+        },
+      ]);
+    }
+  }
+
+  function handleReviewItems(message, proposalId, updates, summary) {
+    setMessages((prev) => {
+      const current = prev.find((m) => m.at === message.at);
+      if (!current) return prev;
+      const nextStatus = {
+        ...(current.proposalItemStatus || {}),
+        [proposalId]: {
+          ...((current.proposalItemStatus || {})[proposalId] || {}),
+          ...updates,
+        },
+      };
+      const applied = current.appliedProposalIds || [];
+      const settling = Boolean(summary) && !applied.includes(proposalId);
+      const next = prev.map((m) =>
+        m.at === message.at
+          ? {
+              ...m,
+              proposalItemStatus: nextStatus,
+              appliedProposalIds: settling ? [...applied, proposalId] : applied,
+            }
+          : m
+      );
+      return next;
+    });
   }
 
   function handleDismissProposal(message, proposalId) {
-    const dismissed = [...(message.dismissedProposalIds || []), proposalId];
-    patchMessage(message.at, { dismissedProposalIds: dismissed });
+    patchMessage(message.at, (m) => {
+      const dismissed = m.dismissedProposalIds || [];
+      if (dismissed.includes(proposalId)) return {};
+      return { dismissedProposalIds: [...dismissed, proposalId] };
+    });
   }
 
   function selectThread(id) {
@@ -287,8 +328,11 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                 <MessageBubble
                   key={m.at ?? i}
                   message={m}
-                  onApplyProposal={(p) => handleApplyProposal(m, p)}
+                  onApplyProposal={(p, opts) => handleApplyProposal(m, p, opts)}
                   onDismissProposal={(id) => handleDismissProposal(m, id)}
+                  onRecordProposalStatus={(proposalId, updates, summary) =>
+                    handleReviewItems(m, proposalId, updates, summary)
+                  }
                 />
               ))}
               {busy && <AdvisorThinking userText={busyText} phase={busyPhase} />}
@@ -360,7 +404,12 @@ export default function Advisor({ onContextChange, onStagesChange }) {
   );
 }
 
-function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
+function MessageBubble({
+  message,
+  onApplyProposal,
+  onDismissProposal,
+  onRecordProposalStatus,
+}) {
   const isUser = message.role === "user";
   const isNote = message.isSystemNote;
 
@@ -428,8 +477,10 @@ function MessageBubble({ message, onApplyProposal, onDismissProposal }) {
             <ActionProposals
               proposals={proposals}
               appliedIds={appliedIds}
+              itemStatus={message.proposalItemStatus || {}}
               onApply={onApplyProposal}
               onDismiss={onDismissProposal}
+              onRecordStatus={onRecordProposalStatus}
             />
           </>
         )}

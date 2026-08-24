@@ -316,9 +316,26 @@ export function saveAdvisorThreadMessages(threadId, messages) {
         t.title === "New chat" && messages.length > 0
           ? autoThreadTitle(messages)
           : t.title;
-      return { ...t, messages, title, updatedAt: now };
+      const unchanged =
+        title === t.title && advisorMessagesEqual(t.messages, messages);
+      return {
+        ...t,
+        messages,
+        title,
+        updatedAt: unchanged ? t.updatedAt : now,
+      };
     })
   );
+}
+
+function advisorMessagesEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
 }
 
 export function renameAdvisorThread(threadId, title) {
