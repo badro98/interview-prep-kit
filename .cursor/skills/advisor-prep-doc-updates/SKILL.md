@@ -31,4 +31,8 @@ Prep Docs are kit state. The Advisor must **propose** a write, not paste the doc
 
 Parser lives in `src/features/advisor/actions.js`: attaches tagged bodies to JSON proposals, salvages `<prep-doc>` tags if JSON is invalid, and promotes unknown `update_prep_doc` stage ids to `add_stage`. Confirm UI is `ActionProposals.jsx` (**Review** for the full draft). Applying remounts Prep Docs via `onStagesChange`.
 
+Assigning existing flashcards to a stage is `update_flashcards` (tiny JSON, no doc tags). A leftover JSON dump in chat usually means the model used an unknown type, a plain json fence, or stuffed `referenceAnswer` into the JSON until it broke. Parser salvages `"question"` + `"stageId"` pairs even when the fence is truncated, and chat always strips proposal JSON so the dump does not render.
+
+Audit / "suggest stage assignment" is a kit change, not a talk-through: emit `update_flashcards` in the **same reply**. Confirm/Dismiss is the ask — do not wait for "make the assignment".
+
 Do not tell the user the doc was already saved. Do not ask "should I propose this?" — emit the blocks in the same reply.

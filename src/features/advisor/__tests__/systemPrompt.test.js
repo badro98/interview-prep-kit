@@ -45,6 +45,10 @@ describe("getAdvisorSystem", () => {
     expect(prompt).toContain("~150 words");
     expect(prompt).toContain("Never paste a full prep doc");
     expect(prompt).toContain("update_prep_doc");
+    expect(prompt).toContain("update_flashcards");
+    expect(prompt).toContain("SAME-REPLY RULE");
+    expect(prompt).toContain("make the assignment");
+    expect(prompt).toContain("audit unassigned flashcards");
     expect(prompt).toContain("Never abbreviate proposal blocks");
     expect(prompt).toContain("<prep-doc");
     expect(prompt).toContain("Never put markdown inside JSON");

@@ -1,15 +1,21 @@
 // Parse and execute structured advisor proposals (flashcards, context, stages).
 
 import { CATEGORIES, categoryLabel, getDeck, resolveStageId } from "../flashcards/deck.js";
-import { addCustomCards, addCustomContextEntry, getDocOverride, setDocOverride } from "../../lib/store.js";
+import {
+  addCustomCards,
+  addCustomContextEntry,
+  getDocOverride,
+  setCardCategory,
+  setCardStage,
+  setDocOverride,
+  setModelOverride,
+} from "../../lib/store.js";
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { saveStageDoc } from "../../lib/generate.js";
 import { getStageDoc } from "../prep-docs/stages.js";
 import { markdownToHtml } from "../../lib/markdownHtml.js";
 import { buildCustomStage } from "../onboarding/steps.js";
 
-const ACTIONS_FENCE = /```advisor-actions[^\n]*\n([\s\S]*?)(?:```|$)/i;
-const JSON_PROPOSALS_FENCE = /```json[^\n]*\n([\s\S]*?)(?:```|$)/i;
 const PREP_DOC_XML = /<prep-doc\b([^>]*)>([\s\S]*?)<\/prep-doc>/gi;
 const PREP_DOC_TICKS = /(`{3,})prep-doc([^\n]*)\n([\s\S]*?)\n\1/gi;
 
@@ -23,14 +29,23 @@ function slug(s) {
     .slice(0, 32);
 }
 
+function isProposalJson(chunk) {
+  return /"proposals"\s*:/.test(String(chunk || ""));
+}
+
 /** Remove machine-readable proposal fences from chat display text. */
 export function stripAdvisorActions(text) {
   if (!text) return "";
-  return String(text)
+  let s = String(text)
     .replace(/```advisor-actions[^\n]*\n[\s\S]*?(?:```|$)/gi, "")
+    .replace(/```[^\n]*\n[\s\S]*?(?:```|$)/gi, (block) =>
+      isProposalJson(block) ? "" : block
+    )
     .replace(/<prep-doc\b[^>]*>[\s\S]*?<\/prep-doc>/gi, "")
-    .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?\n\1/gi, "")
-    .trim();
+    .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?\n\1/gi, "");
+  const bare = s.search(/\{\s*"proposals"\s*:/);
+  if (bare >= 0) s = s.slice(0, bare);
+  return s.trim();
 }
 
 export function hasAdvisorActionsFence(text) {
@@ -38,7 +53,9 @@ export function hasAdvisorActionsFence(text) {
   return (
     /```advisor-actions/i.test(s) ||
     /<prep-doc\b/i.test(s) ||
-    /```+prep-doc/i.test(s)
+    /```+prep-doc/i.test(s) ||
+    ( /```json/i.test(s) && isProposalJson(s) ) ||
+    /\{\s*"proposals"\s*:/.test(s)
   );
 }
 
@@ -155,13 +172,64 @@ function salvageFromPrepDocs(text) {
   });
 }
 
+function unescapeJsonString(raw) {
+  try {
+    return JSON.parse(`"${raw}"`);
+  } catch {
+    return String(raw || "").replace(/\\"/g, '"');
+  }
+}
+
+function salvageFromFlashcardUpdates(source) {
+  const s = String(source || "");
+  if (!/"question"\s*:/.test(s) || !/"stageId"\s*:/.test(s)) return [];
+  if (
+    !/"type"\s*:\s*"(?:update_flashcards|assign_flashcards|add_flashcards)"/.test(s) &&
+    !/"updates"\s*:\s*\[/.test(s)
+  ) {
+    return [];
+  }
+  const questions = [];
+  const qRe = /"question"\s*:\s*"((?:\\.|[^"\\])*)"/g;
+  let m;
+  while ((m = qRe.exec(s))) {
+    questions.push({
+      question: unescapeJsonString(m[1]),
+      index: m.index,
+      end: m.index + m[0].length,
+    });
+  }
+  const updates = [];
+  for (let i = 0; i < questions.length; i++) {
+    const beforeStart = i === 0 ? 0 : questions[i - 1].end;
+    const before = s.slice(beforeStart, questions[i].index);
+    const after = s.slice(
+      questions[i].end,
+      i + 1 < questions.length ? questions[i + 1].index : s.length
+    );
+    const stageMatch =
+      after.match(/"stageId"\s*:\s*"((?:\\.|[^"\\])*)"/) ||
+      after.match(/"stage"\s*:\s*"((?:\\.|[^"\\])*)"/) ||
+      before.match(/"stageId"\s*:\s*"((?:\\.|[^"\\])*)"/) ||
+      before.match(/"stage"\s*:\s*"((?:\\.|[^"\\])*)"/);
+    if (!stageMatch) continue;
+    updates.push({
+      question: questions[i].question,
+      stageId: unescapeJsonString(stageMatch[1]),
+    });
+  }
+  if (!updates.length) return [];
+  return [{ type: "update_flashcards", updates }];
+}
+
 function extractRawProposals(source) {
   const chunks = [];
-  const actions = source.match(ACTIONS_FENCE);
-  if (actions) chunks.push(actions[1]);
-  const json = source.match(JSON_PROPOSALS_FENCE);
-  if (json && /"proposals"\s*:|"type"\s*:\s*"(?:update_prep_doc|add_stage)"/.test(json[1] || "")) {
-    chunks.push(json[1]);
+  const fenceRe = /```([^\n]*)\n([\s\S]*?)(?:```|$)/g;
+  let m;
+  while ((m = fenceRe.exec(source))) {
+    const lang = m[1] || "";
+    const body = m[2];
+    if (/advisor-actions/i.test(lang) || isProposalJson(body)) chunks.push(body);
   }
   const bare = source.search(/\{\s*"proposals"\s*:/);
   if (bare >= 0) chunks.push(source.slice(bare));
@@ -170,7 +238,7 @@ function extractRawProposals(source) {
     const payload = parseJsonPayload(chunk);
     if (Array.isArray(payload?.proposals)) return payload.proposals;
   }
-  return [];
+  return salvageFromFlashcardUpdates(source);
 }
 
 /**
@@ -184,6 +252,95 @@ export function parseAdvisorActions(text) {
   if (!raw.length) raw = salvageFromPrepDocs(source);
   raw = attachPrepDocs(raw, source);
   return raw.map((p, i) => normalizeProposal(p, i)).filter(Boolean);
+}
+
+function normalizeQuestion(q) {
+  return String(q || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[.…]+$/g, "")
+    .trim();
+}
+
+function matchDeckCard(query, deck, usedIds) {
+  const id = String(query.id || query.cardId || "").trim();
+  if (id) {
+    const byId = deck.find((c) => c.id === id && !usedIds.has(c.id));
+    if (byId) return byId;
+  }
+  const q = normalizeQuestion(query.question);
+  if (!q) return null;
+  const unused = deck.filter((c) => !usedIds.has(c.id));
+  const exact = unused.find((c) => normalizeQuestion(c.question) === q);
+  if (exact) return exact;
+  const prefixes = unused.filter((c) => {
+    const cq = normalizeQuestion(c.question);
+    return cq.startsWith(q) || q.startsWith(cq);
+  });
+  if (prefixes.length === 1) return prefixes[0];
+  const startsWithQuery = prefixes.filter((c) =>
+    normalizeQuestion(c.question).startsWith(q)
+  );
+  return startsWithQuery.length === 1 ? startsWithQuery[0] : null;
+}
+
+function resolveAssignStage(raw, stages) {
+  if (raw == null || String(raw).trim() === "") return undefined;
+  const value = String(raw).trim();
+  if (/^unassigned$/i.test(value)) return "";
+  return resolveStageId(value, stages);
+}
+
+function normalizeUpdateFlashcards(p, index) {
+  const stages = getActiveJob()?.stages || [];
+  const deck = getDeck();
+  const usedIds = new Set();
+  const rows = Array.isArray(p.updates) ? p.updates : Array.isArray(p.cards) ? p.cards : [];
+  const updates = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const rawStage = row.stageId ?? row.stage;
+    const hasStage = rawStage != null && String(rawStage).trim() !== "";
+    const stageId = hasStage ? resolveAssignStage(rawStage, stages) : undefined;
+    if (hasStage && stageId === null) {
+      // Unknown stage id — keep the card for answer/category updates.
+    }
+    const card = matchDeckCard(row, deck, usedIds);
+    if (!card) continue;
+    usedIds.add(card.id);
+    const category = VALID_CATS.has(row.category) ? row.category : undefined;
+    const referenceAnswer =
+      typeof row.referenceAnswer === "string" ? row.referenceAnswer.trim() : "";
+    const keyPoints = Array.isArray(row.keyPoints)
+      ? row.keyPoints.filter(Boolean).map(String)
+      : [];
+    const nextStage =
+      !hasStage || stageId === null || stageId === undefined
+        ? card.stageId || null
+        : stageId || null;
+    const stageChanged =
+      hasStage && stageId !== null && stageId !== undefined && nextStage !== (card.stageId || null);
+    updates.push({
+      id: card.id,
+      question: card.question,
+      stageId: nextStage,
+      fromStageId: card.stageId || null,
+      stageChanged,
+      category: category || card.category,
+      fromCategory: card.category,
+      categoryChanged: !!category && category !== card.category,
+      referenceAnswer,
+      keyPoints,
+    });
+  }
+  if (!updates.length) return null;
+  const n = updates.length;
+  return {
+    id: p.id || `update-flashcards-${index}`,
+    type: "update_flashcards",
+    label: p.label || `Update ${n} flashcard${n === 1 ? "" : "s"}`,
+    updates,
+  };
 }
 
 function normalizeProposal(p, index) {
@@ -213,6 +370,10 @@ function normalizeProposal(p, index) {
       label: p.label || `Add ${cards.length} flashcard${cards.length === 1 ? "" : "s"}`,
       cards,
     };
+  }
+
+  if (p.type === "update_flashcards" || p.type === "assign_flashcards") {
+    return normalizeUpdateFlashcards(p, index);
   }
 
   if (p.type === "add_context") {
@@ -291,26 +452,84 @@ export function executeAdvisorProposal(proposal) {
   if (!proposal) return { ok: false, message: "Nothing to apply." };
 
   if (proposal.type === "add_flashcards") {
-    const existingQs = new Set(
-      getDeck().map((c) => c.question.toLowerCase().trim())
+    const deck = getDeck();
+    const existingByQ = new Map(
+      deck.map((c) => [c.question.toLowerCase().trim(), c])
     );
-    const novel = proposal.cards.filter(
-      (c) => !existingQs.has(c.question.toLowerCase().trim())
-    );
-    const skipped = proposal.cards.length - novel.length;
+    const novel = [];
+    let reassigned = 0;
+    for (const c of proposal.cards) {
+      const existing = existingByQ.get(c.question.toLowerCase().trim());
+      if (existing) {
+        if (c.stageId && c.stageId !== existing.stageId) {
+          setCardStage(existing.id, c.stageId);
+          reassigned += 1;
+        }
+        if (c.referenceAnswer || c.keyPoints?.length) {
+          setModelOverride(existing.id, {
+            referenceAnswer: c.referenceAnswer || existing.referenceAnswer,
+            keyPoints: c.keyPoints?.length ? c.keyPoints : existing.keyPoints,
+          });
+        }
+      } else {
+        novel.push(c);
+      }
+    }
     const added = addCustomCards(novel);
-    let message =
-      added > 0
-        ? `Added ${added} card${added === 1 ? "" : "s"} to your flashcard deck.`
-        : "No new cards added.";
+    const parts = [];
+    if (added > 0) parts.push(`Added ${added} card${added === 1 ? "" : "s"} to your flashcard deck.`);
+    if (reassigned > 0) {
+      parts.push(
+        `Assigned ${reassigned} existing card${reassigned === 1 ? "" : "s"} to a stage.`
+      );
+    }
+    const skipped = proposal.cards.length - novel.length - reassigned;
+    if (!parts.length) parts.push("No new cards added.");
     if (skipped > 0) {
-      message += ` (${skipped} duplicate question${skipped === 1 ? "" : "s"} skipped.)`;
+      parts.push(
+        `(${skipped} duplicate question${skipped === 1 ? "" : "s"} skipped.)`
+      );
     }
     return {
-      ok: added > 0,
-      message,
+      ok: added > 0 || reassigned > 0,
+      message: parts.join(" "),
       kind: "flashcards",
       count: added,
+    };
+  }
+
+  if (proposal.type === "update_flashcards") {
+    let stages = 0;
+    let answers = 0;
+    let categories = 0;
+    for (const row of proposal.updates || []) {
+      if (!row?.id) continue;
+      if (row.stageChanged) {
+        setCardStage(row.id, row.stageId || null);
+        stages += 1;
+      }
+      if (row.categoryChanged && row.category) {
+        setCardCategory(row.id, row.category);
+        categories += 1;
+      }
+      if (row.referenceAnswer || row.keyPoints?.length) {
+        setModelOverride(row.id, {
+          referenceAnswer: row.referenceAnswer || "",
+          keyPoints: row.keyPoints || [],
+        });
+        answers += 1;
+      }
+    }
+    const applied = stages + answers + categories;
+    const bits = [];
+    if (stages) bits.push(`stage on ${stages}`);
+    if (categories) bits.push(`category on ${categories}`);
+    if (answers) bits.push(`model answer on ${answers}`);
+    return {
+      ok: applied > 0,
+      message: applied > 0 ? `Updated ${bits.join(", ")}.` : "No flashcards were updated.",
+      kind: "flashcards",
+      count: applied,
     };
   }
 
