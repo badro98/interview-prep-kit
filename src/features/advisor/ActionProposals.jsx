@@ -1,25 +1,46 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Markdown from "../../components/Markdown.jsx";
 import { categoryLabel, stageLabel } from "../flashcards/deck.js";
 import { getActiveJob } from "../../lib/jobs.js";
 
-export default function ActionProposals({ proposals, appliedIds, onApply, onDismiss }) {
-  const pending = proposals.filter((p) => !appliedIds.includes(p.id));
-  if (pending.length === 0) return null;
+export default function ActionProposals({
+  proposals,
+  appliedIds,
+  itemStatus = {},
+  onApply,
+  onDismiss,
+  onRecordStatus,
+}) {
+  const visible = proposals.filter((p) => {
+    if (!appliedIds.includes(p.id)) return true;
+    if (!isFlashcardProposal(p)) return false;
+    const status = itemStatus[p.id];
+    return status && Object.keys(status).length > 0;
+  });
+  if (visible.length === 0) return null;
+
+  const anyPending = visible.some((p) => {
+    if (!appliedIds.includes(p.id)) return true;
+    if (!isFlashcardProposal(p)) return false;
+    const items = flashcardItems(p);
+    const status = itemStatus[p.id] || {};
+    return items.some((item, i) => !status[itemKey(item, i)]);
+  });
 
   return (
     <div className="mt-3 space-y-2 border-t border-line/80 pt-3">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-accent">
-        Proposed changes
+        {anyPending ? "Proposed changes" : "Changes"}
       </p>
-      {pending.map((p) => (
+      {visible.map((p) => (
         <ProposalCard
           key={p.id}
           proposal={p}
-          autoOpenReview={p.id === pending.find(isFlashcardProposal)?.id}
-          onApply={() => onApply(p)}
+          itemStatus={itemStatus[p.id] || {}}
+          onApply={(next, opts) => onApply(next ?? p, opts)}
           onDismiss={() => onDismiss(p.id)}
+          onRecordStatus={(updates, summary) => onRecordStatus?.(p.id, updates, summary)}
         />
       ))}
     </div>
@@ -38,77 +59,120 @@ function reviewBody(proposal) {
   return "";
 }
 
-function ProposalCard({ proposal, onApply, onDismiss, autoOpenReview }) {
+function flashcardItems(proposal) {
+  if (proposal.type === "add_flashcards") return [...(proposal.cards || [])];
+  if (proposal.type === "update_flashcards") return [...(proposal.updates || [])];
+  return [];
+}
+
+function subsetProposal(proposal, items) {
+  if (proposal.type === "add_flashcards") return { ...proposal, cards: items };
+  if (proposal.type === "update_flashcards") return { ...proposal, updates: items };
+  return proposal;
+}
+
+function itemKey(item, i) {
+  return item.id ? String(item.id) : `${i}:${item.question || ""}`;
+}
+
+function ProposalCard({
+  proposal,
+  itemStatus,
+  onApply,
+  onDismiss,
+  onRecordStatus,
+}) {
   const [reviewOpen, setReviewOpen] = useState(false);
-  const cardRef = useRef(null);
-  const autoOpenedRef = useRef(false);
   const body = reviewBody(proposal);
   const canReview = Boolean(body) || isFlashcardProposal(proposal);
   const stages = getActiveJob()?.stages || [];
+  const flashcards = isFlashcardProposal(proposal);
+  const items = flashcardItems(proposal);
+  const remaining = items.filter((item, i) => !itemStatus[itemKey(item, i)]);
+  const complete = flashcards && items.length > 0 && remaining.length === 0;
 
-  useEffect(() => {
-    if (!autoOpenReview || autoOpenedRef.current) return undefined;
-    const el = cardRef.current;
-    if (!el) return undefined;
+  function applyItems(nextItems, { keepOpen, quiet } = {}) {
+    if (!nextItems.length) return;
+    onApply(subsetProposal(proposal, nextItems), { keepOpen, quiet });
+  }
 
-    function tryOpen() {
-      if (autoOpenedRef.current) return true;
-      if (el.closest('[aria-hidden="true"]')) return false;
-      autoOpenedRef.current = true;
-      setReviewOpen(true);
-      return true;
-    }
+  function mergedStatus(updates) {
+    return { ...itemStatus, ...updates };
+  }
 
-    if (tryOpen()) return undefined;
-    const io = new IntersectionObserver(() => {
-      if (tryOpen()) io.disconnect();
+  function approveOne(item, i) {
+    const updates = { [itemKey(item, i)]: "approved" };
+    const left = remaining.length - 1;
+    onRecordStatus(
+      updates,
+      left === 0 ? statusSummary(proposal.type, items, mergedStatus(updates)) : undefined
+    );
+    applyItems([item], { keepOpen: true });
+  }
+
+  function skipOne(item, i) {
+    const updates = { [itemKey(item, i)]: "skipped" };
+    onRecordStatus(
+      updates,
+      remaining.length - 1 === 0
+        ? statusSummary(proposal.type, items, mergedStatus(updates))
+        : undefined
+    );
+  }
+
+  function skipRemaining() {
+    const updates = {};
+    remaining.forEach((item, idx) => {
+      const i = items.indexOf(item);
+      updates[itemKey(item, i === -1 ? idx : i)] = "skipped";
     });
-    io.observe(el);
-    return () => io.disconnect();
-  }, [autoOpenReview]);
+    onRecordStatus(updates, statusSummary(proposal.type, items, mergedStatus(updates)));
+  }
+
+  function applyRemaining() {
+    if (flashcards) {
+      if (!remaining.length) return;
+      const updates = {};
+      remaining.forEach((item, idx) => {
+        const i = items.indexOf(item);
+        updates[itemKey(item, i === -1 ? idx : i)] = "approved";
+      });
+      onRecordStatus(updates, statusSummary(proposal.type, items, mergedStatus(updates)));
+      applyItems(remaining, { keepOpen: true });
+      return;
+    }
+    onApply(proposal);
+    setReviewOpen(false);
+  }
 
   return (
     <div
-      ref={cardRef}
-      className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3"
+      className={`rounded-lg border p-3 ${
+        complete
+          ? "border-line bg-surface2/40"
+          : "border-emerald-500/30 bg-emerald-500/5"
+      }`}
     >
-      <p className="text-sm font-medium text-emerald-700 dark:text-emerald-200">{proposal.label}</p>
+      <p
+        className={`text-sm font-medium ${
+          complete ? "text-ink1" : "text-emerald-700 dark:text-emerald-200"
+        }`}
+      >
+        {proposal.label}
+      </p>
+      {complete ? (
+        <p className="mt-0.5 text-xs text-ink2">
+          {statusSummary(proposal.type, items, itemStatus)}
+        </p>
+      ) : null}
 
-      {proposal.type === "add_flashcards" && (
-        <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-ink1">
-          {proposal.cards.map((c, i) => (
-            <li key={i} className="flex gap-2">
-              <span className="shrink-0 text-ink2">
-                {categoryLabel(c.category)}
-                {c.stageId
-                  ? ` · ${stageLabel(c.stageId, getActiveJob()?.stages || [])}`
-                  : ""}
-              </span>
-              <span className="min-w-0">{c.question}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {proposal.type === "update_flashcards" && (
-        <ul className="mt-2 max-h-32 space-y-1 overflow-y-auto text-xs text-ink1">
-          {proposal.updates.map((u, i) => {
-            const toStage = stageLabel(u.stageId, stages);
-            const fromStage =
-              u.stageChanged && (u.fromStageId || null) !== (u.stageId || null)
-                ? stageLabel(u.fromStageId, stages)
-                : null;
-            return (
-              <li key={i} className="flex gap-2">
-                <span className="shrink-0 text-ink2">
-                  {categoryLabel(u.category)}
-                  {` · ${fromStage ? `${fromStage} → ` : ""}${toStage}`}
-                </span>
-                <span className="min-w-0">{u.question}</span>
-              </li>
-            );
-          })}
-        </ul>
+      {flashcards && (
+        <FlashcardStatusList
+          items={items}
+          statusMap={itemStatus}
+          stages={stages}
+          approvedLabel={approvedLabel(proposal.type)}
+        />
       )}
 
       {proposal.type === "add_context" && (
@@ -148,44 +212,73 @@ function ProposalCard({ proposal, onApply, onDismiss, autoOpenReview }) {
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onApply}
-          className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
-        >
-          {applyLabel(proposal.type, proposal.mode)}
-        </button>
-        {canReview ? (
+      {!complete && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {flashcards ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setReviewOpen(true)}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+              >
+                Review
+              </button>
+              <button
+                type="button"
+                onClick={applyRemaining}
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-ink1 ring-1 ring-inset ring-line transition hover:bg-surface2"
+              >
+                {applyLabel(proposal.type, proposal.mode, remaining.length)}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={applyRemaining}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+              >
+                {applyLabel(proposal.type, proposal.mode)}
+              </button>
+              {canReview ? (
+                <button
+                  type="button"
+                  onClick={() => setReviewOpen(true)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-ink1 ring-1 ring-inset ring-line transition hover:bg-surface2"
+                >
+                  Review
+                </button>
+              ) : null}
+            </>
+          )}
           <button
             type="button"
-            onClick={() => setReviewOpen(true)}
-            className="rounded-md px-3 py-1.5 text-xs font-medium text-ink1 ring-1 ring-inset ring-line transition hover:bg-surface2"
+            onClick={flashcards ? skipRemaining : onDismiss}
+            className="rounded-md px-3 py-1.5 text-xs text-ink2 transition hover:bg-surface2 hover:text-ink1"
           >
-            Review
+            Dismiss
           </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="rounded-md px-3 py-1.5 text-xs text-ink2 transition hover:bg-surface2 hover:text-ink1"
-        >
-          Dismiss
-        </button>
-      </div>
+        </div>
+      )}
 
       {reviewOpen && (
         <ProposalReviewModal
           proposal={proposal}
           body={body}
+          items={flashcards ? items : remaining}
+          remaining={remaining}
+          itemStatus={itemStatus}
+          complete={complete}
           onClose={() => setReviewOpen(false)}
-          onApply={() => {
-            setReviewOpen(false);
-            onApply();
-          }}
+          onApprove={approveOne}
+          onSkip={skipOne}
+          onApplyRemaining={applyRemaining}
           onDismiss={() => {
-            setReviewOpen(false);
-            onDismiss();
+            if (flashcards) skipRemaining();
+            else {
+              setReviewOpen(false);
+              onDismiss();
+            }
           }}
         />
       )}
@@ -193,7 +286,76 @@ function ProposalCard({ proposal, onApply, onDismiss, autoOpenReview }) {
   );
 }
 
-function ProposalReviewModal({ proposal, body, onClose, onApply, onDismiss }) {
+function FlashcardStatusList({ items, statusMap, stages, approvedLabel }) {
+  if (!items.length) {
+    return <p className="mt-2 text-xs text-ink2">No flashcards in this proposal.</p>;
+  }
+  return (
+    <ul className="mt-2 space-y-1.5">
+      {items.map((item, i) => {
+        const status = statusMap[itemKey(item, i)];
+        return (
+          <li key={itemKey(item, i)} className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p
+                className={`text-sm leading-snug ${
+                  status === "skipped" ? "text-ink2 line-through" : "text-ink1"
+                }`}
+              >
+                {item.question}
+              </p>
+              <p className="mt-0.5 text-[11px] text-ink2">{flashcardMeta(item, stages)}</p>
+            </div>
+            {status ? <StatusPill status={status} approvedLabel={approvedLabel} /> : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function StatusPill({ status, approvedLabel }) {
+  if (status === "approved") {
+    return (
+      <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+        {approvedLabel}
+      </span>
+    );
+  }
+  return (
+    <span className="shrink-0 rounded-full bg-surface2 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-ink2">
+      Skipped
+    </span>
+  );
+}
+
+function flashcardMeta(item, stages) {
+  const cat = categoryLabel(item.category);
+  const fromCat =
+    item.fromCategory && item.fromCategory !== item.category
+      ? `${categoryLabel(item.fromCategory)} → `
+      : "";
+  const stage = stageLabel(item.stageId, stages);
+  const fromStage =
+    item.fromStageId !== undefined && item.fromStageId !== item.stageId
+      ? `${stageLabel(item.fromStageId, stages)} → `
+      : "";
+  return `${fromCat}${cat} · ${fromStage}${stage}`;
+}
+
+function ProposalReviewModal({
+  proposal,
+  body,
+  items,
+  remaining,
+  itemStatus,
+  complete,
+  onClose,
+  onApprove,
+  onSkip,
+  onApplyRemaining,
+  onDismiss,
+}) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === "Escape") onClose?.();
@@ -202,7 +364,14 @@ function ProposalReviewModal({ proposal, body, onClose, onApply, onDismiss }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const subtitle = reviewSubtitle(proposal);
+  const flashcards = isFlashcardProposal(proposal);
+  const subtitle = flashcards
+    ? complete
+      ? statusSummary(proposal.type, items, itemStatus)
+      : remaining.length === 1
+        ? "Approve this card, or skip it."
+        : `${remaining.length} cards left — approve each one, or apply the rest.`
+    : reviewSubtitle(proposal);
 
   return createPortal(
     <div
@@ -231,21 +400,31 @@ function ProposalReviewModal({ proposal, body, onClose, onApply, onDismiss }) {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          {isFlashcardProposal(proposal) ? (
-            <FlashcardReviewList proposal={proposal} />
+          {flashcards ? (
+            <FlashcardReviewList
+              items={items}
+              itemStatus={itemStatus}
+              approvedLabel={approvedLabel(proposal.type)}
+              onApprove={onApprove}
+              onSkip={onSkip}
+            />
           ) : (
             <Markdown>{body}</Markdown>
           )}
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2 border-t border-line px-5 py-3">
-          <button
-            type="button"
-            onClick={onDismiss}
-            className="rounded-md px-3 py-1.5 text-xs text-ink2 transition hover:bg-surface2 hover:text-ink1"
-          >
-            Dismiss
-          </button>
+          {!complete ? (
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="mr-auto rounded-md px-3 py-1.5 text-xs text-ink2 transition hover:bg-surface2 hover:text-ink1"
+            >
+              Dismiss remaining
+            </button>
+          ) : (
+            <span className="mr-auto" />
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -253,13 +432,23 @@ function ProposalReviewModal({ proposal, body, onClose, onApply, onDismiss }) {
           >
             Close
           </button>
-          <button
-            type="button"
-            onClick={onApply}
-            className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
-          >
-            {applyLabel(proposal.type, proposal.mode)}
-          </button>
+          {flashcards && remaining.length > 1 ? (
+            <button
+              type="button"
+              onClick={onApplyRemaining}
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+            >
+              {applyLabel(proposal.type, proposal.mode, remaining.length)}
+            </button>
+          ) : !flashcards ? (
+            <button
+              type="button"
+              onClick={onApplyRemaining}
+              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+            >
+              {applyLabel(proposal.type, proposal.mode)}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>,
@@ -278,67 +467,43 @@ function reviewSubtitle(proposal) {
   if (proposal.type === "add_context") {
     return `Save “${proposal.name}” to context.`;
   }
-  if (proposal.type === "add_flashcards") {
-    return `New cards. Scroll each question, stage, and model answer, then accept or dismiss.`;
-  }
-  if (proposal.type === "update_flashcards") {
-    return `Existing cards. Scroll each proposed stage, category, and model answer, then accept or dismiss.`;
-  }
   return "";
 }
 
-function flashcardReviewItems(proposal) {
-  if (proposal.type === "add_flashcards") {
-    return (proposal.cards || []).map((c) => ({
-      question: c.question,
-      category: c.category,
-      stageId: c.stageId,
-      referenceAnswer: c.referenceAnswer,
-      keyPoints: c.keyPoints,
-    }));
-  }
-  return (proposal.updates || []).map((u) => ({
-    question: u.question,
-    category: u.category,
-    fromCategory: u.fromCategory,
-    stageId: u.stageId,
-    fromStageId: u.fromStageId,
-    referenceAnswer: u.referenceAnswer,
-    keyPoints: u.keyPoints,
-  }));
-}
-
-function FlashcardReviewList({ proposal }) {
+function FlashcardReviewList({ items, itemStatus, approvedLabel, onApprove, onSkip }) {
   const stages = getActiveJob()?.stages || [];
-  const items = flashcardReviewItems(proposal);
   if (!items.length) {
     return <p className="text-sm text-ink2">No flashcards in this proposal.</p>;
   }
   return (
     <ol className="space-y-4">
       {items.map((item, i) => {
-        const stage = stageLabel(item.stageId, stages);
-        const fromStage =
-          item.fromStageId !== undefined && item.fromStageId !== item.stageId
-            ? stageLabel(item.fromStageId, stages)
-            : null;
-        const fromCat =
-          item.fromCategory && item.fromCategory !== item.category
-            ? categoryLabel(item.fromCategory)
-            : null;
+        const status = itemStatus[itemKey(item, i)];
         return (
-          <li key={i} className="rounded-lg border border-line bg-canvas/40 p-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink2">
-              {i + 1} of {items.length}
+          <li
+            key={itemKey(item, i)}
+            className={`rounded-lg border p-4 ${
+              status === "skipped"
+                ? "border-line bg-canvas/20 opacity-70"
+                : status === "approved"
+                  ? "border-emerald-500/30 bg-emerald-500/5"
+                  : "border-line bg-canvas/40"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink2">
+                {i + 1} of {items.length}
+              </p>
+              {status ? <StatusPill status={status} approvedLabel={approvedLabel} /> : null}
+            </div>
+            <p
+              className={`mt-1 text-sm font-medium leading-snug ${
+                status === "skipped" ? "text-ink2 line-through" : "text-ink1"
+              }`}
+            >
+              {item.question}
             </p>
-            <p className="mt-1 text-sm font-medium text-ink1">{item.question}</p>
-            <p className="mt-1.5 text-xs text-ink2">
-              {fromCat ? `${fromCat} → ` : ""}
-              {categoryLabel(item.category)}
-              {" · "}
-              {fromStage ? `${fromStage} → ` : ""}
-              {stage}
-            </p>
+            <p className="mt-1.5 text-xs text-ink2">{flashcardMeta(item, stages)}</p>
             {item.referenceAnswer ? (
               <div className="mt-3">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-ink2">
@@ -360,11 +525,28 @@ function FlashcardReviewList({ proposal }) {
                   ))}
                 </ul>
               </div>
-            ) : (
-              !item.referenceAnswer && (
-                <p className="mt-3 text-xs text-ink2">No model answer in this proposal.</p>
-              )
-            )}
+            ) : null}
+            {!item.referenceAnswer && !(item.keyPoints && item.keyPoints.length) ? (
+              <p className="mt-3 text-xs text-ink2">No model answer in this proposal.</p>
+            ) : null}
+            {!status ? (
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => onSkip(item, i)}
+                  className="rounded-md px-3 py-1.5 text-xs font-medium text-ink2 transition hover:bg-surface2 hover:text-ink1"
+                >
+                  Skip
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onApprove(item, i)}
+                  className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-500"
+                >
+                  Approve
+                </button>
+              </div>
+            ) : null}
           </li>
         );
       })}
@@ -372,9 +554,30 @@ function FlashcardReviewList({ proposal }) {
   );
 }
 
-function applyLabel(type, mode) {
-  if (type === "add_flashcards") return "Add to flashcards";
-  if (type === "update_flashcards") return "Update flashcards";
+function approvedLabel(type) {
+  return type === "update_flashcards" ? "Updated" : "Added";
+}
+
+function statusSummary(type, items, statusMap) {
+  let added = 0;
+  let skipped = 0;
+  items.forEach((item, i) => {
+    const status = statusMap[itemKey(item, i)];
+    if (status === "approved") added += 1;
+    if (status === "skipped") skipped += 1;
+  });
+  const verb = approvedLabel(type);
+  const parts = [];
+  if (added) parts.push(`${verb} ${added}`);
+  if (skipped) parts.push(`skipped ${skipped}`);
+  return parts.join(" · ") || "Done";
+}
+
+function applyLabel(type, mode, count) {
+  const n = typeof count === "number" ? count : null;
+  const suffix = n != null && n !== 1 ? ` (${n})` : "";
+  if (type === "add_flashcards") return n === 1 ? "Add this card" : `Add all${suffix}`;
+  if (type === "update_flashcards") return n === 1 ? "Update this card" : `Update all${suffix}`;
   if (type === "add_stage") return "Add stage + prep doc";
   if (type === "update_prep_doc") {
     return mode === "append" ? "Append to prep doc" : "Update prep doc";

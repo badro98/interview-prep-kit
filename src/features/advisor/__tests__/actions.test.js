@@ -171,6 +171,28 @@ ${JSON.stringify({
     expect(getDeck().find((c) => c.id === "q1").stageId).toBe("pm_interview");
   });
 
+  it("applies a single update from a multi-card proposal without touching the rest", () => {
+    setupDeck();
+    const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
+${JSON.stringify({
+  proposals: [
+    {
+      type: "update_flashcards",
+      updates: [
+        { question: "Tell me about a time you identified a significant problem", stageId: "pm_interview" },
+        { question: "Describe a situation where you had to make a recommendation", stageId: "hm" },
+      ],
+    },
+  ],
+})}
+\`\`\``);
+
+    const one = { ...proposal, updates: [proposal.updates[0]] };
+    expect(executeAdvisorProposal(one).ok).toBe(true);
+    expect(getDeck().find((c) => c.id === "q1").stageId).toBe("pm_interview");
+    expect(getDeck().find((c) => c.id === "q2").stageId).toBeNull();
+  });
+
   it("keeps existing stage when updates only include a model answer", () => {
     setupDeck();
     const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions

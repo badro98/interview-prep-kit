@@ -26,6 +26,9 @@ import {
   ensureStageProgressDefaults,
   setStageProgress,
   getStageProgress,
+  createAdvisorThread,
+  getAdvisorThreads,
+  saveAdvisorThreadMessages,
 } from "../store.js";
 
 beforeEach(() => localStorage.clear());
@@ -178,5 +181,30 @@ describe("job-scoped store", () => {
     ensureStageProgressDefaults(ids);
     expect(getStageProgress("recruiter", ids)).toBe("complete");
     expect(getStageProgress("hm", ids)).toBe("upcoming");
+  });
+});
+
+describe("advisor threads", () => {
+  beforeEach(() => {
+    const job = createJob({ role: "A" });
+    setActiveJobId(job.id);
+  });
+
+  it("does not bump updatedAt when re-saving the same messages", () => {
+    const thread = createAdvisorThread();
+    const stamp = getAdvisorThreads().find((t) => t.id === thread.id).updatedAt;
+    saveAdvisorThreadMessages(thread.id, thread.messages);
+    expect(getAdvisorThreads().find((t) => t.id === thread.id).updatedAt).toBe(stamp);
+  });
+
+  it("bumps updatedAt when messages change", () => {
+    const older = createAdvisorThread();
+    const newer = createAdvisorThread();
+    expect(getAdvisorThreads()[0].id).toBe(newer.id);
+
+    saveAdvisorThreadMessages(older.id, [
+      { role: "user", content: "hello", at: Date.now() },
+    ]);
+    expect(getAdvisorThreads()[0].id).toBe(older.id);
   });
 });
