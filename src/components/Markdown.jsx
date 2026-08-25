@@ -1,6 +1,16 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+const components = {
+  table({ children, ...props }) {
+    return (
+      <div className="my-4 max-w-full overflow-x-auto">
+        <table {...props}>{children}</table>
+      </div>
+    );
+  },
+};
+
 // Shared markdown renderer — semantic prose colors; invert in dark theme.
 export default function Markdown({ children }) {
   return (
@@ -19,9 +29,15 @@ export default function Markdown({ children }) {
         prose-blockquote:not-italic prose-blockquote:text-ink1
         prose-code:text-accent prose-code:bg-surface2 prose-code:px-1.5
         prose-code:py-0.5 prose-code:rounded prose-code:before:content-[''] prose-code:after:content-['']
+        prose-pre:bg-surface2 prose-pre:p-4 prose-pre:overflow-x-auto
+        [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-inherit
+        [&_code]:whitespace-pre-wrap [&_code]:break-words
+        prose-table:text-sm prose-th:px-2 prose-th:py-1.5 prose-td:px-2 prose-td:py-1.5 prose-td:align-top
         prose-hr:border-line"
     >
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+        {children}
+      </ReactMarkdown>
     </div>
   );
 }

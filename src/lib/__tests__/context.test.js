@@ -154,6 +154,19 @@ describe("getContext", () => {
       "(No context loaded — add shared or job-only sources in the Context tab.)"
     );
   });
+
+  it("labels shared context as a read-only grounding source", () => {
+    const entry = addProfileEntry({
+      name: "03_Interview_Stories",
+      content: "# Osama Badr — Interview Stories\n\nSTAR stories.",
+    });
+    const job = createJob({ stages: STAGE_PRESETS, profileRefs: [entry.id] });
+    setActiveJobId(job.id);
+
+    const text = getContext();
+    expect(text).toContain("CONTEXT SOURCE (shared, read-only) · 03_Interview_Stories");
+    expect(text).toContain("Never rewrite them with update_prep_doc");
+  });
 });
 
 describe("listJobsWithCustomContext", () => {
