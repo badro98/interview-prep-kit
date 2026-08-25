@@ -164,6 +164,93 @@ export function getActiveContextBlocks() {
   return [...profileBlocks, ...customBlocks];
 }
 
+function firstMarkdownHeading(text) {
+  return String(text || "").match(/^#\s+(.+)$/m)?.[1] || "";
+}
+
+/** Fold filenames like 03_Interview_Stories.md into “interview stories”. */
+export function normalizeContextName(s) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\.md$/i, "")
+    .replace(/^\d+[._\-\s]+/, "")
+    .replace(/[_—–-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * If `text` (label, title, or first heading) names an existing context source,
+ * return that block. Used to stop Advisor from rewriting context as a prep doc.
+ */
+export function findContextSourceMention(text) {
+  const hay = normalizeContextName(text);
+  if (hay.length < 6) return null;
+  let best = null;
+  for (const block of getActiveContextBlocks()) {
+    const needles = [block.label, block.name, block.seedFile]
+      .map(normalizeContextName)
+      .filter((n) => n.length >= 6);
+    for (const n of needles) {
+      if (hay.includes(n) && (!best || n.length > best.needle.length)) {
+        best = { block, needle: n };
+      }
+    }
+  }
+  return best?.block || null;
+}
+
+/**
+ * Detect a prep-doc proposal that is actually a rewrite of a context source
+ * (same H1 as a context file, or label/title names that source).
+ */
+export function findContextDocumentClone(markdown, extraText = "") {
+  const heading = firstMarkdownHeading(markdown);
+  const headingNorm = normalizeContextName(heading);
+  if (headingNorm.length >= 6) {
+    for (const block of getActiveContextBlocks()) {
+      const blockHeading = normalizeContextName(firstMarkdownHeading(block.content));
+      if (blockHeading.length >= 6 && headingNorm === blockHeading) return block;
+    }
+  }
+  return findContextSourceMention(`${extraText}\n${heading}`);
+}
+
+export function contextRewriteMessage(block) {
+  const name = block?.label || block?.name || "that source";
+  if (block?.source === "profile") {
+    return `“${name}” is shared context, not a prep doc. Advisor cannot change it — open Context and use Edit.`;
+  }
+  return `“${name}” is a context source, not a prep doc. Edit it in the Context tab — don’t replace a stage prep doc with it.`;
+}
+
+/** Names + shared vs job-only, for the Advisor system prompt. */
+export function formatContextInventoryForAdvisor() {
+  const blocks = getActiveContextBlocks();
+  const parts = [
+    "CONTEXT vs PREP DOCS — these are different kits:",
+    "- Prep docs are per-stage documents on the Prep Docs tab (Hiring Manager, Recruiter Screen, …). Only those use update_prep_doc / add_stage.",
+    "- Context sources are grounding material. Never use update_prep_doc to rewrite them. Shared sources are read-only; tell the user to edit them in the Context tab.",
+    "- add_context is only for a NEW this-job-only note (recruiter intel, a pasted page). Never overwrite an existing source.",
+  ];
+  if (!blocks.length) {
+    parts.push("Context sources: (none).");
+    return parts.join("\n");
+  }
+  const line = (b) => `- “${b.label}”${b.enabled ? "" : " (off for this job)"}`;
+  const shared = blocks.filter((b) => b.source === "profile");
+  const job = blocks.filter((b) => b.source === "custom");
+  if (shared.length) {
+    parts.push("Shared context (read-only):");
+    parts.push(...shared.map(line));
+  }
+  if (job.length) {
+    parts.push("This-job-only context:");
+    parts.push(...job.map(line));
+  }
+  return parts.join("\n");
+}
+
 /** Assembled grounding string for coach() / advisor. */
 export function getContext() {
   const blocks = getActiveContextBlocks().filter((b) => b.enabled && b.content?.trim());
@@ -171,11 +258,15 @@ export function getContext() {
     return "(No context loaded — add shared or job-only sources in the Context tab.)";
   }
 
-  const sections = blocks.map((b) => `===== ${b.label} =====\n\n${b.content.trim()}`);
+  const sections = blocks.map((b) => {
+    const kind = b.source === "profile" ? "shared, read-only" : "this job only";
+    return `===== CONTEXT SOURCE (${kind}) · ${b.label} =====\n\n${b.content.trim()}`;
+  });
 
   return [
     "The following is the candidate's full background. Treat it as ground truth.",
     "Use the candidate's REAL stories, metrics, and details — never invent generic examples.",
+    "These CONTEXT SOURCES are grounding, not prep docs. Never rewrite them with update_prep_doc.",
     "",
     sections.join("\n\n\n"),
   ].join("\n");

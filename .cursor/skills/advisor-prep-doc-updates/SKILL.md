@@ -18,6 +18,7 @@ Prep Docs are kit state. The Advisor must **propose** a write, not paste the doc
 3. Keep the chat reply short (what changed + Confirm). Do not recap the doc.
 4. **New rounds** (coding, system design, …) → `add_stage`.
 5. **Existing stages** → `update_prep_doc` (`replace` by default; `append` only to add a section).
+6. **Nested pages under an existing stage** (per interviewer, question set, debrief) → `add_subpage`. See `.cursor/skills/advisor-prep-doc-subpages/SKILL.md`. Do not `add_stage` and do not replace the main prep doc.
 
 ```advisor-actions
 {"proposals":[{"type":"add_stage","id":"coding","title":"Practical coding"}]}
@@ -29,10 +30,12 @@ Prep Docs are kit state. The Advisor must **propose** a write, not paste the doc
 ...complete markdown...
 </prep-doc>
 
-Parser lives in `src/features/advisor/actions.js`: attaches tagged bodies to JSON proposals, salvages `<prep-doc>` tags if JSON is invalid, and promotes unknown `update_prep_doc` stage ids to `add_stage`. Confirm UI is `ActionProposals.jsx` (**Review** for the full draft). Applying remounts Prep Docs via `onStagesChange`.
+Parser lives in `src/features/advisor/actions.js`: attaches tagged bodies to JSON proposals, salvages `<prep-doc>` tags if JSON is invalid, and promotes unknown `update_prep_doc` stage ids to `add_stage`. Confirm UI is `ActionProposals.jsx`. After **Apply**, the write button goes away; **Review** stays so you can reopen the recap. Applying remounts Prep Docs via `onStagesChange`.
 
 Assigning existing flashcards to a stage is `update_flashcards` (tiny JSON, no doc tags). A leftover JSON dump in chat usually means the model used an unknown type, a plain json fence, or stuffed `referenceAnswer` into the JSON until it broke. Parser salvages `"question"` + `"stageId"` pairs even when the fence is truncated, and chat always strips proposal JSON so the dump does not render.
 
 Audit / "suggest stage assignment" is a kit change, not a talk-through: emit `update_flashcards` in the **same reply**. Confirm/Dismiss is the ask — do not wait for "make the assignment".
 
 Do not tell the user the doc was already saved. Do not ask "should I propose this?" — emit the blocks in the same reply.
+
+**Context vs prep docs.** Context sources (Interview Stories, Experience, Portfolio, resume, JD) are grounding, not prep docs. Shared context is read-only — never `update_prep_doc` / `add_context` a rewrite of those; tell the user to edit them in the Context tab. `update_prep_doc` is only for per-stage Prep Docs (Hiring Manager, Recruiter Screen, …).

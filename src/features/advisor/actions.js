@@ -4,6 +4,7 @@ import { CATEGORIES, categoryLabel, getDeck, resolveStageId } from "../flashcard
 import {
   addCustomCards,
   addCustomContextEntry,
+  addStagePage,
   getDocOverride,
   setCardCategory,
   setCardStage,
@@ -13,7 +14,12 @@ import {
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { saveStageDoc } from "../../lib/generate.js";
 import { getStageDoc } from "../prep-docs/stages.js";
-import { markdownToHtml } from "../../lib/markdownHtml.js";
+import { markdownToHtml, normalizePrepMarkdown } from "../../lib/markdownHtml.js";
+import {
+  contextRewriteMessage,
+  findContextDocumentClone,
+  findContextSourceMention,
+} from "../../lib/context.js";
 import { buildCustomStage } from "../onboarding/steps.js";
 
 const PREP_DOC_XML = /<prep-doc\b([^>]*)>([\s\S]*?)<\/prep-doc>/gi;
@@ -95,20 +101,20 @@ function extractPrepDocs(text) {
   const xml = new RegExp(PREP_DOC_XML.source, "gi");
   let m;
   while ((m = xml.exec(source))) {
-    const markdown = String(m[2] || "").trim();
+    const markdown = normalizePrepMarkdown(m[2]);
     if (markdown) docs.push({ ...parsePrepAttrs(m[1]), markdown });
   }
   if (docs.length) return docs;
   const ticks = new RegExp(PREP_DOC_TICKS.source, "gi");
   while ((m = ticks.exec(source))) {
-    const markdown = String(m[3] || "").trim();
+    const markdown = normalizePrepMarkdown(m[3]);
     if (markdown) docs.push({ ...parsePrepAttrs(m[2]), markdown });
   }
   return docs;
 }
 
 function proposalNeedsDoc(p) {
-  if (p?.type === "update_prep_doc") {
+  if (p?.type === "update_prep_doc" || p?.type === "add_subpage" || p?.type === "add_page") {
     return !String(p.markdown || p.content || "").trim();
   }
   if (p?.type === "add_stage") {
@@ -125,6 +131,15 @@ function applyPrepDoc(p, doc) {
       title: (p.title || doc.title || "").trim() || p.title,
     };
   }
+  if (p.type === "add_subpage" || p.type === "add_page") {
+    return {
+      ...p,
+      type: "add_subpage",
+      markdown: doc.markdown,
+      title: (p.title || doc.title || "").trim() || p.title,
+      stageId: p.stageId || doc.stageId,
+    };
+  }
   return { ...p, markdown: doc.markdown };
 }
 
@@ -134,15 +149,24 @@ function attachPrepDocs(rawProposals, text) {
   const unused = [...docs];
   return rawProposals.map((p) => {
     if (!proposalNeedsDoc(p)) return p;
-    const key = String(p.stageId || p.stage || p.id || p.title || "").toLowerCase();
-    const tagged = key
-      ? unused.findIndex(
-          (d) =>
-            String(d.stageId || "").toLowerCase() === key ||
-            String(d.title || "").toLowerCase() === key
-        )
-      : -1;
-    const idx = tagged >= 0 ? tagged : unused.findIndex((d) => d.markdown);
+    const titleKey = String(p.title || p.name || "").toLowerCase();
+    const stageKey = String(p.stageId || p.stage || p.id || "").toLowerCase();
+    let idx = -1;
+    if (titleKey) {
+      idx = unused.findIndex((d) => {
+        const dt = String(d.title || "").toLowerCase();
+        const ds = String(d.stageId || "").toLowerCase();
+        return dt === titleKey && (!stageKey || !ds || ds === stageKey);
+      });
+    }
+    if (idx < 0 && stageKey) {
+      idx = unused.findIndex(
+        (d) =>
+          String(d.stageId || "").toLowerCase() === stageKey ||
+          String(d.title || "").toLowerCase() === stageKey
+      );
+    }
+    if (idx < 0) idx = unused.findIndex((d) => d.markdown);
     if (idx < 0) return p;
     const [doc] = unused.splice(idx, 1);
     return applyPrepDoc(p, doc);
@@ -154,12 +178,33 @@ function salvageFromPrepDocs(text) {
   if (!docs.length) return [];
   const source = String(text || "");
   const append = /"mode"\s*:\s*"append"/.test(source);
+  const jsonTypes = [...source.matchAll(/"type"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
   const jsonStageIds = [...source.matchAll(/"stageId"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
   const jsonTitles = [...source.matchAll(/"title"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
   const jsonStages = [...source.matchAll(/"stage"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
   return docs.map((doc, i) => {
     const title = (doc.title || jsonTitles[i] || jsonStages[i] || doc.stageId || jsonStageIds[i] || "Prep doc").trim();
     const stageId = (doc.stageId || jsonStageIds[i] || title).trim();
+    const type = jsonTypes[i];
+    if (type === "add_subpage" || type === "add_page") {
+      return {
+        type: "add_subpage",
+        stageId,
+        title,
+        markdown: doc.markdown,
+        content: doc.markdown,
+      };
+    }
+    if (type === "add_stage") {
+      return {
+        type: "add_stage",
+        id: stageId,
+        stageId,
+        title,
+        content: doc.markdown,
+        markdown: doc.markdown,
+      };
+    }
     return {
       type: "update_prep_doc",
       stageId,
@@ -343,6 +388,14 @@ function normalizeUpdateFlashcards(p, index) {
   };
 }
 
+function blockedForContextRewrite(p, markdown) {
+  const clone = findContextDocumentClone(
+    markdown,
+    `${p.label || ""} ${p.title || ""} ${p.name || ""} ${p.stage || ""} ${p.stageId || ""}`
+  );
+  return clone ? contextRewriteMessage(clone) : undefined;
+}
+
 function normalizeProposal(p, index) {
   if (!p || !p.type) return null;
 
@@ -350,10 +403,13 @@ function normalizeProposal(p, index) {
     const stages = getActiveJob()?.stages || [];
     const cards = (p.cards || [])
       .filter((c) => c && typeof c.question === "string" && c.question.trim())
-      .map((c) => {
+      .map((c, cardIndex) => {
         const stageId = resolveStageId(c.stageId || c.stage, stages);
+        const givenId = typeof c.id === "string" ? c.id.trim() : "";
         return {
-          id: `adv-${slug(c.question)}-${Math.random().toString(36).slice(2, 7)}`,
+          // Stable across re-parses so Confirm status (Added/Skipped) survives
+          // re-renders and thread switches. Unique ids are minted at execute if needed.
+          id: givenId || `adv-${cardIndex}-${slug(c.question)}`,
           category: VALID_CATS.has(c.category) ? c.category : "behavioral",
           question: c.question.trim(),
           referenceAnswer: (c.referenceAnswer || "").trim(),
@@ -380,6 +436,11 @@ function normalizeProposal(p, index) {
     const name = (p.name || "").trim();
     const content = (p.content || "").trim();
     if (!name || !content) return null;
+    const existing = findContextSourceMention(name);
+    const blockedReason =
+      existing?.source === "profile"
+        ? contextRewriteMessage(existing)
+        : undefined;
     return {
       id: p.id || `context-${index}`,
       type: "add_context",
@@ -387,15 +448,17 @@ function normalizeProposal(p, index) {
       name,
       content,
       sourceUrl: p.sourceUrl || null,
+      ...(blockedReason ? { blockedReason } : {}),
     };
   }
 
   if (p.type === "add_stage") {
     const title = (p.title || p.stage || "").trim();
-    const content = String(p.content || p.markdown || "").trim();
+    const content = normalizePrepMarkdown(p.content || p.markdown || "");
     if (!title || !content) return null;
     const stageId = (p.id || p.stageId || slug(title) || `stage-${index}`).trim();
     if (!stageId) return null;
+    const blockedReason = blockedForContextRewrite(p, content);
     return {
       id: p.proposalId || `stage-${stageId}-${index}`,
       type: "add_stage",
@@ -405,13 +468,33 @@ function normalizeProposal(p, index) {
       subtitle: (p.subtitle || "").trim(),
       content,
       regenTask: typeof p.regenTask === "string" ? p.regenTask.trim() : "",
+      ...(blockedReason ? { blockedReason } : {}),
+    };
+  }
+
+  if (p.type === "add_subpage" || p.type === "add_page") {
+    const stages = getActiveJob()?.stages || [];
+    const resolved = resolveStageId(p.stageId || p.stage, stages);
+    const title = (p.title || p.name || "").trim();
+    const markdown = normalizePrepMarkdown(p.markdown || p.content || "");
+    if (!resolved || !title || !markdown) return null;
+    const stageName = stages.find((s) => s.id === resolved)?.title || resolved;
+    const blockedReason = blockedForContextRewrite(p, markdown);
+    return {
+      id: p.id || `subpage-${resolved}-${index}`,
+      type: "add_subpage",
+      label: p.label || `Add subpage “${title}” to ${stageName}`,
+      stageId: resolved,
+      title,
+      markdown,
+      ...(blockedReason ? { blockedReason } : {}),
     };
   }
 
   if (p.type === "update_prep_doc") {
     const stages = getActiveJob()?.stages || [];
     const resolved = resolveStageId(p.stageId || p.stage, stages);
-    const markdown = String(p.markdown || p.content || "").trim();
+    const markdown = normalizePrepMarkdown(p.markdown || p.content || "");
     const mode = p.mode === "append" ? "append" : "replace";
     if (!markdown) return null;
     if (!resolved) {
@@ -430,6 +513,7 @@ function normalizeProposal(p, index) {
       );
     }
     const title = stages.find((s) => s.id === resolved)?.title || resolved;
+    const blockedReason = blockedForContextRewrite(p, markdown);
     return {
       id: p.id || `prepdoc-${resolved}-${index}`,
       type: "update_prep_doc",
@@ -441,6 +525,7 @@ function normalizeProposal(p, index) {
       stageId: resolved,
       mode,
       markdown,
+      ...(blockedReason ? { blockedReason } : {}),
     };
   }
 
@@ -450,6 +535,9 @@ function normalizeProposal(p, index) {
 /** Apply a confirmed proposal. Returns a short result message. */
 export function executeAdvisorProposal(proposal) {
   if (!proposal) return { ok: false, message: "Nothing to apply." };
+  if (proposal.blockedReason) {
+    return { ok: false, message: proposal.blockedReason };
+  }
 
   if (proposal.type === "add_flashcards") {
     const deck = getDeck();
@@ -458,6 +546,7 @@ export function executeAdvisorProposal(proposal) {
     );
     const novel = [];
     let reassigned = 0;
+    const usedIds = new Set(deck.map((c) => c.id));
     for (const c of proposal.cards) {
       const existing = existingByQ.get(c.question.toLowerCase().trim());
       if (existing) {
@@ -472,7 +561,12 @@ export function executeAdvisorProposal(proposal) {
           });
         }
       } else {
-        novel.push(c);
+        let id = c.id;
+        if (!id || usedIds.has(id)) {
+          id = `adv-${slug(c.question)}-${Math.random().toString(36).slice(2, 7)}`;
+        }
+        usedIds.add(id);
+        novel.push({ ...c, id });
       }
     }
     const added = addCustomCards(novel);
@@ -551,11 +645,33 @@ export function executeAdvisorProposal(proposal) {
     return executeAddStage(proposal);
   }
 
+  if (proposal.type === "add_subpage") {
+    return executeAddSubpage(proposal);
+  }
+
   if (proposal.type === "update_prep_doc") {
     return executeUpdatePrepDoc(proposal);
   }
 
   return { ok: false, message: "Unknown proposal type." };
+}
+
+function executeAddSubpage(proposal) {
+  const blocked =
+    proposal.blockedReason ||
+    blockedForContextRewrite(proposal, proposal.markdown);
+  if (blocked) return { ok: false, message: blocked };
+  const page = addStagePage(proposal.stageId, {
+    title: proposal.title,
+    html: markdownToHtml(proposal.markdown),
+  });
+  return {
+    ok: true,
+    message: proposal.label,
+    kind: "subpage",
+    stageId: proposal.stageId,
+    pageId: page.id,
+  };
 }
 
 function existingPrepMarkdown(stageId) {
@@ -571,6 +687,10 @@ function existingPrepMarkdown(stageId) {
 }
 
 function executeUpdatePrepDoc(proposal) {
+  const blocked =
+    proposal.blockedReason ||
+    blockedForContextRewrite(proposal, proposal.markdown);
+  if (blocked) return { ok: false, message: blocked };
   const html = markdownToHtml(proposal.markdown);
   if (proposal.mode === "append") {
     const override = getDocOverride(proposal.stageId);
@@ -599,6 +719,10 @@ function executeUpdatePrepDoc(proposal) {
 }
 
 function executeAddStage(proposal) {
+  const blocked =
+    proposal.blockedReason ||
+    blockedForContextRewrite(proposal, proposal.content);
+  if (blocked) return { ok: false, message: blocked };
   const job = getActiveJob();
   const jobId = getActiveJobId();
   if (!job || !jobId) {

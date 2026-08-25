@@ -209,6 +209,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
   }
 
   function handleApplyProposal(message, proposal, { keepOpen = false, quiet = false } = {}) {
+    if (!keepOpen && (message.appliedProposalIds || []).includes(proposal.id)) return;
     const result = executeAdvisorProposal(proposal);
     if (!keepOpen) {
       patchMessage(message.at, (m) => {
@@ -220,7 +221,9 @@ export default function Advisor({ onContextChange, onStagesChange }) {
 
     if (result.kind === "flashcards") bumpDeck();
     if (result.kind === "context") onContextChange?.();
-    if (result.kind === "stage" || result.kind === "prepdoc") onStagesChange?.();
+    if (result.kind === "stage" || result.kind === "prepdoc" || result.kind === "subpage") {
+      onStagesChange?.();
+    }
 
     if (!quiet) {
       setMessages((prev) => [
@@ -432,10 +435,8 @@ function MessageBubble({
     : splitSearchSources(rawDisplay);
   const parseFailed =
     !isUser && proposals.length === 0 && hasAdvisorActionsFence(message.content);
-  const appliedIds = [
-    ...(message.appliedProposalIds || []),
-    ...(message.dismissedProposalIds || []),
-  ];
+  const appliedIds = message.appliedProposalIds || [];
+  const dismissedIds = message.dismissedProposalIds || [];
 
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
@@ -465,7 +466,7 @@ function MessageBubble({
               <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                 A kit-change proposal was included, but it could not be read. Ask the advisor to resend a tiny{" "}
                 <code>advisor-actions</code> JSON block
-                {/prep-doc|update_prep_doc|add_stage/i.test(message.content) ? (
+                {/prep-doc|update_prep_doc|add_stage|add_subpage/i.test(message.content) ? (
                   <>
                     {" "}
                     and a separate <code>&lt;prep-doc&gt;</code> tag for each document
@@ -477,6 +478,7 @@ function MessageBubble({
             <ActionProposals
               proposals={proposals}
               appliedIds={appliedIds}
+              dismissedIds={dismissedIds}
               itemStatus={message.proposalItemStatus || {}}
               onApply={onApplyProposal}
               onDismiss={onDismissProposal}

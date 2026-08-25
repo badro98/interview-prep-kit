@@ -6,7 +6,8 @@ import {
 } from "../actions.js";
 import { getDeck, resolveStageId } from "../../flashcards/deck.js";
 import { createJob, setActiveJobId } from "../../../lib/jobs.js";
-import { addCustomCards, getDocOverride, setDocOverride } from "../../../lib/store.js";
+import { addCustomCards, getDocOverride, getStagePages, setDocOverride } from "../../../lib/store.js";
+import { addProfileEntry } from "../../../lib/profile.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -62,6 +63,29 @@ ${JSON.stringify({
     const [proposal] = parseAdvisorActions(text);
     expect(proposal.cards[0].stageId).toBe("takehome");
     expect(proposal.cards[1].stageId).toBe("hm");
+  });
+
+  it("keeps the same card ids when the same message is parsed twice", () => {
+    const job = createJob({
+      role: "Eng",
+      company: "Acme",
+      stages: [{ id: "hm", title: "Hiring Manager", subtitle: "" }],
+    });
+    setActiveJobId(job.id);
+    const text = `ok\n\n\`\`\`advisor-actions
+${JSON.stringify({
+  proposals: [
+    {
+      type: "add_flashcards",
+      cards: [{ category: "behavioral", question: "Why this role?" }],
+    },
+  ],
+})}
+\`\`\``;
+    const first = parseAdvisorActions(text)[0];
+    const second = parseAdvisorActions(text)[0];
+    expect(first.cards[0].id).toBe(second.cards[0].id);
+    expect(first.cards[0].id).toMatch(/^adv-0-/);
   });
 });
 
@@ -436,5 +460,130 @@ ${markdown}
     expect(proposal.type).toBe("add_stage");
     expect(proposal.title).toBe("System design");
     expect(proposal.content).toBe(markdown);
+  });
+
+  it("unwraps a markdown fence and shared indent on a prep-doc body", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const text = `Trimmed follow-ups.\n\n\`\`\`advisor-actions
+{"proposals":[{"type":"update_prep_doc","stageId":"hm","mode":"replace"}]}
+\`\`\`
+
+<prep-doc stageId="hm" title="Hiring Manager">
+    \`\`\`markdown
+    # Osama Badr - Interview Stories
+
+    | Question | Story |
+    | --- | --- |
+    | Tell me about yourself | Pitch |
+    \`\`\`
+</prep-doc>`;
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.markdown).toBe(
+      "# Osama Badr - Interview Stories\n\n| Question | Story |\n| --- | --- |\n| Tell me about yourself | Pitch |"
+    );
+  });
+
+  it("blocks an update_prep_doc that rewrites shared Interview Stories context", () => {
+    const stories = addProfileEntry({
+      name: "03_Interview_Stories",
+      content: "# Osama Badr — Interview Stories\n\nCompanion to experience.",
+    });
+    const job = createJob({ profileRefs: [stories.id] });
+    setActiveJobId(job.id);
+
+    const markdown =
+      "# Osama Badr — Interview Stories\n\n| Question | Lead with |\n| --- | --- |\n| Tell me about yourself | Career arc |";
+    const text = `Trimmed follow-ups.\n\n\`\`\`advisor-actions
+{"proposals":[{"type":"update_prep_doc","stageId":"hm","mode":"replace","label":"Trim Likely follow-ups from Interview Stories prep doc"}]}
+\`\`\`
+
+<prep-doc stageId="hm">
+${markdown}
+</prep-doc>`;
+
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("update_prep_doc");
+    expect(proposal.stageId).toBe("hm");
+    expect(proposal.blockedReason).toMatch(/shared context/i);
+    expect(proposal.blockedReason).toMatch(/03_Interview_Stories/);
+
+    const before = getDocOverride("hm");
+    const result = executeAdvisorProposal(proposal);
+    expect(result.ok).toBe(false);
+    expect(result.message).toMatch(/shared context/i);
+    expect(getDocOverride("hm")).toEqual(before);
+  });
+
+  it("still applies a real hiring-manager prep-doc rewrite", () => {
+    const stories = addProfileEntry({
+      name: "03_Interview_Stories",
+      content: "# Osama Badr — Interview Stories\n\nCompanion to experience.",
+    });
+    const job = createJob({ profileRefs: [stories.id] });
+    setActiveJobId(job.id);
+    const markdown = "# Hiring Manager\n\n- Team fit\n- Ownership stories mapped from context.";
+    const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
+{"proposals":[{"type":"update_prep_doc","stageId":"hm","mode":"replace"}]}
+\`\`\`
+
+<prep-doc stageId="hm">
+${markdown}
+</prep-doc>`);
+    expect(proposal.blockedReason).toBeUndefined();
+    expect(executeAdvisorProposal(proposal).ok).toBe(true);
+    expect(getDocOverride("hm").markdown).toBe(markdown);
+  });
+});
+
+describe("add_subpage", () => {
+  it("attaches titled prep-doc bodies and writes stage pages on confirm", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const jane = "# Jane loop\n\n- System design follow-ups.";
+    const alex = "# Alex loop\n\n- Behavioral set.";
+    const text = `Two pages for onsite.\n\n\`\`\`advisor-actions
+{"proposals":[{"type":"add_subpage","stageId":"onsite","title":"Jane loop"},{"type":"add_subpage","stageId":"onsite","title":"Alex loop"}]}
+\`\`\`
+
+<prep-doc stageId="onsite" title="Jane loop">
+${jane}
+</prep-doc>
+<prep-doc stageId="onsite" title="Alex loop">
+${alex}
+</prep-doc>`;
+
+    const proposals = parseAdvisorActions(text);
+    expect(proposals).toHaveLength(2);
+    expect(proposals[0].type).toBe("add_subpage");
+    expect(proposals[0].stageId).toBe("onsite");
+    expect(proposals[0].title).toBe("Jane loop");
+    expect(proposals[0].markdown).toBe(jane);
+    expect(proposals[1].title).toBe("Alex loop");
+    expect(proposals[1].markdown).toBe(alex);
+
+    expect(executeAdvisorProposal(proposals[0]).ok).toBe(true);
+    expect(executeAdvisorProposal(proposals[1]).kind).toBe("subpage");
+    const pages = getStagePages("onsite");
+    expect(pages.map((p) => p.title)).toEqual(["Jane loop", "Alex loop"]);
+    expect(pages[0].html).toMatch(/system design/i);
+  });
+
+  it("salvages add_subpage when the JSON fence is malformed", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const markdown = "# Call debrief\n\n- What they asked.";
+    const text = `Here you go.\n\n\`\`\`advisor-actions
+{"proposals":[{"type":"add_subpage","stageId":"onsite","title":"Call debrief","markdown":"# broken "quotes"}]}
+\`\`\`
+
+<prep-doc stageId="onsite" title="Call debrief">
+${markdown}
+</prep-doc>`;
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("add_subpage");
+    expect(proposal.markdown).toBe(markdown);
+    expect(executeAdvisorProposal(proposal).ok).toBe(true);
+    expect(getStagePages("onsite")[0].title).toBe("Call debrief");
   });
 });

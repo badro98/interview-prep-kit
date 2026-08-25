@@ -4,6 +4,7 @@ import { buildAdvisorSystem } from "../../../interview.config.js";
 import { getActiveJob } from "../../lib/jobs.js";
 import { getProfileName } from "../../lib/profile.js";
 import { getCurrentStageId, getStageProgressMap } from "../../lib/store.js";
+import { formatContextInventoryForAdvisor } from "../../lib/context.js";
 
 const RESPONSE_STYLE = `
 RESPONSE_STYLE:
@@ -11,6 +12,7 @@ RESPONSE_STYLE:
 - One story/metric per point — not exhaustive lists. No restating the question or long preambles.
 - Never paste a full prep doc (or a near-full rewrite) into chat. If they ask to spin up, regenerate, rewrite, or replace prep docs, emit kit proposals in the SAME reply (tiny JSON + <prep-doc> tags) and keep chat to a short summary plus the Confirm card.
 - If they ask to audit, suggest, or assign flashcard stages (including unassigned cards), that is a kit change: emit update_flashcards in the SAME reply. Chat is a short summary (counts per stage), not a full recap. Do not wait for "make the assignment".
+- Extra pages under an existing stage (per interviewer, question set, call debrief) are add_subpage — not add_stage and not update_prep_doc.
 - Expand into full detail in chat only when they want to talk it through without changing the kit (e.g. "walk me through", "quiz me", "detailed").
 - Never abbreviate proposal blocks — metadata JSON and each <prep-doc> body must be complete.
 - When web search is available, use it for time-sensitive or company questions and cite sources. Otherwise say when knowledge may be stale.
@@ -25,11 +27,16 @@ update_flashcards — assign EXISTING cards to a stage (or unassigned). Use this
 - updates[]: { "question": "unique prefix or full question", "stageId": "existing-stage-id" }
 - A unique prefix is enough (the app matches the deck). Do not invent new cards here.
 - Tiny JSON only — never put referenceAnswer, keyPoints, or markdown in update_flashcards (quotes break parsing and the Confirm card disappears).
-add_context — save notes/material to context.
+add_context — save a NEW this-job-only note (recruiter intel, a pasted page). Never rewrite an existing context source.
 add_stage — NEW interview round + prep doc (e.g. they just learned there will be a coding round or system design). Use a new id (slug of the title).
+add_subpage — a nested page under an EXISTING stage (one interviewer, one question set, a call debrief). Do not use add_stage for this. Do not replace the stage’s main prep doc.
+- Tiny JSON only (type, stageId, title). Put the page body in a <prep-doc stageId="..." title="..."> tag, same as update_prep_doc.
+- One proposal + one <prep-doc> per subpage. Match title attributes so multiple pages under the same stage attach correctly.
 update_prep_doc — rewrite or append a prep doc for an EXISTING stage id from the interview stages list (title match is ok).
+- Only for Prep Docs tab documents (Hiring Manager, Recruiter Screen, …) — never for context sources (Interview Stories, Experience, Portfolio, resume, JD).
 - mode "replace" (default) for regenerate/rewrite/"based on new context".
 - mode "append" only to add a section without replacing the rest.
+- If they ask to edit shared context, do not emit a proposal; tell them to open Context → Edit.
 
 Always use an advisor-actions fence (never a plain json fence) so Confirm cards render. Never put markdown inside JSON (quotes/newlines/code fences break parsing). After a tiny JSON block, emit each document as an XML tag — code samples inside are fine:
 
@@ -44,9 +51,10 @@ Always use an advisor-actions fence (never a plain json fence) so Confirm cards 
 </prep-doc>
 
 For multiple new rounds, one JSON array with one proposal per stage, then one <prep-doc stageId="..."> per stage.
+For multiple subpages under one stage, one add_subpage per page in the JSON array, then one <prep-doc stageId="..." title="page title"> per page.
 
 SAME-REPLY RULE — this overrides any "ask in your prose first" guidance:
-The Confirm / Dismiss buttons ARE the ask. When they request a kit change — including "audit unassigned flashcards", "suggest stage assignment", "assign these", "add these cards", "save this to context", or "spin up / update prep docs" — emit the advisor-actions block in THIS reply. Do not wait for a second message like "make the assignment", "do it", or "yes".
+The Confirm / Dismiss buttons ARE the ask. When they request a kit change — including "audit unassigned flashcards", "suggest stage assignment", "assign these", "add these cards", "save this to context", "spin up / update prep docs", or "add a subpage / split this stage into pages" — emit the advisor-actions block in THIS reply. Do not wait for a second message like "make the assignment", "do it", or "yes".
 For update_flashcards: a 2–4 line summary (how many cards per stage) plus the Confirm card is enough — do not list every question in chat.
 Do not use update_prep_doc for a stage that is not on the interview stages list — use add_stage instead.
 `.trim();
@@ -61,5 +69,5 @@ export function getAdvisorSystem() {
     stageProgress: getStageProgressMap(stageIds),
     currentStageId: getCurrentStageId(stageIds),
   });
-  return `${base}\n\n${RESPONSE_STYLE}\n\n${KIT_ACTIONS}`;
+  return `${base}\n\n${RESPONSE_STYLE}\n\n${KIT_ACTIONS}\n\n${formatContextInventoryForAdvisor()}`;
 }
