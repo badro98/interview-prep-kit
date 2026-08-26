@@ -7,9 +7,14 @@
 import { APP } from "../../../interview.config.js";
 import { CONFIDENCE_MARKER } from "../flashcards/deck.js";
 
+export const FILLER_CONFIDENCE_POLICY =
+  "Fillers (\"um\", \"uh\", \"like\", \"you know\") and a few hesitations are normal in spoken practice. Note them in the delivery/concision sections so I can clean them up — do NOT let them pull CONFIDENCE down. A clear, specific story with some ums should still be 4–5. Only let fillers affect CONFIDENCE when they actually bury the answer (constant stalling, unfinished thoughts, can't get the point out).";
+
 const CONFIDENCE_LINE = `Then, as the very last line and nothing after it, output the score on its own line in exactly this format:
 ${CONFIDENCE_MARKER}: N
-where N is an integer 1-5 (1 = shaky, 5 = interview-ready).`;
+where N is an integer 1-5 (1 = shaky, 5 = interview-ready) for the SUBSTANCE of the answer: structure, specificity, and whether the point landed.
+
+${FILLER_CONFIDENCE_POLICY}`;
 
 const roleLabel = () => `${APP.role} role at ${APP.company}`;
 
@@ -39,16 +44,16 @@ ${questionText}
 ${baseline}
 Respond in Markdown with EXACTLY these sections:
 
-**Vocal delivery** — pace (too fast/slow/rushed endings), pauses and hesitation, filler words ("um", "uh", "like", "you know") with rough counts, vocal confidence, warmth, and energy. Rate 1-5 with specifics you actually heard.
+**Vocal delivery** — pace, pauses, warmth, energy, and filler words ("um", "uh", "like", "you know") with rough counts. Rate 1-5 for how it sounded. This section is coaching so I can clean up delivery — it must not set the CONFIDENCE line.
 **Structure** — clear opening point, logical arc (STAR-ish where it fits), clean resolution. Rate 1-5.
 **Specificity** — concrete details, real metrics, named examples vs. vague generalities. Rate 1-5.
-**Concision & landing** — tight and well-paced, and did I end on a strong note or trail off? Rate 1-5.
-**Top 3 fixes** — the highest-leverage things to change next attempt.
+**Concision & landing** — tight and well-paced, and did I end on a strong note or trail off? Mention fillers here only as a cleanup note, not the main verdict. Rate 1-5.
+**Top 3 fixes** — the highest-leverage things to change next attempt. At most one of the three may be about fillers; prefer structure, specificity, or landing if those are weaker.
 **Tightened version** — a crisp ~60–90 second spoken version in my own voice, with concrete numbers from my real background, that lands the point and stops.
 
 ${CONFIDENCE_LINE}
 
-Be honest about weak delivery — tone feedback is the whole point.`;
+Catch fillers so I can practice them out, but keep CONFIDENCE fair to the answer I actually gave — spoken reps should build confidence.`;
 }
 
 export function buildScoreTask({
@@ -83,11 +88,11 @@ Respond in Markdown with EXACTLY these sections:
 
 **Structure** — did it open with a clear point, follow a logical arc (STAR-ish where it fits), and resolve? Rate 1-5 with a one-line why.
 **Specificity** — concrete details, real metrics, named examples vs. vague generalities? Rate 1-5 with a one-line why.
-**Concision** — tight and well-paced, or rambling/repetitive? Call out filler and where I should cut. Rate 1-5 with a one-line why.
+**Concision** — tight and well-paced, or rambling/repetitive? If I used fillers, mention them as a cleanup note, not as the main verdict. Rate 1-5 with a one-line why.
 **Landing the point** — did it end on a strong, memorable note or trail off? Rate 1-5 with a one-line why.
 **Tightened version** — a crisp ~60–90 second spoken version in my own voice that I could actually say out loud: natural, concrete numbers from my real background, lands the point and stops.
 
 ${CONFIDENCE_LINE}
 
-Keep it specific and reference my real stories/metrics. Be honest about weak delivery — that's the point.`;
+Keep it specific and reference my real stories/metrics. Catch fillers so I can practice them out, but keep CONFIDENCE fair to the substance of the answer.`;
 }

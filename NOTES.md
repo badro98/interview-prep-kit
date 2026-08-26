@@ -14,8 +14,7 @@ _(nothing — pick from Up Next)_
 
 ## Up Next
 
-- ~~Advisor flashcard proposals stay inline until Review; approve/skip per card~~ — 2026-08-25 (#29)
-- ~~Confirm recap after apply for all kit actions; `add_subpage`; block shared-context rewrites~~ — 2026-08-25 (#30)
+- Prep-doc version history (Google Docs–style preview + restore; flashcards later) — design parked in Cursor plan `prep_doc_version_history_67a5aa72`
 - Retry in the real Advisor thread: “create a subpage in the onsite prep docs for each set of questions” — Confirm cards should parse (no orange “could not be read”)
 - Optionally sync `interview.config.js` proposal examples with in-app `systemPrompt.js` KIT_ACTIONS (left unstaged on purpose)
 
