@@ -3,7 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 // Audio capture via MediaRecorder. Pairs with useSpeechRecognition (live transcript).
 //
 // start() requests the mic and begins recording; stop() resolves with the recorded
-// { blob, type, durationMs }. Mic denial surfaces via `error`.
+// { blob, type, durationMs }. Mic denial surfaces via `error`. The live waveform
+// is drawn from a samples ref so the UI does not re-render on every audio frame.
+
+const WAVEFORM_BINS = 11;
 
 export function isRecordingSupported() {
   return (
@@ -39,14 +42,14 @@ export function useRecorder() {
   const levelFrameRef = useRef(null);
   const startedAtRef = useRef(0);
   const tickRef = useRef(null);
-  const [micLevel, setMicLevel] = useState(0);
+  const samplesRef = useRef(new Float32Array(WAVEFORM_BINS).fill(0));
 
   const stopLevelMonitor = useCallback(() => {
     if (levelFrameRef.current) cancelAnimationFrame(levelFrameRef.current);
     levelFrameRef.current = null;
     audioCtxRef.current?.close().catch(() => {});
     audioCtxRef.current = null;
-    setMicLevel(0);
+    samplesRef.current.fill(0);
   }, []);
 
   const startLevelMonitor = useCallback((stream) => {
@@ -55,20 +58,28 @@ export function useRecorder() {
       const ctx = new AudioContext();
       const source = ctx.createMediaStreamSource(stream);
       const analyser = ctx.createAnalyser();
-      analyser.fftSize = 256;
+      analyser.fftSize = 1024;
       source.connect(analyser);
       audioCtxRef.current = ctx;
 
-      const data = new Uint8Array(analyser.frequencyBinCount);
+      const time = new Uint8Array(analyser.fftSize);
+      const bins = samplesRef.current;
       const loop = () => {
-        analyser.getByteFrequencyData(data);
-        const avg = data.reduce((a, b) => a + b, 0) / data.length;
-        setMicLevel(Math.min(100, Math.round(avg * 1.4)));
+        analyser.getByteTimeDomainData(time);
+        const step = Math.max(1, Math.floor(time.length / bins.length));
+        for (let i = 0; i < bins.length; i++) {
+          let sum = 0;
+          for (let j = 0; j < step; j++) {
+            const v = (time[i * step + j] - 128) / 128;
+            sum += v * v;
+          }
+          bins[i] = Math.min(1, Math.sqrt(sum / step) * 2.2);
+        }
         levelFrameRef.current = requestAnimationFrame(loop);
       };
       loop();
     } catch {
-      /* level meter is optional */
+      /* waveform is optional */
     }
   }, [stopLevelMonitor]);
 
@@ -148,5 +159,5 @@ export function useRecorder() {
     };
   }, [cleanupStream]);
 
-  return { supported, recording, error, elapsedMs, micLevel, start, stop };
+  return { supported, recording, error, elapsedMs, samplesRef, start, stop };
 }

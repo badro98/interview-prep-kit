@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "../../components/Markdown.jsx";
 import CoachPasteModal from "../../components/CoachPasteModal.jsx";
-import MicLevelBar from "../../components/MicLevelBar.jsx";
+import MicWaveform from "../../components/MicWaveform.jsx";
 import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { updateAttempt } from "../../lib/db.js";
 import { getActiveJobId } from "../../lib/jobs.js";
@@ -386,8 +386,8 @@ export default function AttemptPractice({ card, onProgressChange, onPromote }) {
           {recorder.error || speech.error}
           {speech.error?.includes("network") && (
             <span className="mt-1 block text-ink2">
-              Tip: open in standalone Google Chrome (not Cursor&apos;s preview). Watch the
-              mic level bar — green bars mean audio is captured even without a transcript.
+              Tip: open in standalone Google Chrome (not Cursor&apos;s preview). The
+              waveform still moves if audio is captured even without a transcript.
             </span>
           )}
         </p>
@@ -398,12 +398,7 @@ export default function AttemptPractice({ card, onProgressChange, onPromote }) {
 
       {recorder.recording && (
         <div className="mt-3 space-y-3">
-          <div className="rounded-xl border border-line bg-canvas p-4">
-            <MicLevelBar level={recorder.micLevel} />
-            <p className="mt-2 text-[11px] text-ink2">
-              Green bars = mic is working.
-            </p>
-          </div>
+          <MicWaveform samplesRef={recorder.samplesRef} />
           <div className="rounded-xl border border-line bg-canvas p-4">
             <h4 className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink2">
               Live transcript
