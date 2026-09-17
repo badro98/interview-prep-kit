@@ -50,13 +50,17 @@ Always use an advisor-actions fence (never a plain json fence) so Confirm cards 
 ...complete markdown, including \`\`\` code fences if needed...
 </prep-doc>
 
-For multiple new rounds, one JSON array with one proposal per stage, then one <prep-doc stageId="..."> per stage.
+For multiple new rounds, one JSON array with one proposal per stage, then one <prep-doc stageId="..."> per stage. Close every </prep-doc> tag.
 For multiple subpages under one stage, one add_subpage per page in the JSON array, then one <prep-doc stageId="..." title="page title"> per page.
+
+WRONG — Confirm cards disappear:
+- Putting the document in JSON ("content" or "markdown" fields). Quotes and newlines break parsing.
+- Saying a stage "has been added" / "I've confirmed" before they press Confirm. Propose, then wait.
+- Using update_prep_doc for a stage that is not on the interview stages list — use add_stage instead.
 
 SAME-REPLY RULE — this overrides any "ask in your prose first" guidance:
 The Confirm / Dismiss buttons ARE the ask. When they request a kit change — including "audit unassigned flashcards", "suggest stage assignment", "assign these", "add these cards", "save this to context", "spin up / update prep docs", or "add a subpage / split this stage into pages" — emit the advisor-actions block in THIS reply. Do not wait for a second message like "make the assignment", "do it", or "yes".
 For update_flashcards: a 2–4 line summary (how many cards per stage) plus the Confirm card is enough — do not list every question in chat.
-Do not use update_prep_doc for a stage that is not on the interview stages list — use add_stage instead.
 `.trim();
 
 /** Built fresh per call from the active job — never cache at module load. */
