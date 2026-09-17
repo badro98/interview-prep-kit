@@ -408,11 +408,11 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-canvas text-ink1">
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-8">
-        <div className="w-full max-w-xl">
+      <div className="flex min-h-0 flex-1 overflow-y-auto px-4 py-8">
+        <div className="m-auto w-full max-w-xl">
           <Header stepIdx={stepIdx} totalSteps={steps.length} />
 
-          <div className="mt-6 rounded-2xl border border-line bg-surface shadow-sm">
+          <div className="mt-4 rounded-2xl border border-line bg-surface shadow-sm">
             <div className="px-6 py-6">
               {step === "welcome" && (
                 <WelcomeStep
@@ -529,8 +529,8 @@ export default function Onboarding({ mode = "firstRun", onComplete, onCancel }) 
 
 function Header({ stepIdx, totalSteps }) {
   return (
-    <div className="flex flex-col items-center gap-3 text-center">
-      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-white">
+    <div className="flex items-center gap-3">
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-sm font-extrabold text-white">
         IP
       </div>
       <p className="text-xs font-medium uppercase tracking-wide text-ink2">
@@ -811,6 +811,7 @@ function AddContextForm({
   onAdd,
   pasteLabel = "+ Paste",
   urlPlaceholder = "https://... page to pull in",
+  compact = false,
 }) {
   const [adding, setAdding] = useState(false);
   const [entryName, setEntryName] = useState("");
@@ -901,16 +902,26 @@ function AddContextForm({
           </div>
         </div>
       ) : (
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <div className={`mt-3 flex gap-2 ${compact ? "" : "flex-col sm:flex-row"}`}>
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className="flex-1 rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1"
+            className={
+              compact
+                ? "flex-1 rounded-lg border border-dashed border-line px-3 py-2 text-xs text-ink2 transition hover:border-line hover:text-ink1"
+                : "flex-1 rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1"
+            }
           >
             {pasteLabel}
           </button>
-          <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1">
-            {uploadBusy ? "Converting…" : "Upload .md / .txt / .pdf"}
+          <label
+            className={
+              compact
+                ? "flex flex-1 cursor-pointer items-center justify-center rounded-lg border border-dashed border-line px-3 py-2 text-xs text-ink2 transition hover:border-line hover:text-ink1"
+                : "flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1"
+            }
+          >
+            {uploadBusy ? "Converting…" : compact ? "Upload file" : "Upload .md / .txt / .pdf"}
             <input
               type="file"
               accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
@@ -961,38 +972,52 @@ function AttachStep({
   onBack,
   onNext,
 }) {
+  const [browseOther, setBrowseOther] = useState(false);
+  const [showSharedAdd, setShowSharedAdd] = useState(false);
+  const includedShared = entries.filter((entry) => attached.has(entry.id));
+  const extraShared = entries.filter((entry) => !attached.has(entry.id));
+  const otherFileCount = otherJobs.reduce((n, group) => n + group.entries.length, 0);
+  const copiedFromOther = otherJobs.flatMap((group) =>
+    group.entries
+      .filter((entry) => copiedKeys.has(copyContextKey(group.jobId, entry.id)))
+      .map((entry) => ({
+        key: copyContextKey(group.jobId, entry.id),
+        entry,
+        from: group.label,
+      }))
+  );
+  const includedCount = includedShared.length + jobOnlyDrafts.length + copiedFromOther.length;
+
   return (
     <div>
       <h2 className="text-lg font-semibold text-ink1">Context for this job</h2>
-      <p className="mt-2 text-sm text-ink2">
-        Pull in material that should follow you to every role, and drop in anything
-        tailored to this one. You can change this later from Context and Job settings.
+      <p className="mt-1.5 text-sm text-ink2">
+        These sources come with this role. Add a tailored file if you need one — you can
+        pull from other jobs only if you want to.
       </p>
 
-      <section className="mt-5">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
-          Shared across every role
-        </h3>
-        <p className="mt-1 text-xs text-ink2">
-          Stories, metrics, portfolio, and overall experience. Stored on your local
-          profile for now — later this will live on your account.
-        </p>
-        <div className="mt-2 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
-          {entries.length === 0 && (
-            <p className="px-2 py-3 text-sm text-ink2">Nothing shared yet.</p>
+      <section className="mt-5 rounded-xl border border-line bg-canvas/40 p-2">
+        <div className="flex items-baseline justify-between gap-2 px-3 pt-1.5">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">Included</h3>
+          <p className="text-[11px] text-ink2">{includedCount} source{includedCount === 1 ? "" : "s"}</p>
+        </div>
+        <div className="mt-1 space-y-0.5">
+          {includedCount === 0 && extraShared.length === 0 && (
+            <p className="px-3 py-3 text-sm text-ink2">Nothing included yet.</p>
           )}
-          {entries.map((entry) => (
+          {includedShared.map((entry) => (
             <label
               key={entry.id}
-              className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-surface2/50"
+              className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
             >
               <input
                 type="checkbox"
-                checked={attached.has(entry.id)}
+                checked
                 onChange={() => onToggle(entry.id)}
                 className="accent-accent"
               />
               <span className="min-w-0 flex-1 truncate text-sm text-ink1">{entry.name}</span>
+              <span className="shrink-0 text-[11px] text-ink2">Shared</span>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1005,31 +1030,14 @@ function AttachStep({
               </button>
             </label>
           ))}
-        </div>
-        <AddContextForm
-          onAdd={onAddShared}
-          pasteLabel="+ Add shared context"
-          urlPlaceholder="https://... portfolio or personal site"
-        />
-      </section>
-
-      <section className="mt-6">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
-          This role only
-        </h3>
-        <p className="mt-1 text-xs text-ink2">
-          A tailored resume or notes that shouldn't follow you to other jobs.
-        </p>
-        <div className="mt-2 space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
-          {jobOnlyDrafts.length === 0 && (
-            <p className="px-2 py-3 text-sm text-ink2">None added yet.</p>
-          )}
           {jobOnlyDrafts.map((draft) => (
             <div
               key={draft.id}
               className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
             >
+              <span className="w-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate text-sm text-ink1">{draft.name}</span>
+              <span className="shrink-0 text-[11px] text-ink2">This job</span>
               <button
                 type="button"
                 onClick={() => onRemoveJobOnly(draft.id)}
@@ -1039,61 +1047,142 @@ function AttachStep({
               </button>
             </div>
           ))}
+          {copiedFromOther.map(({ key, entry, from }) => (
+            <label
+              key={key}
+              className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
+            >
+              <input
+                type="checkbox"
+                checked
+                onChange={() => onToggleCopy(key)}
+                className="accent-accent"
+              />
+              <span className="min-w-0 flex-1 truncate text-sm text-ink1">{entry.name}</span>
+              <span className="max-w-[8rem] shrink-0 truncate text-[11px] text-ink2" title={from}>
+                From other job
+              </span>
+            </label>
+          ))}
         </div>
         <AddContextForm
           onAdd={onAddJobOnly}
           pasteLabel="+ Add for this job"
           urlPlaceholder="https://... tailored resume or posting notes"
+          compact
         />
       </section>
 
-      {otherJobs.length > 0 && (
-        <section className="mt-6">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink2">
-            From other jobs
-          </h3>
-          <p className="mt-1 text-xs text-ink2">
-            Context you added while prepping another role. Copy it here, or save it
-            to your shared library so every future job can use it.
-          </p>
-          <div className="mt-2 space-y-3">
-            {otherJobs.map((group) => (
-              <div
-                key={group.jobId}
-                className="space-y-1 rounded-xl border border-line bg-canvas/40 p-2"
-              >
-                <p className="px-3 pt-1.5 text-[11px] font-medium text-ink2">{group.label}</p>
-                {group.entries.map((entry) => {
-                  const key = copyContextKey(group.jobId, entry.id);
-                  return (
-                    <div
+      {(otherJobs.length > 0 || extraShared.length > 0) && (
+        <section className="mt-4">
+          <button
+            type="button"
+            onClick={() => setBrowseOther((v) => !v)}
+            className="flex w-full items-center justify-between rounded-xl border border-line bg-canvas/40 px-4 py-2.5 text-left text-sm text-ink1 transition hover:bg-surface2/40"
+          >
+            <span>
+              {browseOther ? "Hide files from other jobs" : "Browse files from other jobs"}
+            </span>
+            <span className="text-xs text-ink2">
+              {copiedKeys.size > 0
+                ? `${copiedKeys.size} selected`
+                : otherFileCount > 0
+                  ? `${otherFileCount} file${otherFileCount === 1 ? "" : "s"}`
+                  : "Library"}
+            </span>
+          </button>
+          {browseOther && (
+            <div className="mt-2 space-y-3">
+              {extraShared.length > 0 && (
+                <div className="space-y-1 rounded-xl border border-line bg-canvas/40 p-2">
+                  <p className="px-3 pt-1.5 text-[11px] font-medium text-ink2">
+                    Shared library (not included)
+                  </p>
+                  {extraShared.map((entry) => (
+                    <label
                       key={entry.id}
-                      className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
+                      className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
                     >
-                      <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={copiedKeys.has(key)}
-                          onChange={() => onToggleCopy(key)}
-                          className="accent-accent"
-                        />
-                        <span className="min-w-0 truncate text-sm text-ink1">{entry.name}</span>
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => onSaveOtherToProfile(entry, key)}
-                        className="shrink-0 rounded px-2 py-1 text-xs font-medium text-accent hover:bg-surface2"
+                      <input
+                        type="checkbox"
+                        checked={false}
+                        onChange={() => onToggle(entry.id)}
+                        className="accent-accent"
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm text-ink1">{entry.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {otherJobs.map((group) => (
+                <div
+                  key={group.jobId}
+                  className="space-y-1 rounded-xl border border-line bg-canvas/40 p-2"
+                >
+                  <p className="px-3 pt-1.5 text-[11px] font-medium text-ink2">{group.label}</p>
+                  {group.entries.map((entry) => {
+                    const key = copyContextKey(group.jobId, entry.id);
+                    return (
+                      <div
+                        key={entry.id}
+                        className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface2/50"
                       >
-                        Save to shared
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
+                        <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                          <input
+                            type="checkbox"
+                            checked={copiedKeys.has(key)}
+                            onChange={() => onToggleCopy(key)}
+                            className="accent-accent"
+                          />
+                          <span className="min-w-0 truncate text-sm text-ink1">{entry.name}</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => onSaveOtherToProfile(entry, key)}
+                          className="shrink-0 rounded px-2 py-1 text-xs font-medium text-accent hover:bg-surface2"
+                        >
+                          Save to shared
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
+
+      <div className="mt-4">
+        {showSharedAdd ? (
+          <div>
+            <AddContextForm
+              onAdd={(entry) => {
+                onAddShared(entry);
+                setShowSharedAdd(false);
+              }}
+              pasteLabel="+ Add shared context"
+              urlPlaceholder="https://... portfolio or personal site"
+              compact
+            />
+            <button
+              type="button"
+              onClick={() => setShowSharedAdd(false)}
+              className="mt-2 text-xs font-medium text-ink2 hover:text-ink1"
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowSharedAdd(true)}
+            className="text-xs font-medium text-ink2 hover:text-ink1"
+          >
+            Add shared context
+          </button>
+        )}
+      </div>
 
       <StepFooter onBack={onBack} onNext={onNext} nextLabel="Next" />
     </div>

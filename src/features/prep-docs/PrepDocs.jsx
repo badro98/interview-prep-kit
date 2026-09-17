@@ -30,6 +30,10 @@ import {
   STAGE_PROGRESS_STATUSES,
   STAGE_PROGRESS_LABELS,
   dismissSuggestion,
+  getContextRecommendation,
+  setContextRecommendation,
+  clearContextRecommendation,
+  CONTEXT_RECOMMENDATION_EVENT,
 } from "../../lib/store.js";
 
 function defaultActiveStageId(stages) {
@@ -59,6 +63,7 @@ export default function PrepDocs() {
   const [suggestions, setSuggestions] = useState(() => getSuggestedStages());
   const [previewSuggestionId, setPreviewSuggestionId] = useState(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [recommendation, setRecommendation] = useState(() => getContextRecommendation());
   const [activePageId, setActivePageId] = useState(null);
   const [pagesTick, setPagesTick] = useState(0);
   const [expandedIds, setExpandedIds] = useState(() => {
@@ -70,6 +75,17 @@ export default function PrepDocs() {
 
   const reloadSuggestions = useCallback(() => {
     setSuggestions(getSuggestedStages());
+    setRecommendation(getContextRecommendation());
+  }, []);
+
+  useEffect(() => {
+    function onRec(e) {
+      setRecommendation(e.detail ?? getContextRecommendation());
+      setBannerDismissed(false);
+      setSuggestions(getSuggestedStages());
+    }
+    window.addEventListener(CONTEXT_RECOMMENDATION_EVENT, onRec);
+    return () => window.removeEventListener(CONTEXT_RECOMMENDATION_EVENT, onRec);
   }, []);
 
   const reloadStages = useCallback((preferActiveId) => {
@@ -91,10 +107,19 @@ export default function PrepDocs() {
     reloadSuggestions();
   }, [reloadSuggestions, stages.length]);
 
-  const previewSuggestion = suggestions.find((s) => s.id === previewSuggestionId) || null;
-  const showSuggestions = shouldShowSuggestions(suggestions);
+  const visibleSuggestions =
+    recommendation?.kind === "add_stages"
+      ? suggestions.filter((s) => (recommendation.stageIds || []).includes(s.id))
+      : [];
+  const previewSuggestion =
+    visibleSuggestions.find((s) => s.id === previewSuggestionId) ||
+    suggestions.find((s) => s.id === previewSuggestionId) ||
+    null;
+  const showSuggestions = shouldShowSuggestions(recommendation, visibleSuggestions);
   const banner =
-    !bannerDismissed && showSuggestions ? buildSuggestionBanner(suggestions) : null;
+    !bannerDismissed && showSuggestions
+      ? buildSuggestionBanner(recommendation, visibleSuggestions)
+      : null;
 
   useEffect(() => {
     getAllRecordings().then((recs) => {
@@ -252,6 +277,41 @@ export default function PrepDocs() {
     reloadStages(prefer);
   }
 
+  function pruneRecommendation(stageIds) {
+    const rec = getContextRecommendation();
+    if (!rec) return;
+    if (rec.kind !== "add_stages") {
+      clearContextRecommendation();
+      return;
+    }
+    const remove = new Set(stageIds);
+    const left = (rec.stageIds || []).filter((id) => !remove.has(id));
+    if (!left.length) clearContextRecommendation();
+    else setContextRecommendation({ ...rec, stageIds: left });
+  }
+
+  function handleDismissBanner() {
+    setBannerDismissed(true);
+    clearContextRecommendation();
+  }
+
+  async function applyGeneratedDoc(stage, jobId) {
+    const result = await generateStageDoc(stage);
+    if (jobId !== getActiveJobId()) return;
+    if (!getStages().some((s) => s.id === stage.id)) return;
+    if (result.mode === MODE_PASTE) {
+      setPasteModal({
+        open: true,
+        prompt: result.prompt,
+        stageId: stage.id,
+        title: stage.title,
+      });
+    } else {
+      saveStageDoc(stage.id, result.text);
+      setDocNonce((n) => n + 1);
+    }
+  }
+
   function handlePreviewSuggestion(id) {
     setPreviewSuggestionId(id);
   }
@@ -259,6 +319,7 @@ export default function PrepDocs() {
   function handleDismissSuggestion(id) {
     dismissSuggestion(id);
     if (previewSuggestionId === id) setPreviewSuggestionId(null);
+    pruneRecommendation([id]);
     reloadSuggestions();
   }
 
@@ -277,30 +338,18 @@ export default function PrepDocs() {
         ...(suggestion.file ? { file: suggestion.file } : {}),
         ...(suggestion.regenTask ? { regenTask: suggestion.regenTask } : {}),
       };
-      if (!job.stages.some((s) => s.id === stage.id)) {
-        updateJobStages(jobId, [...job.stages, stage]);
+      const latest = getActiveJob();
+      if (!latest?.stages?.some((s) => s.id === stage.id)) {
+        updateJobStages(jobId, [...(latest?.stages || job.stages), stage]);
       }
       setStageProgress(stage.id, "upcoming");
-      // Persist the draft they reviewed, then optionally refresh from live context.
       if (suggestion.markdown?.trim()) saveStageDoc(stage.id, suggestion.markdown);
       setPreviewSuggestionId(null);
       reloadStages(stage.id);
+      pruneRecommendation([stage.id]);
 
       if (refreshFromContext) {
-        const result = await generateStageDoc(stage);
-        if (jobId !== getActiveJobId()) return;
-        if (!getStages().some((s) => s.id === stage.id)) return;
-        if (result.mode === MODE_PASTE) {
-          setPasteModal({
-            open: true,
-            prompt: result.prompt,
-            stageId: stage.id,
-            title: stage.title,
-          });
-        } else {
-          saveStageDoc(stage.id, result.text);
-          setDocNonce((n) => n + 1);
-        }
+        await applyGeneratedDoc(stage, jobId);
       } else {
         setDocNonce((n) => n + 1);
       }
@@ -309,6 +358,45 @@ export default function PrepDocs() {
     } finally {
       if (jobId === getActiveJobId()) setAddBusy(false);
       reloadSuggestions();
+    }
+  }
+
+  async function handleBannerAction() {
+    const rec = recommendation || getContextRecommendation();
+    if (!rec || addBusy) return;
+
+    if (rec.kind === "add_stages") {
+      const toAdd = visibleSuggestions.filter((s) => (rec.stageIds || []).includes(s.id));
+      for (let i = 0; i < toAdd.length; i++) {
+        // eslint-disable-next-line no-await-in-loop
+        await handleAcceptSuggestion(toAdd[i], { refreshFromContext: i === 0 });
+      }
+      clearContextRecommendation();
+      setBannerDismissed(true);
+      return;
+    }
+
+    if (rec.kind === "refresh_docs") {
+      const jobId = getActiveJobId();
+      setAddBusy(true);
+      setAddErr("");
+      try {
+        for (const id of rec.stageIds || []) {
+          const stage = stages.find((s) => s.id === id) || getStages().find((s) => s.id === id);
+          if (!stage) continue;
+          setActiveId(id);
+          setPreviewSuggestionId(null);
+          // eslint-disable-next-line no-await-in-loop
+          await applyGeneratedDoc(stage, jobId);
+        }
+        clearContextRecommendation();
+        setBannerDismissed(true);
+      } catch (err) {
+        setAddErr(err?.message || "Could not refresh prep doc.");
+      } finally {
+        if (jobId === getActiveJobId()) setAddBusy(false);
+        reloadSuggestions();
+      }
     }
   }
 
@@ -342,13 +430,15 @@ export default function PrepDocs() {
         onChangeSubtitle={setAddSubtitle}
         onChangeGenerate={setGenerateOnAdd}
         onSubmitAdd={handleCreateStage}
-        suggestions={shouldShowSuggestions(suggestions) ? suggestions : []}
+        suggestions={showSuggestions ? visibleSuggestions : []}
         previewSuggestionId={previewSuggestionId}
         onPreviewSuggestion={handlePreviewSuggestion}
         onAcceptSuggestion={(s) => handleAcceptSuggestion(s, { refreshFromContext: true })}
         onDismissSuggestion={handleDismissSuggestion}
         banner={banner}
-        onDismissBanner={() => setBannerDismissed(true)}
+        onDismissBanner={handleDismissBanner}
+        onBannerAction={handleBannerAction}
+        bannerBusy={addBusy}
       />
       {previewSuggestion ? (
         <SuggestionPreview
@@ -362,7 +452,9 @@ export default function PrepDocs() {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {addBusy && (
             <div className="shrink-0 border-b border-accent/30 bg-accent/10 px-8 py-2 text-xs text-accent">
-              Generating prep doc from your active context…
+              {recommendation?.kind === "refresh_docs"
+                ? "Updating prep doc from your new context…"
+                : "Generating prep doc from your active context…"}
             </div>
           )}
           <StageView
@@ -426,6 +518,8 @@ function StageNav({
   onDismissSuggestion,
   banner,
   onDismissBanner,
+  onBannerAction,
+  bannerBusy,
 }) {
   // pagesTick / progressTick force a re-read of localStorage after edits.
   void pagesTick;
@@ -461,7 +555,19 @@ function StageNav({
             </button>
           </div>
           <p className="mt-1 text-sm font-medium leading-snug text-ink1">{banner.title}</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-ink1">{banner.body}</p>
+          {banner.body && (
+            <p className="mt-1 text-[11px] leading-relaxed text-ink1">{banner.body}</p>
+          )}
+          {banner.actionLabel && (
+            <button
+              type="button"
+              onClick={onBannerAction}
+              disabled={bannerBusy}
+              className="mt-2 w-full rounded-md bg-accent px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-accentHover disabled:cursor-wait disabled:opacity-70"
+            >
+              {bannerBusy ? "Working…" : banner.actionLabel}
+            </button>
+          )}
         </div>
       )}
 
