@@ -4,7 +4,7 @@
 
 const TARGET_RATE = 16000;
 
-export async function blobToWavBase64(blob) {
+async function blobToWavBuffer(blob) {
   const arrayBuffer = await blob.arrayBuffer();
 
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -16,7 +16,6 @@ export async function blobToWavBase64(blob) {
     decodeCtx.close();
   }
 
-  // Resample to mono @ TARGET_RATE via OfflineAudioContext.
   const frameCount = Math.ceil(decoded.duration * TARGET_RATE);
   const offline = new OfflineAudioContext(1, Math.max(frameCount, 1), TARGET_RATE);
   const src = offline.createBufferSource();
@@ -24,9 +23,17 @@ export async function blobToWavBase64(blob) {
   src.connect(offline.destination);
   src.start(0);
   const rendered = await offline.startRendering();
+  return encodeWav(rendered.getChannelData(0), TARGET_RATE);
+}
 
-  const wav = encodeWav(rendered.getChannelData(0), TARGET_RATE);
+export async function blobToWavBase64(blob) {
+  const wav = await blobToWavBuffer(blob);
   return arrayBufferToBase64(wav);
+}
+
+export async function blobToWavBlob(blob) {
+  const wav = await blobToWavBuffer(blob);
+  return new Blob([wav], { type: "audio/wav" });
 }
 
 function encodeWav(samples, sampleRate) {
