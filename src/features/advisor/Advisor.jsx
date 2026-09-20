@@ -25,6 +25,7 @@ import {
 } from "../../lib/store.js";
 import { isProxyReachable } from "../../lib/claude.js";
 import { getActiveJob } from "../../lib/jobs.js";
+import { useSpeechRecognition } from "../audio/useSpeechRecognition.js";
 
 function ensureActiveThread() {
   let id = getActiveAdvisorThreadId();
@@ -55,6 +56,11 @@ export default function Advisor({ onContextChange, onStagesChange }) {
   const bottomRef = useRef(null);
   const skipSaveRef = useRef(false);
 
+  const appendDictation = useCallback((chunk) => {
+    setInput((prev) => `${prev}${chunk}`);
+  }, []);
+  const speech = useSpeechRecognition(appendDictation);
+
   const ctx = useMemo(() => getContextSummary(), [threadTick]);
   const deck = useMemo(() => getDeck(), [deckTick]);
   const starters = getActiveJob()?.advisorStarters || [];
@@ -66,6 +72,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
     setMessages(thread?.messages || []);
     setInput("");
     setErr("");
+    speech.stop();
   }, [activeId]);
 
   // Persist messages for the active thread. Skip the hydration write after a
@@ -115,6 +122,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
       const trimmed = text.trim();
       if (!trimmed || busy) return;
 
+      speech.stop();
       setErr("");
       setBusy(true);
       setBusyText(trimmed);
@@ -179,7 +187,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
         setBusy(false);
       }
     },
-    [messages, busy, buildModelContent, activeId, webSearch]
+    [messages, busy, buildModelContent, activeId, webSearch, speech.stop]
   );
 
   function savePasteReply(text) {
@@ -352,29 +360,72 @@ export default function Advisor({ onContextChange, onStagesChange }) {
               send(input);
             }}
           >
-            <div className="flex gap-2">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send(input);
+            <div className="flex items-center gap-2">
+              <div className="relative h-10 min-w-0 flex-1">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(input);
+                    }
+                  }}
+                  rows={1}
+                  placeholder={
+                    speech.listening
+                      ? "Listening… speak, then Send"
+                      : "Ask anything, paste recruiter intel, or drop a URL to ingest…"
                   }
-                }}
-                rows={2}
-                placeholder="Ask anything, paste recruiter intel, or drop a URL to ingest…"
-                disabled={busy}
-                className="min-h-[52px] flex-1 resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
-              />
+                  disabled={busy}
+                  className="block h-10 w-full resize-none overflow-hidden rounded-lg border border-line bg-canvas px-3 py-2 text-sm leading-5 text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => speech.toggle()}
+                disabled={busy || !speech.supported}
+                title={
+                  !speech.supported
+                    ? "Speech recognition needs Chrome"
+                    : speech.listening
+                      ? "Stop dictation"
+                      : "Dictate with microphone"
+                }
+                aria-label={
+                  !speech.supported
+                    ? "Speech recognition needs Chrome"
+                    : speech.listening
+                      ? "Stop dictation"
+                      : "Dictate with microphone"
+                }
+                aria-pressed={speech.listening}
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold transition disabled:opacity-40 ${
+                  speech.listening
+                    ? "bg-red-500 text-white hover:bg-red-600"
+                    : "border border-line bg-surface text-ink1 hover:border-accent/50"
+                }`}
+              >
+                <MicIcon />
+              </button>
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="shrink-0 self-end rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:opacity-40"
+                className="inline-flex h-10 shrink-0 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accentHover disabled:opacity-40"
               >
                 Send
               </button>
             </div>
+            {speech.listening && speech.interim ? (
+              <p className="truncate text-[11px] text-ink2">{speech.interim}</p>
+            ) : null}
+            {speech.error ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {speech.error.includes("Gemini scoring")
+                  ? "Live transcription couldn't reach Google's speech service. Try standalone Chrome, or type instead."
+                  : speech.error}
+              </p>
+            ) : null}
             <label className="flex cursor-pointer items-center gap-2 self-start text-xs text-ink2">
               <input
                 type="checkbox"
@@ -488,5 +539,23 @@ function MessageBubble({
         )}
       </div>
     </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0M12 19v3" />
+    </svg>
   );
 }
