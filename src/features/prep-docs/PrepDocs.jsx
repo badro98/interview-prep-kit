@@ -13,6 +13,19 @@ import { coach, MODE_PASTE } from "../../lib/coach.js";
 import { getAllRecordings } from "../../lib/db.js";
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { generateStageDoc, saveStageDoc } from "../../lib/generate.js";
+import { markdownToHtml } from "../../lib/markdownHtml.js";
+import {
+  ORIGINAL_ID,
+  listDocVersions,
+  nameVersion,
+  pageDocKey,
+  recordVersion,
+  recordVersionSoon,
+  restoreDoc,
+  snapshotOriginal,
+  stageDocKey,
+} from "../../lib/docHistory.js";
+import VersionHistory from "./VersionHistory.jsx";
 import { buildCustomStage } from "../onboarding/steps.js";
 import {
   getDocOverride,
@@ -1088,11 +1101,40 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
   const [savedTick, setSavedTick] = useState(false);
   const [toolbarHost, setToolbarHost] = useState(null);
   const [toolbarOpen, setToolbarOpen] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [previewId, setPreviewId] = useState(null);
+  const [rows, setRows] = useState([]);
+  const [versionsTick, setVersionsTick] = useState(0);
+  const [editorEpoch, setEditorEpoch] = useState(0);
   const page = pageId ? getStagePages(stageId).find((p) => p.id === pageId) : null;
+  const isPage = !!pageId;
+  const docKey = isPage ? pageDocKey(stageId, pageId) : stageDocKey(stageId);
+  const original = useMemo(
+    () => (!isPage && base ? snapshotOriginal({ markdown: base.markdown }) : null),
+    [isPage, base]
+  );
 
   useEffect(() => {
     if (pageId && !page) onPageDeleted?.();
   }, [pageId, page, onPageDeleted]);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    let cancelled = false;
+    listDocVersions(docKey)
+      .then((list) => {
+        if (cancelled) return;
+        setRows(list);
+        setPreviewId((id) => {
+          if (id && (list.some((v) => v.id === id) || id === ORIGINAL_ID)) return id;
+          return list[0]?.id || original?.id || null;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [historyOpen, docKey, versionsTick, original?.id]);
 
   // Stage may briefly not exist (job switching mid-render / empty stage list) —
   // getStageDoc returns null then. Bail after hooks are called so hook order stays stable.
@@ -1101,13 +1143,28 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
   const markdown = override?.markdown ?? base.markdown;
   const html = override?.html;
   const isEdited = !!override;
-  const isPage = !!pageId;
 
   if (isPage && !page) return null;
+
+  const liveHtml = isPage
+    ? page.html || ""
+    : typeof html === "string" && html.trim()
+      ? html
+      : markdownToHtml(markdown);
+  const liveMarkdown = isPage ? "" : markdown;
+  const versions = original ? [...rows, original] : rows;
+  const selected = versions.find((v) => v.id === previewId) || null;
+  const previewing = historyOpen && !!selected;
 
   function persistMain({ html: nextHtml, markdown: nextMd }) {
     setDocOverride(stageId, nextMd, { html: nextHtml });
     setOverride({ markdown: nextMd, html: nextHtml, savedAt: Date.now() });
+    recordVersionSoon({
+      docKey: stageDocKey(stageId),
+      source: "edit",
+      html: nextHtml,
+      markdown: nextMd,
+    });
     setSavedTick(true);
     setTimeout(() => setSavedTick(false), 1500);
   }
@@ -1115,13 +1172,77 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
   function persistPage({ html: nextHtml }) {
     if (!pageId) return;
     updateStagePage(stageId, pageId, { html: nextHtml });
+    recordVersionSoon({
+      docKey: pageDocKey(stageId, pageId),
+      source: "edit",
+      html: nextHtml,
+    });
     setSavedTick(true);
     setTimeout(() => setSavedTick(false), 1500);
   }
 
-  function handleReset() {
-    clearDocOverride(stageId);
-    setOverride(null);
+  async function openHistory() {
+    setSubTab("prep");
+    setPreviewId((id) => id || original?.id || null);
+    setHistoryOpen(true);
+    try {
+      if (isEdited || isPage) {
+        const existing = await listDocVersions(docKey);
+        if (!existing[0] || existing[0].html !== liveHtml) {
+          await recordVersion({
+            docKey,
+            source: "edit",
+            html: liveHtml,
+            markdown: liveMarkdown,
+          });
+        }
+      }
+    } catch {
+      /* history is best-effort */
+    }
+    setVersionsTick((n) => n + 1);
+  }
+
+  function closeHistory() {
+    setHistoryOpen(false);
+    setPreviewId(null);
+  }
+
+  async function handleRestore(id) {
+    if (!window.confirm("Restore this version? Your current content will be saved first.")) {
+      return;
+    }
+    const restored = await restoreDoc({
+      docKey,
+      liveHtml,
+      liveMarkdown,
+      versionId: id,
+      original,
+    });
+    if (!restored) return;
+    if (id === ORIGINAL_ID) {
+      clearDocOverride(stageId);
+      setOverride(null);
+    } else if (isPage) {
+      updateStagePage(stageId, pageId, { html: restored.html });
+    } else {
+      setDocOverride(stageId, restored.markdown, { html: restored.html });
+      setOverride({
+        markdown: restored.markdown,
+        html: restored.html,
+        savedAt: Date.now(),
+      });
+    }
+    closeHistory();
+    setEditorEpoch((n) => n + 1);
+  }
+
+  async function handleName(id) {
+    const current = rows.find((v) => v.id === id);
+    const next = window.prompt("Name this version", current?.label || "");
+    if (next == null) return;
+    const saved = await nameVersion(id, next);
+    if (saved) setRows((prev) => prev.map((v) => (v.id === id ? saved : v)));
   }
 
   function toggleToolbar() {
@@ -1136,107 +1257,136 @@ function StageView({ stageId, pageId, onRecordingChange, onPageDeleted }) {
   const heading = isPage ? page.title : base.title;
   const subheading = isPage ? `${base.title} · page` : base.subtitle;
   const showEditorChrome = isPage || subTab === "prep";
+  const showToolbar = showEditorChrome && toolbarOpen && !historyOpen;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <header className="shrink-0 border-b border-line">
-        <div className="flex items-center justify-between gap-4 px-8 py-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="break-words text-lg font-semibold leading-snug text-ink1">
-                {heading}
-              </h2>
-              {isPage && (
-                <span className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-medium text-ink1 ring-1 ring-inset ring-line">
-                  page
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-ink2">{subheading}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-3">
-            {!isPage && (
-              <div className="flex gap-1 rounded-lg bg-surface p-1 text-xs">
-                <button
-                  onClick={() => setSubTab("prep")}
-                  className={`rounded-md px-3 py-1.5 font-medium transition ${
-                    subTab === "prep"
-                      ? "bg-accent text-white"
-                      : "text-ink1 hover:bg-surface2"
-                  }`}
-                >
-                  Prep doc
-                </button>
-                <button
-                  onClick={() => setSubTab("recording")}
-                  className={`rounded-md px-3 py-1.5 font-medium transition ${
-                    subTab === "recording"
-                      ? "bg-accent text-white"
-                      : "text-ink1 hover:bg-surface2"
-                  }`}
-                >
-                  Recording / Transcript
-                </button>
+    <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="shrink-0 border-b border-line">
+          <div className="flex items-center justify-between gap-4 px-8 py-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="break-words text-lg font-semibold leading-snug text-ink1">
+                  {heading}
+                </h2>
+                {isPage && (
+                  <span className="rounded-full bg-surface2 px-2 py-0.5 text-[11px] font-medium text-ink1 ring-1 ring-inset ring-line">
+                    page
+                  </span>
+                )}
               </div>
-            )}
-            {showEditorChrome && (
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={`text-xs transition ${
-                    savedTick ? "text-emerald-600 dark:text-emerald-400" : "text-ink2"
-                  }`}
-                >
-                  {savedTick ? "Saved ✓" : "Autosaves locally"}
-                </span>
-                {!isPage && isEdited && (
+              <p className="text-xs text-ink2">{subheading}</p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              {!isPage && (
+                <div className="flex gap-1 rounded-lg bg-surface p-1 text-xs">
                   <button
-                    onClick={handleReset}
+                    onClick={() => setSubTab("prep")}
+                    className={`rounded-md px-3 py-1.5 font-medium transition ${
+                      subTab === "prep"
+                        ? "bg-accent text-white"
+                        : "text-ink1 hover:bg-surface2"
+                    }`}
+                  >
+                    Prep doc
+                  </button>
+                  <button
+                    onClick={() => {
+                      closeHistory();
+                      setSubTab("recording");
+                    }}
+                    className={`rounded-md px-3 py-1.5 font-medium transition ${
+                      subTab === "recording"
+                        ? "bg-accent text-white"
+                        : "text-ink1 hover:bg-surface2"
+                    }`}
+                  >
+                    Recording / Transcript
+                  </button>
+                </div>
+              )}
+              {showEditorChrome && (
+                <div className="flex shrink-0 items-center gap-2">
+                  <span
+                    className={`text-xs transition ${
+                      savedTick ? "text-emerald-600 dark:text-emerald-400" : "text-ink2"
+                    }`}
+                  >
+                    {historyOpen
+                      ? "Previewing · read-only"
+                      : savedTick
+                        ? "Saved ✓"
+                        : "Autosaves locally"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={historyOpen ? closeHistory : openHistory}
                     className="rounded-md px-3 py-2 text-xs font-medium text-ink1 transition hover:bg-surface2"
                   >
-                    Reset to original
+                    {historyOpen ? "Back to editing" : "Version history"}
                   </button>
-                )}
-                <ToolbarToggle open={toolbarOpen} onToggle={toggleToolbar} />
-              </div>
-            )}
+                  {!historyOpen && (
+                    <ToolbarToggle open={toolbarOpen} onToggle={toggleToolbar} />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        {showEditorChrome && toolbarOpen && (
-          <div
-            ref={setToolbarHost}
-            className="flex min-h-[2.25rem] items-center border-t border-line bg-surface px-8 py-1.5"
-          />
-        )}
-      </header>
-
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {!isPage && (
-          <div className={subTab === "recording" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
-            <InterviewRecording stageId={stageId} onChange={onRecordingChange} />
-          </div>
-        )}
-        <div className={isPage || subTab === "prep" ? "px-8 py-6" : "hidden"}>
-        <article className="mx-auto max-w-3xl">
-          {isPage ? (
-            <RichDocEditor
-              key={page.id}
-              html={page.html}
-              placeholder="Write this page…"
-              onChange={persistPage}
-              toolbarHost={toolbarHost}
-            />
-          ) : (
-            <RichDocEditor
-              html={html}
-              markdown={markdown}
-              placeholder="Write your prep notes…"
-              onChange={persistMain}
-              toolbarHost={toolbarHost}
+          {showToolbar && (
+            <div
+              ref={setToolbarHost}
+              className="flex min-h-[2.25rem] items-center border-t border-line bg-surface px-8 py-1.5"
             />
           )}
-        </article>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {!isPage && (
+            <div className={subTab === "recording" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+              <InterviewRecording stageId={stageId} onChange={onRecordingChange} />
+            </div>
+          )}
+          <div className={isPage || subTab === "prep" ? "px-8 py-6" : "hidden"}>
+            <article className="mx-auto max-w-3xl">
+              {previewing ? (
+                <RichDocEditor
+                  key={`preview:${selected.id}`}
+                  html={selected.html}
+                  markdown={selected.markdown}
+                  readOnly
+                />
+              ) : isPage ? (
+                <RichDocEditor
+                  key={`${page.id}:${editorEpoch}`}
+                  html={page.html}
+                  placeholder="Write this page…"
+                  onChange={persistPage}
+                  toolbarHost={toolbarHost}
+                />
+              ) : (
+                <RichDocEditor
+                  key={`${stageId}:${editorEpoch}`}
+                  html={html}
+                  markdown={markdown}
+                  placeholder="Write your prep notes…"
+                  onChange={persistMain}
+                  toolbarHost={toolbarHost}
+                />
+              )}
+            </article>
+          </div>
         </div>
       </div>
+      {historyOpen && (
+        <VersionHistory
+          versions={versions}
+          selectedId={previewId}
+          onSelect={setPreviewId}
+          onRestore={handleRestore}
+          onName={handleName}
+          onClose={closeHistory}
+        />
+      )}
     </div>
   );
 }

@@ -10,11 +10,9 @@ _(none open from the 2026-08-25 Advisor Confirm session)_
 
 ## In Progress
 
-_(nothing — pick from Up Next)_
+- Prep-doc version history (Google Docs–style preview + restore; docs only this pass) on `feat/prep-doc-version-history`
 
 ## Up Next
-
-- Prep-doc version history (Google Docs–style preview + restore; flashcards later) — design parked in Cursor plan `prep_doc_version_history_67a5aa72`
 - Retry in the real Advisor thread: “create a subpage in the onsite prep docs for each set of questions” — Confirm cards should parse (no orange “could not be read”)
 - Optionally sync `interview.config.js` proposal examples with in-app `systemPrompt.js` KIT_ACTIONS (left unstaged on purpose)
 
@@ -29,4 +27,5 @@ _(nothing — pick from Up Next)_
 
 ## Session Log
 
+- 2026-09-04 — Started prep-doc version history on `feat/prep-doc-version-history` (IndexedDB snapshots, Version history panel, restore). Flashcards still later.
 - 2026-08-25 — Shipped Advisor flashcard inline Review (#29) and Confirm recap + prep-doc subpages (#30). After apply, every kit Confirm keeps Review and drops the write button. Shared context can no longer be rewritten via `update_prep_doc`. Nested onsite pages use `add_subpage`.

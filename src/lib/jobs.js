@@ -3,7 +3,7 @@
 // feature state in store.js/db.js is namespaced by the active job's id.
 
 import { get, set, remove, listKeys } from "./storage.js";
-import { deleteJobRecords } from "./db.js";
+import { deleteDocVersionsForStage, deleteJobRecords } from "./db.js";
 import { getProfileEntries } from "./profile.js";
 import { APP, STAGES, ADVISOR_STARTERS } from "../../interview.config.js";
 
@@ -105,6 +105,7 @@ export function updateJobStages(jobId, nextStages) {
     for (const id of removedIds) {
       remove(`${prefix}prepdoc:override:${id}`);
       remove(`${prefix}prepdoc:pages:${id}`);
+      void deleteDocVersionsForStage(id, jobId);
     }
 
     const flagsKey = `${prefix}recordings:hasByStage`;
@@ -184,8 +185,8 @@ export async function deleteJobWithData(jobId) {
     else remove(ACTIVE_KEY);
   }
 
-  const { attempts, recordings } = await deleteJobRecords(jobId);
-  return { removedKeys: jobKeys.length, attempts, recordings };
+  const { attempts, recordings, versions } = await deleteJobRecords(jobId);
+  return { removedKeys: jobKeys.length, attempts, recordings, versions };
 }
 
 /**
