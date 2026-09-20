@@ -625,3 +625,36 @@ export function clearDismissedSuggestion(stageId) {
     getDismissedSuggestions().filter((id) => id !== stageId)
   );
 }
+
+// ---- Recommendation from newly saved context ---------------------------------
+// Written when the user hits Save on the Context tab. Prep Docs listens and
+// only toasts when this is set — missing seed stages alone are not enough.
+
+const CONTEXT_RECOMMENDATION_KEY = "context:recommendation";
+export const CONTEXT_RECOMMENDATION_EVENT = "ipk:context-recommendation";
+
+function emitContextRecommendation(rec) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CONTEXT_RECOMMENDATION_EVENT, { detail: rec }));
+}
+
+export function getContextRecommendation() {
+  return jget(CONTEXT_RECOMMENDATION_KEY, null);
+}
+
+export function setContextRecommendation(rec) {
+  if (!rec) {
+    jremove(CONTEXT_RECOMMENDATION_KEY);
+    emitContextRecommendation(null);
+    return null;
+  }
+  const stored = { ...rec, createdAt: rec.createdAt || Date.now() };
+  jset(CONTEXT_RECOMMENDATION_KEY, stored);
+  emitContextRecommendation(stored);
+  return stored;
+}
+
+export function clearContextRecommendation() {
+  jremove(CONTEXT_RECOMMENDATION_KEY);
+  emitContextRecommendation(null);
+}

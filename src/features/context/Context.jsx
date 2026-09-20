@@ -5,6 +5,10 @@ import {
   addCustomContextEntry,
   updateCustomContextEntry,
   removeCustomContextEntry,
+  getCurrentStageId,
+  getDismissedSuggestions,
+  setContextRecommendation,
+  clearContextRecommendation,
 } from "../../lib/store.js";
 import {
   addProfileEntry,
@@ -16,6 +20,7 @@ import { attachProfileRef, detachProfileRef, getActiveJob, getJobs } from "../..
 import { fetchUrlContent, normalizeUrlInput } from "../../lib/fetchUrl.js";
 import { readEntryFile, entryNameFromUrl } from "../../lib/entryFile.js";
 import { isProxyReachable } from "../../lib/claude.js";
+import { recommendFromNewContext } from "../prep-docs/suggestions.js";
 
 export default function Context({ onChange }) {
   const [tick, setTick] = useState(0);
@@ -58,11 +63,72 @@ function ContextManager({ blocks, onChange }) {
   const [urlError, setUrlError] = useState("");
   const [editing, setEditing] = useState(null);
   const [addScope, setAddScope] = useState("job");
+  const [pending, setPending] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [savedNote, setSavedNote] = useState(null);
 
   const job = getActiveJob();
   const profileEntries = getProfileEntries();
   const attached = new Set(job?.profileRefs || []);
   const custom = blocks.filter((b) => b.source === "custom");
+
+  function queuePending({ name, content }) {
+    const trimmedName = String(name || "").trim();
+    const trimmedContent = String(content || "").trim();
+    if (!trimmedName || !trimmedContent) return;
+    setSavedNote(null);
+    setPending((prev) => [
+      ...prev,
+      {
+        id: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: trimmedName,
+        content: trimmedContent,
+        scope: addScope,
+      },
+    ]);
+  }
+
+  function removePending(id) {
+    setPending((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  async function savePendingContext() {
+    if (!pending.length || saving) return;
+    setSaving(true);
+    setSavedNote(null);
+    const started = Date.now();
+    try {
+      const snapshot = pending;
+      for (const item of snapshot) {
+        if (item.scope === "profile") {
+          const entry = addProfileEntry({ name: item.name, content: item.content });
+          if (job) attachProfileRef(job.id, entry.id);
+        } else {
+          addCustomContextEntry({ name: item.name, content: item.content });
+        }
+      }
+      const jobNow = getActiveJob();
+      const stageIds = (jobNow?.stages || []).map((s) => s.id);
+      const rec = recommendFromNewContext(snapshot, {
+        existingStageIds: stageIds,
+        dismissedIds: getDismissedSuggestions(),
+        currentStageId: getCurrentStageId(stageIds),
+      });
+      if (rec) setContextRecommendation(rec);
+      else clearContextRecommendation();
+      const wait = 600 - (Date.now() - started);
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      setPending([]);
+      setSavedNote(
+        rec
+          ? "Saved. Prep Docs has a suggested next step based on this context."
+          : "Saved. Advisor and prep docs will use this context."
+      );
+      onChange();
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function openEditProfile(entry) {
     setEditing({
@@ -99,22 +165,12 @@ function ContextManager({ blocks, onChange }) {
     onChange();
   }
 
-  function addEntry({ name, content }) {
-    if (addScope === "profile") {
-      const entry = addProfileEntry({ name, content });
-      if (job) attachProfileRef(job.id, entry.id);
-    } else {
-      addCustomContextEntry({ name, content });
-    }
-  }
-
   function handleAddCustom() {
     if (!newName.trim() || !newContent.trim()) return;
-    addEntry({ name: newName, content: newContent });
+    queuePending({ name: newName, content: newContent });
     setNewName("");
     setNewContent("");
     setAdding(false);
-    onChange();
   }
 
   async function handleUploadFile(e) {
@@ -124,8 +180,7 @@ function ContextManager({ blocks, onChange }) {
     setUploadBusy(true);
     setUploadError("");
     try {
-      addEntry(await readEntryFile(file));
-      onChange();
+      queuePending(await readEntryFile(file));
     } catch (err) {
       setUploadError(err.message || "Could not read that file.");
     } finally {
@@ -148,9 +203,8 @@ function ContextManager({ blocks, onChange }) {
         return;
       }
       const { title, text } = await fetchUrlContent(url);
-      addEntry({ name: entryNameFromUrl(url, title), content: text });
+      queuePending({ name: entryNameFromUrl(url, title), content: text });
       setSourceUrl("");
-      onChange();
     } catch (e) {
       setUrlError(e.message || "Could not fetch that URL.");
     } finally {
@@ -323,7 +377,7 @@ function ContextManager({ blocks, onChange }) {
                 onClick={handleAddCustom}
                 className="rounded-lg bg-accent px-3 py-1.5 text-sm font-semibold text-white"
               >
-                Add
+                Add to list
               </button>
             </div>
           </div>
@@ -331,17 +385,18 @@ function ContextManager({ blocks, onChange }) {
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <button
               onClick={() => setAdding(true)}
-              className="flex-1 rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1"
+              disabled={saving}
+              className="flex-1 rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1 disabled:opacity-50"
             >
               + Paste context
             </button>
-            <label className="flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1">
+            <label className={`flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-dashed border-line py-3 text-sm text-ink2 transition hover:border-line hover:text-ink1 ${saving || uploadBusy ? "opacity-50" : ""}`}>
               {uploadBusy ? "Converting…" : "Upload .md / .txt / .pdf"}
               <input
                 type="file"
                 accept=".md,.txt,.pdf,text/markdown,text/plain,application/pdf"
                 className="hidden"
-                disabled={uploadBusy}
+                disabled={uploadBusy || saving}
                 onChange={handleUploadFile}
               />
             </label>
@@ -353,11 +408,12 @@ function ContextManager({ blocks, onChange }) {
             value={sourceUrl}
             onChange={(e) => setSourceUrl(e.target.value)}
             placeholder="https://... page to pull in (portfolio, docs, posting)"
-            className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none"
+            disabled={saving}
+            className="min-w-0 flex-1 rounded-lg border border-line bg-canvas px-3 py-1.5 text-xs text-ink1 focus:border-accent focus:outline-none disabled:opacity-50"
           />
           <button
             onClick={handleAddFromUrl}
-            disabled={urlBusy}
+            disabled={urlBusy || saving}
             className="shrink-0 rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink1 transition hover:border-line disabled:opacity-50"
           >
             {urlBusy ? "Fetching…" : "Add from URL"}
@@ -365,6 +421,48 @@ function ContextManager({ blocks, onChange }) {
         </div>
         {(uploadError || urlError) && (
           <p className="mt-1 text-xs text-red-600 dark:text-red-300">{uploadError || urlError}</p>
+        )}
+
+        {pending.length > 0 && (
+          <div className="mt-4 rounded-xl border border-accent/30 bg-accent/5 p-3">
+            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-ink2">
+              Ready to save · {pending.length}
+            </p>
+            <ul className="mt-1">
+              {pending.map((item) => (
+                <li
+                  key={item.id}
+                  className="flex items-center gap-3 rounded-lg px-2 py-2"
+                >
+                  <span className="min-w-0 flex-1 truncate text-sm text-ink1">{item.name}</span>
+                  <span className="shrink-0 text-[11px] text-ink2">
+                    {item.scope === "profile" ? "Shared" : "This job"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removePending(item.id)}
+                    disabled={saving}
+                    className="shrink-0 rounded px-2 py-1 text-xs text-ink2 hover:bg-surface2 hover:text-ink1 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={savePendingContext}
+              disabled={saving}
+              className="mt-2 w-full rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:cursor-wait disabled:opacity-80"
+            >
+              {saving ? "Saving context…" : "Save context"}
+            </button>
+          </div>
+        )}
+        {savedNote && !pending.length && (
+          <p className="mt-3 rounded-lg bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
+            {savedNote}
+          </p>
         )}
       </section>
 
