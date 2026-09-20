@@ -558,8 +558,8 @@ export default function Advisor({ onContextChange, onStagesChange }) {
               send(input);
             }}
           >
-            <div className="flex gap-2">
-              <div className="relative min-h-[52px] min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <div className="relative h-10 min-w-0 flex-1">
                 <textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -569,22 +569,15 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                       send(input);
                     }
                   }}
-                  rows={2}
+                  rows={1}
                   placeholder={
                     speech.listening || recorder.recording
                       ? "Listening… stop the mic to send"
                       : "Ask anything, paste recruiter intel, or drop a URL to ingest…"
                   }
                   disabled={busy}
-                  className={`min-h-[52px] w-full resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50 ${
-                    (speech.listening || recorder.recording) && speech.interim ? "pb-5" : ""
-                  }`}
+                  className="block h-10 w-full resize-none overflow-hidden rounded-lg border border-line bg-canvas px-3 py-2 text-sm leading-5 text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
                 />
-                { (speech.listening || recorder.recording) && speech.interim ? (
-                  <p className="pointer-events-none absolute inset-x-3 bottom-1 truncate text-[11px] text-ink2">
-                    {speech.interim}
-                  </p>
-                ) : null}
               </div>
               <button
                 type="button"
@@ -605,7 +598,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                       : "Talk to the advisor"
                 }
                 aria-pressed={speech.listening || recorder.recording}
-                className={`shrink-0 self-end rounded-lg px-3 py-2 text-sm font-semibold transition disabled:opacity-40 ${
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold transition disabled:opacity-40 ${
                   speech.listening || recorder.recording
                     ? "bg-red-500 text-white hover:bg-red-600"
                     : "border border-line bg-surface text-ink1 hover:border-accent/50"
@@ -616,11 +609,14 @@ export default function Advisor({ onContextChange, onStagesChange }) {
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="shrink-0 self-end rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:opacity-40"
+                className="inline-flex h-10 shrink-0 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accentHover disabled:opacity-40"
               >
                 Send
               </button>
             </div>
+            {(speech.listening || recorder.recording) && speech.interim ? (
+              <p className="truncate text-[11px] text-ink2">{speech.interim}</p>
+            ) : null}
             {(speech.error || recorder.error) ? (
               <p className="text-xs text-amber-700 dark:text-amber-300">
                 {recorder.error ||
