@@ -13,6 +13,7 @@ import {
 } from "../../lib/store.js";
 import { getActiveJob, getActiveJobId, updateJobStages } from "../../lib/jobs.js";
 import { saveStageDoc } from "../../lib/generate.js";
+import { pageDocKey, recordVersionSoon, stageDocKey } from "../../lib/docHistory.js";
 import { getStageDoc } from "../prep-docs/stages.js";
 import { markdownToHtml, normalizePrepMarkdown } from "../../lib/markdownHtml.js";
 import {
@@ -665,6 +666,12 @@ function executeAddSubpage(proposal) {
     title: proposal.title,
     html: markdownToHtml(proposal.markdown),
   });
+  recordVersionSoon({
+    docKey: pageDocKey(proposal.stageId, page.id),
+    source: "advisor",
+    html: page.html,
+    markdown: proposal.markdown,
+  });
   return {
     ok: true,
     message: proposal.label,
@@ -707,8 +714,20 @@ function executeUpdatePrepDoc(proposal) {
         ? `${storedHtml}\n${html}`
         : markdownToHtml(combined),
     });
+    recordVersionSoon({
+      docKey: stageDocKey(proposal.stageId),
+      source: "advisor",
+      html: storedHtml ? `${storedHtml}\n${html}` : markdownToHtml(combined),
+      markdown: combined,
+    });
   } else {
     setDocOverride(proposal.stageId, proposal.markdown, { html });
+    recordVersionSoon({
+      docKey: stageDocKey(proposal.stageId),
+      source: "advisor",
+      html,
+      markdown: proposal.markdown,
+    });
   }
   return {
     ok: true,
@@ -742,7 +761,7 @@ function executeAddStage(proposal) {
         : s
     );
     updateJobStages(jobId, nextStages);
-    saveStageDoc(proposal.stageId, proposal.content);
+    saveStageDoc(proposal.stageId, proposal.content, { source: "advisor" });
     return {
       ok: true,
       message: `Updated prep doc for “${proposal.title}”. Open Prep Docs to review.`,
@@ -763,7 +782,7 @@ function executeAddStage(proposal) {
       : { regenTask: base.regenTask }),
   };
   updateJobStages(jobId, [...job.stages, stage]);
-  saveStageDoc(stage.id, proposal.content);
+  saveStageDoc(stage.id, proposal.content, { source: "advisor" });
   return {
     ok: true,
     message: `Added stage “${stage.title}” with prep doc. Open Prep Docs to review.`,

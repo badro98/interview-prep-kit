@@ -21,6 +21,7 @@ import {
 } from "../jobs.js";
 import { get as storageGet, set as storageSet } from "../storage.js";
 import { addProfileEntry } from "../profile.js";
+import { _resetDbConnection } from "../db.js";
 import {
   APP,
   STAGES,
@@ -31,6 +32,7 @@ import {
 beforeEach(() => {
   localStorage.clear();
   globalThis.indexedDB = new IDBFactory(); // fresh DB per test
+  _resetDbConnection();
 });
 
 // jobs.js has a static import of db.js, so the `?t=` query param does NOT
@@ -42,6 +44,7 @@ beforeEach(() => {
 async function freshModules() {
   const t = `${Date.now()}-${Math.random()}`;
   const db = await import(/* @vite-ignore */ `../db.js?t=${t}`);
+  db._resetDbConnection();
   const jobs = await import(/* @vite-ignore */ `../jobs.js?t=${t}`);
   return { db, jobs };
 }
@@ -273,7 +276,7 @@ describe("deleteJobWithData", () => {
     jobs.setActiveJobId(a.id);
     const result = await jobs.deleteJobWithData(a.id);
 
-    expect(result).toEqual({ removedKeys: 2, attempts: 1, recordings: 1 });
+    expect(result).toEqual({ removedKeys: 2, attempts: 1, recordings: 1, versions: 0 });
     expect(storageGet(`job:${a.id}:flashcards:progress`)).toBeNull();
     expect(storageGet(`job:${a.id}:context:custom`)).toBeNull();
     expect(jobs.getJob(a.id)).toBeNull();
@@ -293,7 +296,7 @@ describe("deleteJobWithData", () => {
 
     const result = await jobs.deleteJobWithData(only.id);
 
-    expect(result).toEqual({ removedKeys: 0, attempts: 0, recordings: 0 });
+    expect(result).toEqual({ removedKeys: 0, attempts: 0, recordings: 0, versions: 0 });
     expect(jobs.getJobs()).toEqual([]);
     expect(jobs.getActiveJobId()).toBeNull();
   });

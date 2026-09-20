@@ -8,9 +8,10 @@ import { openDB } from "idb";
 import { getActiveJobId } from "./jobs.js";
 
 const DB_NAME = "iprep-audio";
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const ATTEMPTS_STORE = "attempts";
 const RECORDINGS_STORE = "interviewRecordings";
+export const VERSIONS_STORE = "docVersions";
 
 let dbPromise = null;
 
@@ -27,6 +28,11 @@ function db() {
           const store = database.createObjectStore(RECORDINGS_STORE, { keyPath: "id" });
           store.createIndex("byStage", "stageId");
           store.createIndex("byCreated", "createdAt");
+        }
+        if (!database.objectStoreNames.contains(VERSIONS_STORE)) {
+          const store = database.createObjectStore(VERSIONS_STORE, { keyPath: "id" });
+          store.createIndex("byJob", "jobId");
+          store.createIndex("byDoc", ["jobId", "docKey"]);
         }
         for (const name of [ATTEMPTS_STORE, RECORDINGS_STORE]) {
           const store = transaction.objectStore(name);
@@ -172,9 +178,9 @@ export async function replaceRecordingForStage(stageId, recording) {
 }
 
 /**
- * Delete every attempt + recording row belonging to a job (used when a job
- * itself is deleted). One readwrite transaction per store. Returns the
- * number of rows removed from each store.
+ * Delete every attempt + recording + prep-doc version row belonging to a job
+ * (used when a job itself is deleted). One readwrite transaction per store.
+ * Returns the number of rows removed from each store.
  */
 export async function deleteJobRecords(jobId) {
   const d = await db();
@@ -182,6 +188,7 @@ export async function deleteJobRecords(jobId) {
   for (const [storeName, key] of [
     [ATTEMPTS_STORE, "attempts"],
     [RECORDINGS_STORE, "recordings"],
+    [VERSIONS_STORE, "versions"],
   ]) {
     const tx = d.transaction(storeName, "readwrite");
     const keys = await tx.store.index("byJob").getAllKeys(jobId);
@@ -191,7 +198,63 @@ export async function deleteJobRecords(jobId) {
     await tx.done;
     counts[key] = keys.length;
   }
-  return { attempts: counts.attempts, recordings: counts.recordings };
+  return { attempts: counts.attempts, recordings: counts.recordings, versions: counts.versions };
+}
+
+function newVersionId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ||
+    `v-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  );
+}
+
+export async function putDocVersion(record) {
+  const jobId = record.jobId ?? getActiveJobId();
+  const row = {
+    id: record.id || newVersionId(),
+    createdAt: record.createdAt ?? Date.now(),
+    source: record.source || "edit",
+    html: typeof record.html === "string" ? record.html : "",
+    markdown: typeof record.markdown === "string" ? record.markdown : "",
+    jobId,
+    docKey: record.docKey,
+    ...(record.label ? { label: record.label } : {}),
+  };
+  await (await db()).put(VERSIONS_STORE, row);
+  return row;
+}
+
+export async function getDocVersion(id) {
+  if (!id) return null;
+  return (await (await db()).get(VERSIONS_STORE, id)) || null;
+}
+
+/** Versions for one document in the active job, newest first. */
+export async function listDocVersions(docKey) {
+  const jobId = getActiveJobId();
+  const all = await (await db()).getAllFromIndex(VERSIONS_STORE, "byDoc", [jobId, docKey]);
+  return all.sort((a, b) => b.createdAt - a.createdAt || String(b.id).localeCompare(String(a.id)));
+}
+
+export async function deleteDocVersion(id) {
+  await (await db()).delete(VERSIONS_STORE, id);
+}
+
+/** Drop history for a removed stage (main doc + any subpages). */
+export async function deleteDocVersionsForStage(stageId, jobId = getActiveJobId()) {
+  if (!jobId || !stageId) return 0;
+  const d = await db();
+  const all = await d.getAllFromIndex(VERSIONS_STORE, "byJob", jobId);
+  const prefix = `page:${stageId}:`;
+  const stageKey = `stage:${stageId}`;
+  let removed = 0;
+  for (const row of all) {
+    if (row.docKey === stageKey || String(row.docKey || "").startsWith(prefix)) {
+      await d.delete(VERSIONS_STORE, row.id);
+      removed++;
+    }
+  }
+  return removed;
 }
 
 /** Stamp jobId onto legacy records that predate job scoping. Returns count updated. */

@@ -77,7 +77,7 @@ describe("job-scoped IndexedDB", () => {
     await db.replaceRecordingForStage("onsite", { fileName: "b.wav" });
 
     const result = await db.deleteJobRecords(a.id);
-    expect(result).toEqual({ attempts: 2, recordings: 1 });
+    expect(result).toEqual({ attempts: 2, recordings: 1, versions: 0 });
 
     jobs.setActiveJobId(a.id);
     expect(await db.getAllAttempts()).toEqual([]);
