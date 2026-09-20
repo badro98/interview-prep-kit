@@ -7,6 +7,8 @@
 
 import { coach } from "./coach.js";
 import { setDocOverride } from "./store.js";
+import { markdownToHtml } from "./markdownHtml.js";
+import { recordVersionSoon, stageDocKey } from "./docHistory.js";
 
 const CATEGORY_IDS = ["behavioral", "situational", "role-specific"];
 const MAX_CARDS = 30;
@@ -23,8 +25,15 @@ export function generateStageDoc(stage) {
 }
 
 /** Thin wrapper so wizard/UI code doesn't need to import store.js directly. */
-export function saveStageDoc(stageId, markdown) {
-  setDocOverride(stageId, markdown);
+export function saveStageDoc(stageId, markdown, { source = "generate" } = {}) {
+  const html = markdownToHtml(markdown);
+  setDocOverride(stageId, markdown, { html });
+  recordVersionSoon({
+    docKey: stageDocKey(stageId),
+    source,
+    html,
+    markdown,
+  });
 }
 
 /** Build the coach() task asking for a fresh, role-tailored flashcard deck. */
