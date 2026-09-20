@@ -23,10 +23,17 @@ import {
 } from "../../lib/context.js";
 import { buildCustomStage } from "../onboarding/steps.js";
 
-const PREP_DOC_XML = /<prep-doc\b([^>]*)>([\s\S]*?)<\/prep-doc>/gi;
-const PREP_DOC_TICKS = /(`{3,})prep-doc([^\n]*)\n([\s\S]*?)\n\1/gi;
-
 const VALID_CATS = new Set(CATEGORIES.map((c) => c.id));
+
+const TYPE_ALIASES = {
+  create_stage: "add_stage",
+  new_stage: "add_stage",
+  add_stages: "add_stage",
+  create_prep_doc: "update_prep_doc",
+  write_prep_doc: "update_prep_doc",
+  add_page: "add_subpage",
+  create_subpage: "add_subpage",
+};
 
 function slug(s) {
   return String(s)
@@ -48,8 +55,8 @@ export function stripAdvisorActions(text) {
     .replace(/```[^\n]*\n[\s\S]*?(?:```|$)/gi, (block) =>
       isProposalJson(block) ? "" : block
     )
-    .replace(/<prep-doc\b[^>]*>[\s\S]*?<\/prep-doc>/gi, "")
-    .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?\n\1/gi, "");
+    .replace(/<prep-doc\b[^>]*>[\s\S]*?(?:<\/prep-doc>|$)/gi, "")
+    .replace(/(`{3,})prep-doc[^\n]*\n[\s\S]*?(?:\n\1|$)/gi, "");
   const bare = s.search(/\{\s*"proposals"\s*:/);
   if (bare >= 0) s = s.slice(0, bare);
   return s.trim();
@@ -60,58 +67,220 @@ export function hasAdvisorActionsFence(text) {
   return (
     /```advisor-actions/i.test(s) ||
     /<prep-doc\b/i.test(s) ||
+    /&lt;prep-doc\b/i.test(s) ||
     /```+prep-doc/i.test(s) ||
     ( /```json/i.test(s) && isProposalJson(s) ) ||
     /\{\s*"proposals"\s*:/.test(s)
   );
 }
 
+function stripTrailingCommas(value) {
+  return String(value || "").replace(/,\s*([}\]])/g, "$1");
+}
+
+/** First top-level `{...}` starting at `from`, treating raw newlines as inside strings. */
+function sliceJsonObject(s, from = 0) {
+  const start = String(s || "").indexOf("{", from);
+  if (start < 0) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < s.length; i++) {
+    const c = s[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (c === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      continue;
+    }
+    if (c === "{") depth += 1;
+    else if (c === "}") {
+      depth -= 1;
+      if (depth === 0) return s.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/** Allow raw newlines/tabs inside JSON strings (models stuffing markdown into JSON). */
+function repairJsonStrings(s) {
+  let out = "";
+  let inString = false;
+  let escaped = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (inString) {
+      if (escaped) {
+        out += c;
+        escaped = false;
+        continue;
+      }
+      if (c === "\\") {
+        out += c;
+        escaped = true;
+        continue;
+      }
+      if (c === '"') {
+        inString = false;
+        out += c;
+        continue;
+      }
+      if (c === "\n" || c === "\r") {
+        out += "\\n";
+        continue;
+      }
+      if (c === "\t") {
+        out += "\\t";
+        continue;
+      }
+      if (c.charCodeAt(0) < 32) continue;
+      out += c;
+      continue;
+    }
+    if (c === '"') inString = true;
+    out += c;
+  }
+  return out;
+}
+
 function parseJsonPayload(raw) {
   let s = String(raw || "").trim();
   s = s.replace(/^json\b/i, "").trim();
-  s = s.replace(/,\s*([}\]])/g, "$1");
   const tryParse = (value) => {
+    if (!value) return null;
+    const cleaned = stripTrailingCommas(value);
     try {
-      return JSON.parse(value);
+      return JSON.parse(cleaned);
     } catch {
-      return null;
+      try {
+        return JSON.parse(repairJsonStrings(cleaned));
+      } catch {
+        return null;
+      }
     }
   };
   const direct = tryParse(s);
   if (direct) return direct;
-  const start = s.indexOf("{");
-  const end = s.lastIndexOf("}");
-  if (start >= 0 && end > start) return tryParse(s.slice(start, end + 1).replace(/,\s*([}\]])/g, "$1"));
+  const sliced = sliceJsonObject(s);
+  if (sliced) return tryParse(sliced);
   return null;
+}
+
+function attrValue(raw, name) {
+  const s = String(raw || "");
+  return (
+    s.match(new RegExp(`${name}\\s*=\\s*"([^"]+)"`, "i"))?.[1] ||
+    s.match(new RegExp(`${name}\\s*=\\s*'([^']+)'`, "i"))?.[1] ||
+    s.match(new RegExp(`${name}\\s*=\\s*([^\\s>]+)`, "i"))?.[1] ||
+    null
+  );
 }
 
 function parsePrepAttrs(raw) {
   const s = String(raw || "");
   const stageId =
-    s.match(/stageId\s*=\s*"([^"]+)"/i)?.[1] ||
-    s.match(/stage\s*=\s*"([^"]+)"/i)?.[1] ||
+    attrValue(s, "stageId") ||
+    attrValue(s, "stage") ||
     s.match(/^\s+([A-Za-z0-9_-]+)/)?.[1] ||
     null;
-  const title = s.match(/title\s*=\s*"([^"]+)"/i)?.[1] || null;
+  const title = attrValue(s, "title");
   return { stageId, title };
 }
 
-function extractPrepDocs(text) {
-  const source = String(text || "");
+function decodePrepDocEntities(s) {
+  const source = String(s || "");
+  if (!/&lt;\s*prep-doc/i.test(source)) return source;
+  return source.replace(/&lt;/gi, "<").replace(/&gt;/gi, ">");
+}
+
+function extractXmlPrepDocs(source) {
   const docs = [];
-  const xml = new RegExp(PREP_DOC_XML.source, "gi");
+  const re = /<prep-doc\b([^>]*)>/gi;
+  const tags = [];
   let m;
-  while ((m = xml.exec(source))) {
-    const markdown = normalizePrepMarkdown(m[2]);
-    if (markdown) docs.push({ ...parsePrepAttrs(m[1]), markdown });
+  while ((m = re.exec(source))) {
+    tags.push({ attrs: m[1], bodyStart: m.index + m[0].length, openStart: m.index });
   }
-  if (docs.length) return docs;
-  const ticks = new RegExp(PREP_DOC_TICKS.source, "gi");
-  while ((m = ticks.exec(source))) {
-    const markdown = normalizePrepMarkdown(m[3]);
-    if (markdown) docs.push({ ...parsePrepAttrs(m[2]), markdown });
+  for (let i = 0; i < tags.length; i++) {
+    const until = i + 1 < tags.length ? tags[i + 1].openStart : source.length;
+    const region = source.slice(tags[i].bodyStart, until);
+    const close = region.search(/<\/prep-doc>/i);
+    const body = close >= 0 ? region.slice(0, close) : region;
+    const markdown = normalizePrepMarkdown(body);
+    if (!markdown) continue;
+    const attrs = parsePrepAttrs(tags[i].attrs);
+    // Ignore bare "<prep-doc>" mentions in prose (no attrs, no heading).
+    if (!attrs.stageId && !attrs.title && !/^#\s+/m.test(markdown) && markdown.length < 80) {
+      continue;
+    }
+    docs.push({ ...attrs, markdown });
   }
   return docs;
+}
+
+function extractTickPrepDocs(source) {
+  const docs = [];
+  const re = /(`{3,})prep-doc([^\n]*)\n/gi;
+  const tags = [];
+  let m;
+  while ((m = re.exec(source))) {
+    tags.push({
+      ticks: m[1],
+      attrs: m[2],
+      bodyStart: m.index + m[0].length,
+      openStart: m.index,
+    });
+  }
+  for (let i = 0; i < tags.length; i++) {
+    const until = i + 1 < tags.length ? tags[i + 1].openStart : source.length;
+    const region = source.slice(tags[i].bodyStart, until);
+    const closer = region.indexOf(`\n${tags[i].ticks}`);
+    const body = closer >= 0 ? region.slice(0, closer) : region.replace(new RegExp(`${tags[i].ticks}\\s*$`), "");
+    const markdown = normalizePrepMarkdown(body);
+    if (markdown) docs.push({ ...parsePrepAttrs(tags[i].attrs), markdown });
+  }
+  return docs;
+}
+
+function extractMarkdownFenceDocs(source) {
+  const docs = [];
+  const re = /```(?:markdown|md|text)\b[^\n]*\n([\s\S]*?)```/gi;
+  let m;
+  while ((m = re.exec(source))) {
+    const markdown = normalizePrepMarkdown(m[1]);
+    if (!markdown) continue;
+    const title = markdown.match(/^#\s+(.+)$/m)?.[1]?.trim() || null;
+    docs.push({ stageId: title ? slug(title) : null, title, markdown });
+  }
+  return docs;
+}
+
+function extractPrepDocs(text) {
+  const source = decodePrepDocEntities(text);
+  const xml = extractXmlPrepDocs(source);
+  if (xml.length) return xml;
+  return extractTickPrepDocs(source);
+}
+
+function canonicalType(type) {
+  const t = String(type || "");
+  return TYPE_ALIASES[t] || t;
+}
+
+function canonicalizeProposal(p) {
+  if (!p || typeof p !== "object") return p;
+  const type = canonicalType(p.type);
+  return type === p.type ? p : { ...p, type };
 }
 
 function proposalNeedsDoc(p) {
@@ -144,8 +313,7 @@ function applyPrepDoc(p, doc) {
   return { ...p, markdown: doc.markdown };
 }
 
-function attachPrepDocs(rawProposals, text) {
-  const docs = extractPrepDocs(text);
+function attachNamedDocs(rawProposals, docs) {
   if (!docs.length) return rawProposals;
   const unused = [...docs];
   return rawProposals.map((p) => {
@@ -174,12 +342,19 @@ function attachPrepDocs(rawProposals, text) {
   });
 }
 
+function attachPrepDocs(rawProposals, text) {
+  return attachNamedDocs(rawProposals, extractPrepDocs(text));
+}
+
 function salvageFromPrepDocs(text) {
-  const docs = extractPrepDocs(text);
-  if (!docs.length) return [];
   const source = String(text || "");
+  let docs = extractPrepDocs(source);
+  if (!docs.length) docs = extractMarkdownFenceDocs(source);
+  if (!docs.length) return [];
   const append = /"mode"\s*:\s*"append"/.test(source);
-  const jsonTypes = [...source.matchAll(/"type"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
+  const jsonTypes = [...source.matchAll(/"type"\s*:\s*"([^"]+)"/g)].map((m) =>
+    canonicalType(m[1])
+  );
   const jsonStageIds = [...source.matchAll(/"stageId"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
   const jsonTitles = [...source.matchAll(/"title"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
   const jsonStages = [...source.matchAll(/"stage"\s*:\s*"([^"]+)"/g)].map((m) => m[1]);
@@ -187,7 +362,7 @@ function salvageFromPrepDocs(text) {
     const title = (doc.title || jsonTitles[i] || jsonStages[i] || doc.stageId || jsonStageIds[i] || "Prep doc").trim();
     const stageId = (doc.stageId || jsonStageIds[i] || title).trim();
     const type = jsonTypes[i];
-    if (type === "add_subpage" || type === "add_page") {
+    if (type === "add_subpage") {
       return {
         type: "add_subpage",
         stageId,
@@ -294,9 +469,14 @@ function extractRawProposals(source) {
 export function parseAdvisorActions(text) {
   if (!text) return [];
   const source = String(text);
-  let raw = extractRawProposals(source);
+  let raw = extractRawProposals(source)
+    .map(canonicalizeProposal)
+    .filter((p) => p && p.type);
   if (!raw.length) raw = salvageFromPrepDocs(source);
   raw = attachPrepDocs(raw, source);
+  if (raw.some(proposalNeedsDoc)) {
+    raw = attachNamedDocs(raw, extractMarkdownFenceDocs(source));
+  }
   return raw.map((p, i) => normalizeProposal(p, i)).filter(Boolean);
 }
 
@@ -399,6 +579,8 @@ function blockedForContextRewrite(p, markdown) {
 
 function normalizeProposal(p, index) {
   if (!p || !p.type) return null;
+  p = canonicalizeProposal(p);
+  if (!p.type) return null;
 
   if (p.type === "add_flashcards") {
     const stages = getActiveJob()?.stages || [];

@@ -587,3 +587,133 @@ ${markdown}
     expect(getStagePages("onsite")[0].title).toBe("Call debrief");
   });
 });
+
+describe("parseAdvisorActions — stuffed / truncated prep docs", () => {
+  it("salvages two add_stage proposals when markdown is stuffed into JSON with raw newlines", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const text = `Okay, I've confirmed the stages.
+
+\`\`\`advisor-actions
+{"proposals":[
+  {"type":"add_stage","id":"customer-operations-lead","title":"Customer Success Lead","content":"# Customer Success Lead
+
+- Discovery and expansion.
+"},
+  {"type":"add_stage","id":"hiring-manager","title":"Hiring Manager","content":"# Hiring Manager
+
+- Leadership stories.
+"}
+]}
+\`\`\``;
+
+    const proposals = parseAdvisorActions(text);
+    expect(proposals).toHaveLength(2);
+    expect(proposals[0].type).toBe("add_stage");
+    expect(proposals[0].stageId).toBe("customer-operations-lead");
+    expect(proposals[0].content).toContain("Discovery and expansion");
+    expect(proposals[1].stageId).toBe("hiring-manager");
+    expect(proposals[1].content).toContain("Leadership stories");
+    expect(stripAdvisorActions(text)).toBe("Okay, I've confirmed the stages.");
+  });
+
+  it("attaches unclosed prep-doc tags to tiny JSON add_stage proposals", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const text = `Let's start by setting up the new interview stages.
+
+\`\`\`advisor-actions
+{"proposals":[{"type":"add_stage","id":"customer-success-lead","title":"Customer Success Lead"},{"type":"add_stage","id":"hiring-manager","title":"Hiring Manager"}]}
+\`\`\`
+
+<prep-doc stageId="customer-success-lead" title="Customer Success Lead">
+# Customer Success Lead
+
+Discovery focus.
+<prep-doc stageId="hiring-manager" title="Hiring Manager">
+# Hiring Manager
+
+Leadership focus.`;
+
+    const proposals = parseAdvisorActions(text);
+    expect(proposals).toHaveLength(2);
+    expect(proposals[0].content).toContain("Discovery focus");
+    expect(proposals[1].content).toContain("Leadership focus");
+  });
+
+  it("parses single-quoted prep-doc attributes", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const text = `Ready.
+
+\`\`\`advisor-actions
+{"proposals":[{"type":"add_stage","id":"coding","title":"Practical coding"}]}
+\`\`\`
+
+<prep-doc stageId='coding' title='Practical coding'>
+# Practical coding
+
+Bring a laptop.
+</prep-doc>`;
+
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("add_stage");
+    expect(proposal.stageId).toBe("coding");
+    expect(proposal.content).toContain("Bring a laptop");
+  });
+
+  it("keeps tiny JSON when the fence is left open and the doc contains braces", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const markdown = "# Practical coding\n\nUse `{id: 1}` in the walkthrough.";
+    const text = `Here you go.
+
+\`\`\`advisor-actions
+{"proposals":[{"type":"add_stage","id":"coding","title":"Practical coding"}]}
+
+<prep-doc stageId="coding" title="Practical coding">
+${markdown}
+</prep-doc>`;
+
+    const [proposal] = parseAdvisorActions(text);
+    expect(proposal.type).toBe("add_stage");
+    expect(proposal.content).toBe(markdown);
+  });
+
+  it("attaches markdown fences when tiny JSON has no prep-doc tags", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const text = `Two new rounds.
+
+\`\`\`advisor-actions
+{"proposals":[{"type":"add_stage","id":"cs-lead","title":"Customer Success Lead"},{"type":"add_stage","id":"hm-round","title":"Hiring Manager"}]}
+\`\`\`
+
+\`\`\`markdown
+# Customer Success Lead
+
+Discovery.
+\`\`\`
+
+\`\`\`markdown
+# Hiring Manager
+
+Leadership.
+\`\`\``;
+
+    const proposals = parseAdvisorActions(text);
+    expect(proposals).toHaveLength(2);
+    expect(proposals[0].content).toContain("Discovery");
+    expect(proposals[1].content).toContain("Leadership");
+  });
+
+  it("treats create_stage as add_stage", () => {
+    const job = createJob({});
+    setActiveJobId(job.id);
+    const [proposal] = parseAdvisorActions(`\`\`\`advisor-actions
+{"proposals":[{"type":"create_stage","id":"coding","title":"Practical coding","content":"# Practical coding\\n\\nGo."}]}
+\`\`\``);
+    expect(proposal.type).toBe("add_stage");
+    expect(proposal.stageId).toBe("coding");
+  });
+});
