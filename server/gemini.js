@@ -80,6 +80,36 @@ export async function generateChat({ system, messages, webSearch = false }) {
   }
 }
 
+/**
+ * Multi-turn chat with audio on the latest user turn (short practice listen).
+ * History stays text. Inline under 20MB, Files API above.
+ */
+export async function generateChatWithAudio({
+  system,
+  messages,
+  audioBuffer,
+  mimeType = "audio/wav",
+}) {
+  const list = Array.isArray(messages) ? messages : [];
+  const audioPart = await audioPartFromBuffer(audioBuffer, mimeType);
+  const contents = list.map((m, i) => {
+    const role = m.role === "assistant" ? "model" : "user";
+    const textPart = { text: m.content || "" };
+    if (i === list.length - 1 && role === "user") {
+      return { role, parts: [textPart, audioPart] };
+    }
+    return { role, parts: [textPart] };
+  });
+  const config = { maxOutputTokens: 32768 };
+  if (system) config.systemInstruction = system;
+  const res = await ai().models.generateContent({
+    model: MODEL,
+    contents,
+    config,
+  });
+  return res.text || "";
+}
+
 /** Single-turn text (legacy coaching calls). */
 export async function generateText({ system, user }) {
   const res = await ai().models.generateContent({

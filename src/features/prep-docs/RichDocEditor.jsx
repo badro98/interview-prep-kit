@@ -48,6 +48,7 @@ export default function RichDocEditor({
   onChange,
   placeholder,
   toolbarHost,
+  readOnly = false,
 }) {
   const timer = useRef(null);
   const onChangeRef = useRef(onChange);
@@ -56,6 +57,7 @@ export default function RichDocEditor({
 
   const editor = useEditor({
     immediatelyRender: false,
+    editable: !readOnly,
     extensions: extensions(placeholder),
     content: initialHtml({ html, markdown }),
     editorProps: {
@@ -67,7 +69,7 @@ export default function RichDocEditor({
       });
     },
     onUpdate: ({ editor: ed }) => {
-      if (!ready.current) return;
+      if (!ready.current || readOnly) return;
       clearTimeout(timer.current);
       timer.current = setTimeout(() => {
         onChangeRef.current?.({
@@ -97,11 +99,16 @@ export default function RichDocEditor({
     });
   }, [contentKey, editor, html, markdown]);
 
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!readOnly);
+  }, [editor, readOnly]);
+
   if (!editor) return null;
 
   return (
     <>
-      {toolbarHost ? createPortal(<Toolbar editor={editor} />, toolbarHost) : null}
+      {!readOnly && toolbarHost ? createPortal(<Toolbar editor={editor} />, toolbarHost) : null}
       <div className="rounded-lg border border-line bg-canvas">
         <EditorContent editor={editor} />
       </div>
