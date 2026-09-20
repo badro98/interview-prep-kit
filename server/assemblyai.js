@@ -33,7 +33,7 @@ async function uploadBuffer(buffer) {
   return data.upload_url;
 }
 
-async function createTranscript(uploadUrl) {
+async function createTranscript(uploadUrl, extra = {}) {
   const res = await fetch(`${BASE}/transcript`, {
     method: "POST",
     headers: {
@@ -42,8 +42,7 @@ async function createTranscript(uploadUrl) {
     },
     body: JSON.stringify({
       audio_url: uploadUrl,
-      speaker_labels: true,
-      speakers_expected: 2,
+      ...extra,
     }),
   });
   if (!res.ok) {
@@ -105,7 +104,10 @@ export async function transcribeWithDiarization(buffer, { onProgress } = {}) {
   onProgress?.({ phase: "Uploading to AssemblyAI", progress: 12 });
   const uploadUrl = await uploadBuffer(buffer);
   onProgress?.({ phase: "Transcribing audio", progress: 18 });
-  const job = await createTranscript(uploadUrl);
+  const job = await createTranscript(uploadUrl, {
+    speaker_labels: true,
+    speakers_expected: 2,
+  });
   const result = await pollTranscript(job.id, {
     onPoll: ({ ratio }) => {
       const progress = Math.round(18 + ratio * 57);
@@ -115,4 +117,25 @@ export async function transcribeWithDiarization(buffer, { onProgress } = {}) {
   const parsed = parseUtterances(result);
   onProgress?.({ phase: "Transcription complete", progress: 75 });
   return { ...parsed, provider: "assemblyai" };
+}
+
+/**
+ * Solo practice / dictation — no speaker labels (saves a round of diarization).
+ * @returns {{ text: string, words: string[], durationMs: number, provider: 'assemblyai' }}
+ */
+export async function transcribeSolo(buffer) {
+  const uploadUrl = await uploadBuffer(buffer);
+  const job = await createTranscript(uploadUrl, {
+    punctuate: true,
+    format_text: true,
+    disfluencies: true,
+  });
+  const result = await pollTranscript(job.id);
+  const words = (result.words || []).map((w) => w.text).filter(Boolean);
+  const text = String(result.text || words.join(" ")).trim();
+  const durationMs =
+    result.audio_duration != null
+      ? Math.round(result.audio_duration * 1000)
+      : 0;
+  return { text, words, durationMs, provider: "assemblyai" };
 }
