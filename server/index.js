@@ -10,6 +10,8 @@ import { generateText, generateChat, scoreAudio, pdfToMarkdown, isConfigured, MO
 import { fetchPublicUrl } from "./fetchUrl.js";
 import { transcribeInterview, assemblyConfigured } from "./transcribe.js";
 import { createJob, getJob, patchJob, publicJobView, cancelJob } from "./transcribeJobs.js";
+import { handleAdvisorAudio } from "./advisorAudio.js";
+import { openaiConfigured } from "./openaiAudio.js";
 
 const app = express();
 
@@ -43,6 +45,7 @@ app.get("/api/health", (_req, res) => {
     model: MODEL,
     configured: isConfigured(),
     assemblyai: assemblyConfigured(),
+    openai: openaiConfigured(),
   });
 });
 
@@ -74,6 +77,44 @@ app.post("/api/score-audio", async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message, cause: e.cause?.message || undefined });
   }
+});
+
+// Advisor voice: long re-STT, short practice listen, or long practice STT+text.
+// Short chat dictation must NOT use this route.
+app.post("/api/advisor-audio", (req, res) => {
+  upload.single("file")(req, res, async (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({
+          error: `Recording exceeds ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB.`,
+        });
+      }
+      return res.status(400).json({ error: err.message || "Upload failed." });
+    }
+    try {
+      const file = req.file;
+      if (!file?.buffer?.length) return res.status(400).json({ error: "Missing audio file." });
+      const action = String(req.body?.action || "");
+      let messages = [];
+      try {
+        messages = JSON.parse(req.body?.messages || "[]");
+      } catch {
+        return res.status(400).json({ error: "Invalid messages JSON." });
+      }
+      const result = await handleAdvisorAudio({
+        action,
+        buffer: file.buffer,
+        mimeType: file.mimetype || req.body?.mimeType || "audio/webm",
+        durationMs: Number(req.body?.durationMs) || 0,
+        system: req.body?.system || "",
+        messages,
+        transcript: req.body?.transcript || "",
+      });
+      res.json(result);
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
 // Fetch a public webpage for advisor context ingestion.

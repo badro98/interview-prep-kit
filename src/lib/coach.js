@@ -80,14 +80,14 @@ export async function coach({ task, includeContext = true, system }) {
 }
 
 /** Messages for the model (supports modelContent on user turns). */
-function advisorMessagesForModel(messages) {
+export function advisorMessagesForModel(messages) {
   return (messages || []).map((m) => ({
     role: m.role,
     content: m.modelContent ?? m.content,
   }));
 }
 
-function buildAdvisorSystem() {
+export function buildAdvisorSystem() {
   const deck = getDeck();
   return [
     getAdvisorSystem(),

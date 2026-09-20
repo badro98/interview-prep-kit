@@ -5,7 +5,7 @@ import ActionProposals from "./ActionProposals.jsx";
 import SearchSources from "./SearchSources.jsx";
 import ChatHistory from "./ChatHistory.jsx";
 import AdvisorThinking from "./AdvisorThinking.jsx";
-import { advisorChat, getMode, MODE_API, MODE_PASTE } from "../../lib/coach.js";
+import { advisorChat, buildAdvisorSystem, advisorMessagesForModel, getMode, MODE_API, MODE_PASTE } from "../../lib/coach.js";
 import { getContextSummary } from "../../lib/context.js";
 import { getDeck } from "../flashcards/deck.js";
 import {
@@ -14,6 +14,14 @@ import {
   hasAdvisorActionsFence,
   executeAdvisorProposal,
 } from "./actions.js";
+import { classifyVoiceIntent, INTENT_PRACTICE } from "./voiceIntent.js";
+import {
+  selectVoiceRoute,
+  ROUTE_CHAT_LONG,
+  ROUTE_CHAT_SHORT,
+  ROUTE_PRACTICE_LONG,
+  ROUTE_PRACTICE_SHORT,
+} from "./voiceRoute.js";
 import { extractUrls, fetchUrlContent } from "../../lib/fetchUrl.js";
 import { splitSearchSources } from "./searchSources.js";
 import {
@@ -25,6 +33,10 @@ import {
 } from "../../lib/store.js";
 import { isProxyReachable } from "../../lib/claude.js";
 import { getActiveJob } from "../../lib/jobs.js";
+import { practiceAdvisorAudio, transcribeAdvisorAudio } from "../../lib/advisorAudio.js";
+import { useSpeechRecognition } from "../audio/useSpeechRecognition.js";
+import { useRecorder } from "../audio/useRecorder.js";
+import { blobToWavBlob } from "../audio/audioToWav.js";
 
 function ensureActiveThread() {
   let id = getActiveAdvisorThreadId();
@@ -55,6 +67,12 @@ export default function Advisor({ onContextChange, onStagesChange }) {
   const bottomRef = useRef(null);
   const skipSaveRef = useRef(false);
 
+  const appendDictation = useCallback((chunk) => {
+    setInput((prev) => `${prev}${chunk}`);
+  }, []);
+  const speech = useSpeechRecognition(appendDictation);
+  const recorder = useRecorder();
+
   const ctx = useMemo(() => getContextSummary(), [threadTick]);
   const deck = useMemo(() => getDeck(), [deckTick]);
   const starters = getActiveJob()?.advisorStarters || [];
@@ -66,6 +84,8 @@ export default function Advisor({ onContextChange, onStagesChange }) {
     setMessages(thread?.messages || []);
     setInput("");
     setErr("");
+    speech.stop();
+    if (recorder.recording) recorder.stop();
   }, [activeId]);
 
   // Persist messages for the active thread. Skip the hydration write after a
@@ -111,18 +131,24 @@ export default function Advisor({ onContextChange, onStagesChange }) {
   }, []);
 
   const send = useCallback(
-    async (text) => {
+    async (text, opts = {}) => {
       const trimmed = text.trim();
       if (!trimmed || busy) return;
 
+      speech.stop();
+      if (recorder.recording) recorder.stop();
       setErr("");
       setBusy(true);
       setBusyText(trimmed);
-      setBusyPhase(extractUrls(trimmed).length > 0 ? "fetching" : "thinking");
+      const skipUrlFetch = !!opts.skipUrlFetch;
+      const search = opts.webSearch ?? webSearch;
+      setBusyPhase(
+        !skipUrlFetch && extractUrls(trimmed).length > 0 ? "fetching" : "thinking"
+      );
 
       let modelContent = trimmed;
       try {
-        modelContent = await buildModelContent(trimmed);
+        modelContent = skipUrlFetch ? trimmed : await buildModelContent(trimmed);
       } catch (e) {
         setErr(e.message || "Could not prepare message.");
         setBusy(false);
@@ -135,6 +161,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
         role: "user",
         content: trimmed,
         modelContent: modelContent !== trimmed ? modelContent : undefined,
+        voiceMeta: opts.voiceMeta,
         at: Date.now(),
       };
       const nextMessages = [...messages, userMsg];
@@ -151,7 +178,7 @@ export default function Advisor({ onContextChange, onStagesChange }) {
           }
         }
 
-        const result = await advisorChat({ messages: nextMessages, webSearch });
+        const result = await advisorChat({ messages: nextMessages, webSearch: search });
 
         if (result.mode === MODE_PASTE) {
           setModal({
@@ -179,8 +206,187 @@ export default function Advisor({ onContextChange, onStagesChange }) {
         setBusy(false);
       }
     },
-    [messages, busy, buildModelContent, activeId, webSearch]
+    [messages, busy, buildModelContent, activeId, webSearch, speech.stop, recorder]
   );
+
+  const sendPracticeTurn = useCallback(
+    async ({ transcript, blob, type, durationMs, route }) => {
+      const display = transcript.trim() || "(voice practice)";
+      speech.stop();
+      setErr("");
+      setBusy(true);
+      setBusyText(display);
+      setBusyPhase("thinking");
+      setInput("");
+
+      const userMsg = {
+        role: "user",
+        content: display,
+        voiceMeta: { intent: INTENT_PRACTICE, route, durationMs },
+        at: Date.now(),
+      };
+      const nextMessages = [...messages, userMsg];
+      setMessages(nextMessages);
+
+      try {
+        if (getMode() !== MODE_API) {
+          throw new Error("Voice practice needs API mode (npm run dev).");
+        }
+        const ok = await isProxyReachable();
+        if (!ok) {
+          throw new Error(
+            "Proxy not reachable. Run npm run dev and open http://localhost:5175"
+          );
+        }
+
+        let uploadBlob = blob;
+        let uploadType = type;
+        if (route === ROUTE_PRACTICE_SHORT) {
+          try {
+            uploadBlob = await blobToWavBlob(blob);
+            uploadType = "audio/wav";
+          } catch {
+            /* original blob still works as a fallback */
+          }
+        }
+
+        const history = advisorMessagesForModel(nextMessages);
+        const result = await practiceAdvisorAudio({
+          blob: uploadBlob,
+          type: uploadType,
+          durationMs,
+          action: route,
+          system: buildAdvisorSystem(),
+          messages: history,
+          transcript: display,
+        });
+
+        setMessages([
+          ...nextMessages,
+          {
+            role: "assistant",
+            content: result.text,
+            at: Date.now(),
+            appliedProposalIds: [],
+            dismissedProposalIds: [],
+          },
+        ]);
+        if (result.transcript && result.transcript !== display) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.at === userMsg.at ? { ...m, content: result.transcript } : m
+            )
+          );
+        }
+      } catch (e) {
+        setErr(e.message || "Could not complete voice practice.");
+        setMessages(messages);
+        setInput(display);
+      } finally {
+        setBusy(false);
+      }
+    },
+    [messages, speech.stop]
+  );
+
+  const finishVoiceTurn = useCallback(async () => {
+    if (busy) return;
+    const interim = speech.interim || "";
+    const live = `${input}${input && interim && !input.endsWith(" ") ? " " : ""}${interim}`.trim();
+    speech.stop();
+    const recorded = recorder.recording ? await recorder.stop() : null;
+    const durationMs = recorded?.durationMs || recorder.elapsedMs || 0;
+    const byteSize = recorded?.blob?.size || 0;
+
+    if (!live && !recorded?.blob) return;
+
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && !m.isSystemNote);
+    const intent = classifyVoiceIntent({
+      transcript: live,
+      lastAssistantContent: lastAssistant
+        ? stripAdvisorActions(lastAssistant.content)
+        : "",
+      hasAudio: !!recorded?.blob,
+      durationMs,
+    });
+    const route = selectVoiceRoute({ intent, durationMs, byteSize });
+
+    if (getMode() === MODE_PASTE || route === ROUTE_CHAT_SHORT) {
+      if (!live) return;
+      await send(live, {
+        voiceMeta: { intent, route, durationMs },
+      });
+      return;
+    }
+
+    if (route === ROUTE_CHAT_LONG) {
+      let text = live;
+      if (recorded?.blob && getMode() === MODE_API) {
+        setBusy(true);
+        setBusyText("Transcribing…");
+        setBusyPhase("thinking");
+        try {
+          const result = await transcribeAdvisorAudio({
+            blob: recorded.blob,
+            type: recorded.type,
+            durationMs,
+          });
+          if (result.transcript) text = result.transcript;
+        } catch (e) {
+          setBusy(false);
+          if (!text) {
+            setErr(e.message || "Could not transcribe the take.");
+            return;
+          }
+        }
+        setBusy(false);
+      }
+      if (!text) return;
+      await send(text, {
+        voiceMeta: { intent, route, durationMs },
+      });
+      return;
+    }
+
+    if (route === ROUTE_PRACTICE_SHORT || route === ROUTE_PRACTICE_LONG) {
+      if (!recorded?.blob) {
+        if (!live) return;
+        await send(live, { voiceMeta: { intent, route, durationMs }, skipUrlFetch: true, webSearch: false });
+        return;
+      }
+      await sendPracticeTurn({
+        transcript: live,
+        blob: recorded.blob,
+        type: recorded.type,
+        durationMs,
+        route,
+      });
+    }
+  }, [
+    busy,
+    speech,
+    input,
+    recorder,
+    messages,
+    send,
+    sendPracticeTurn,
+  ]);
+
+  async function handleMicClick() {
+    if (busy) return;
+    if (speech.listening || recorder.recording) {
+      await finishVoiceTurn();
+      return;
+    }
+    setErr("");
+    if (recorder.supported) {
+      const ok = await recorder.start();
+      if (!ok && !speech.supported) return;
+    }
+    if (speech.supported) speech.start();
+  }
 
   function savePasteReply(text) {
     if (modal?.pendingMessages && modal.threadId === activeId) {
@@ -352,29 +558,73 @@ export default function Advisor({ onContextChange, onStagesChange }) {
               send(input);
             }}
           >
-            <div className="flex gap-2">
-              <textarea
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    send(input);
+            <div className="flex items-center gap-2">
+              <div className="relative h-10 min-w-0 flex-1">
+                <textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send(input);
+                    }
+                  }}
+                  rows={1}
+                  placeholder={
+                    speech.listening || recorder.recording
+                      ? "Listening… stop the mic to send"
+                      : "Ask anything, paste recruiter intel, or drop a URL to ingest…"
                   }
-                }}
-                rows={2}
-                placeholder="Ask anything, paste recruiter intel, or drop a URL to ingest…"
-                disabled={busy}
-                className="min-h-[52px] flex-1 resize-none rounded-lg border border-line bg-canvas px-3 py-2 text-sm text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
-              />
+                  disabled={busy}
+                  className="block h-10 w-full resize-none overflow-hidden rounded-lg border border-line bg-canvas px-3 py-2 text-sm leading-5 text-ink1 placeholder:text-ink2 focus:border-accent focus:outline-none disabled:opacity-50"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleMicClick}
+                disabled={busy || (!speech.supported && !recorder.supported)}
+                title={
+                  !speech.supported && !recorder.supported
+                    ? "Voice needs Chrome"
+                    : speech.listening || recorder.recording
+                      ? "Stop and send"
+                      : "Talk to the advisor"
+                }
+                aria-label={
+                  !speech.supported && !recorder.supported
+                    ? "Voice needs Chrome"
+                    : speech.listening || recorder.recording
+                      ? "Stop and send"
+                      : "Talk to the advisor"
+                }
+                aria-pressed={speech.listening || recorder.recording}
+                className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-semibold transition disabled:opacity-40 ${
+                  speech.listening || recorder.recording
+                    ? "bg-red-500 text-white hover:bg-red-600"
+                    : "border border-line bg-surface text-ink1 hover:border-accent/50"
+                }`}
+              >
+                <MicIcon />
+              </button>
               <button
                 type="submit"
                 disabled={busy || !input.trim()}
-                className="shrink-0 self-end rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accentHover disabled:opacity-40"
+                className="inline-flex h-10 shrink-0 items-center rounded-lg bg-accent px-4 text-sm font-semibold text-white transition hover:bg-accentHover disabled:opacity-40"
               >
                 Send
               </button>
             </div>
+            {(speech.listening || recorder.recording) && speech.interim ? (
+              <p className="truncate text-[11px] text-ink2">{speech.interim}</p>
+            ) : null}
+            {(speech.error || recorder.error) ? (
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {recorder.error ||
+                  (speech.error.includes("Gemini scoring")
+                    ? "Live transcription couldn't reach Google's speech service. Try standalone Chrome, or type instead."
+                    : speech.error)}
+              </p>
+            ) : null}
             <label className="flex cursor-pointer items-center gap-2 self-start text-xs text-ink2">
               <input
                 type="checkbox"
@@ -450,6 +700,14 @@ function MessageBubble({
         {isUser ? (
           <div>
             <p className="whitespace-pre-wrap text-sm leading-relaxed">{display}</p>
+            {message.voiceMeta?.intent === "practice" ? (
+              <p className="mt-2 text-[11px] text-ink2">
+                Voice practice
+                {message.voiceMeta.durationMs
+                  ? ` · ${Math.max(1, Math.round(message.voiceMeta.durationMs / 1000))}s`
+                  : ""}
+              </p>
+            ) : null}
             {message.modelContent && (
               <p className="mt-2 text-[11px] text-accent">
                 ↳ Linked page content fetched and included for the advisor
@@ -488,5 +746,23 @@ function MessageBubble({
         )}
       </div>
     </div>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0M12 19v3" />
+    </svg>
   );
 }
