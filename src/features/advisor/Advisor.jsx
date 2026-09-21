@@ -37,7 +37,7 @@ import { practiceAdvisorAudio, transcribeAdvisorAudio } from "../../lib/advisorA
 import { useSpeechRecognition } from "../audio/useSpeechRecognition.js";
 import { useRecorder } from "../audio/useRecorder.js";
 import { blobToWavBlob } from "../audio/audioToWav.js";
-import { MIC_DICTATE, MIC_VOICE, micStopKind, usesAudioCapture } from "./micMode.js";
+import { MIC_DICTATE, MIC_VOICE, usesAudioCapture } from "./micMode.js";
 
 function ensureActiveThread() {
   let id = getActiveAdvisorThreadId();
@@ -396,34 +396,40 @@ export default function Advisor({ onContextChange, onStagesChange }) {
     if (recorder.recording) recorder.stop();
   }
 
-  function selectMicMode(next) {
-    if (next === micMode) return;
-    if (speech.listening || recorder.recording) stopDictation();
-    setMicMode(next);
-  }
-
-  async function handleMicClick() {
+  async function handleDictateClick() {
     if (busy) return;
-    const pasteMode = getMode() === MODE_PASTE;
-    if (speech.listening || recorder.recording) {
-      if (micStopKind(micMode, { pasteMode }) === "keep_in_composer") {
-        stopDictation();
-        return;
-      }
-      await finishVoiceTurn();
+    if (micMode === MIC_VOICE && (speech.listening || recorder.recording)) {
+      stopDictation();
+      setMicMode(MIC_DICTATE);
+      return;
+    }
+    setMicMode(MIC_DICTATE);
+    if (speech.listening) {
+      stopDictation();
       return;
     }
     setErr("");
-    if (usesAudioCapture(micMode, { pasteMode })) {
-      if (recorder.supported) {
-        const ok = await recorder.start();
-        if (!ok && !speech.supported) return;
-      }
-      if (speech.supported) speech.start();
-      return;
-    }
     if (!speech.supported) return;
     speech.start();
+  }
+
+  async function handleVoiceClick() {
+    if (busy || getMode() === MODE_PASTE) return;
+    if (
+      (speech.listening || recorder.recording) &&
+      usesAudioCapture(micMode)
+    ) {
+      await finishVoiceTurn();
+      return;
+    }
+    if (speech.listening) stopDictation();
+    setMicMode(MIC_VOICE);
+    setErr("");
+    if (recorder.supported) {
+      const ok = await recorder.start();
+      if (!ok && !speech.supported) return;
+    }
+    if (speech.supported) speech.start();
   }
 
   function savePasteReply(text) {
@@ -597,83 +603,99 @@ export default function Advisor({ onContextChange, onStagesChange }) {
             }}
           >
             <div className="rounded-xl border border-line bg-canvas focus-within:border-accent">
-              <div className="relative">
-                <textarea
-                  ref={inputRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send(input);
-                    }
-                  }}
-                  rows={1}
-                  placeholder={
-                    speech.listening || recorder.recording
-                      ? micMode === MIC_VOICE && getMode() !== MODE_PASTE
-                        ? "Listening… stop the mic to send"
-                        : "Listening… stop the mic, then send"
-                      : "Ask anything, paste recruiter intel, or drop a URL to ingest…"
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    send(input);
                   }
-                  disabled={busy}
-                  className="block max-h-40 min-h-[40px] w-full resize-none overflow-y-auto bg-transparent px-3 py-2.5 pr-[4.75rem] text-sm leading-5 text-ink1 placeholder:text-ink2 focus:outline-none disabled:opacity-50"
-                />
-                <div className="absolute bottom-1.5 right-1.5 flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={handleMicClick}
-                    disabled={
-                      busy ||
-                      (micMode === MIC_VOICE && getMode() !== MODE_PASTE
-                        ? !speech.supported && !recorder.supported
-                        : !speech.supported)
-                    }
-                    title={
-                      micMode === MIC_VOICE && getMode() !== MODE_PASTE
-                        ? !speech.supported && !recorder.supported
-                          ? "Voice needs Chrome"
-                          : speech.listening || recorder.recording
-                            ? "Stop and send"
-                            : "Voice practice — stop to send"
-                        : !speech.supported
-                          ? "Dictation needs Chrome"
-                          : speech.listening
-                            ? "Stop dictation"
-                            : "Dictate into the box"
-                    }
-                    aria-label={
-                      micMode === MIC_VOICE && getMode() !== MODE_PASTE
-                        ? !speech.supported && !recorder.supported
-                          ? "Voice needs Chrome"
-                          : speech.listening || recorder.recording
-                            ? "Stop and send"
-                            : "Voice practice — stop to send"
-                        : !speech.supported
-                          ? "Dictation needs Chrome"
-                          : speech.listening
-                            ? "Stop dictation"
-                            : "Dictate into the box"
-                    }
-                    aria-pressed={speech.listening || recorder.recording}
-                    className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm transition active:scale-[0.97] disabled:opacity-40 ${
-                      speech.listening || recorder.recording
-                        ? "bg-red-500 text-white hover:bg-red-600"
-                        : "text-ink2 hover:bg-surface2 hover:text-ink1"
-                    }`}
-                  >
-                    <MicIcon />
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={busy || !input.trim()}
-                    aria-label="Send"
-                    title="Send"
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white transition hover:bg-accentHover active:scale-[0.97] disabled:opacity-40"
-                  >
-                    <SendIcon />
-                  </button>
-                </div>
+                }}
+                rows={1}
+                placeholder={
+                  speech.listening || recorder.recording
+                    ? micMode === MIC_VOICE && getMode() !== MODE_PASTE
+                      ? "Listening… stop voice to send"
+                      : "Listening… stop dictation, then send"
+                    : "Ask anything, paste recruiter intel, or drop a URL to ingest…"
+                }
+                disabled={busy}
+                className="block max-h-40 min-h-[40px] w-full resize-none overflow-y-auto bg-transparent px-3 pt-2.5 pb-1 text-sm leading-5 text-ink1 placeholder:text-ink2 focus:outline-none disabled:opacity-50"
+              />
+              <div className="flex items-center justify-end gap-0.5 px-1.5 pb-1.5">
+                <button
+                  type="button"
+                  onClick={handleDictateClick}
+                  disabled={busy || !speech.supported}
+                  title={
+                    !speech.supported
+                      ? "Dictation needs Chrome"
+                      : speech.listening && micMode === MIC_DICTATE
+                        ? "Stop dictation"
+                        : "Dictate into the box"
+                  }
+                  aria-label={
+                    !speech.supported
+                      ? "Dictation needs Chrome"
+                      : speech.listening && micMode === MIC_DICTATE
+                        ? "Stop dictation"
+                        : "Dictate into the box"
+                  }
+                  aria-pressed={speech.listening && micMode === MIC_DICTATE}
+                  className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition active:scale-[0.97] disabled:opacity-40 ${
+                    speech.listening && micMode === MIC_DICTATE
+                      ? "bg-red-500 text-white hover:bg-red-600"
+                      : "text-ink2 hover:bg-surface hover:text-ink1"
+                  }`}
+                >
+                  <MicIcon />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVoiceClick}
+                  disabled={
+                    busy ||
+                    getMode() === MODE_PASTE ||
+                    (!speech.supported && !recorder.supported)
+                  }
+                  title={
+                    getMode() === MODE_PASTE
+                      ? "Voice practice needs API mode"
+                      : !speech.supported && !recorder.supported
+                        ? "Voice needs Chrome"
+                        : (speech.listening || recorder.recording) && micMode === MIC_VOICE
+                          ? "Stop and send"
+                          : "Voice practice"
+                  }
+                  aria-label={
+                    getMode() === MODE_PASTE
+                      ? "Voice practice needs API mode"
+                      : !speech.supported && !recorder.supported
+                        ? "Voice needs Chrome"
+                        : (speech.listening || recorder.recording) && micMode === MIC_VOICE
+                          ? "Stop and send"
+                          : "Voice practice"
+                  }
+                  aria-pressed={(speech.listening || recorder.recording) && micMode === MIC_VOICE}
+                  className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition active:scale-[0.97] disabled:opacity-40 ${
+                    (speech.listening || recorder.recording) && micMode === MIC_VOICE
+                      ? "bg-red-500 text-white hover:bg-red-600"
+                      : "text-ink2 hover:bg-surface hover:text-ink1"
+                  }`}
+                >
+                  <WaveIcon />
+                </button>
+                <button
+                  type="submit"
+                  disabled={busy || !input.trim()}
+                  aria-label="Send"
+                  title="Send"
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-white transition hover:bg-accentHover active:scale-[0.97] disabled:opacity-40"
+                >
+                  <SendIcon />
+                </button>
               </div>
             </div>
             {(speech.listening || recorder.recording) && speech.interim ? (
@@ -687,61 +709,21 @@ export default function Advisor({ onContextChange, onStagesChange }) {
                     : speech.error)}
               </p>
             ) : null}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-              <div
-                role="radiogroup"
-                aria-label="Microphone mode"
-                className="inline-flex rounded-lg border border-line p-0.5 text-xs"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={micMode === MIC_DICTATE}
-                  onClick={() => selectMicMode(MIC_DICTATE)}
-                  className={`rounded-md px-2.5 py-1 font-medium transition ${
-                    micMode === MIC_DICTATE
-                      ? "bg-surface text-ink1 shadow-sm"
-                      : "text-ink2 hover:text-ink1"
-                  }`}
-                >
-                  Dictate
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={micMode === MIC_VOICE}
-                  disabled={getMode() === MODE_PASTE}
-                  title={
-                    getMode() === MODE_PASTE
-                      ? "Voice practice needs API mode"
-                      : "Record a take for delivery coaching"
-                  }
-                  onClick={() => selectMicMode(MIC_VOICE)}
-                  className={`rounded-md px-2.5 py-1 font-medium transition disabled:opacity-40 ${
-                    micMode === MIC_VOICE && getMode() !== MODE_PASTE
-                      ? "bg-surface text-ink1 shadow-sm"
-                      : "text-ink2 hover:text-ink1"
-                  }`}
-                >
-                  Voice
-                </button>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-ink2">
-                <input
-                  type="checkbox"
-                  checked={webSearch}
-                  onChange={(e) => setWebSearch(e.target.checked)}
-                  disabled={busy}
-                  className="rounded border-line bg-canvas text-accent focus:ring-accent disabled:opacity-50"
-                />
-                Web search
-                <span className="text-ink2">
-                  {getMode() === MODE_API
-                    ? "(Google grounding via Gemini)"
-                    : "(API mode only — paste has no live search)"}
-                </span>
-              </label>
-            </div>
+            <label className="flex cursor-pointer items-center gap-2 self-start text-xs text-ink2">
+              <input
+                type="checkbox"
+                checked={webSearch}
+                onChange={(e) => setWebSearch(e.target.checked)}
+                disabled={busy}
+                className="rounded border-line bg-canvas text-accent focus:ring-accent disabled:opacity-50"
+              />
+              Web search
+              <span className="text-ink2">
+                {getMode() === MODE_API
+                  ? "(Google grounding via Gemini)"
+                  : "(API mode only — paste has no live search)"}
+              </span>
+            </label>
           </form>
         </div>
       </div>
@@ -865,6 +847,22 @@ function SendIcon() {
     >
       <path d="M12 19V5" />
       <path d="m5 12 7-7 7 7" />
+    </svg>
+  );
+}
+
+function WaveIcon() {
+  return (
+    <svg
+      className="h-4 w-4"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <rect x="4" y="10" width="2.5" height="4" rx="1.25" />
+      <rect x="8.5" y="6" width="2.5" height="12" rx="1.25" />
+      <rect x="13" y="8" width="2.5" height="8" rx="1.25" />
+      <rect x="17.5" y="5" width="2.5" height="14" rx="1.25" />
     </svg>
   );
 }
