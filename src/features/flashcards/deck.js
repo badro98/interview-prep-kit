@@ -77,6 +77,7 @@ export function getDeck() {
       referenceAnswer: mo?.referenceAnswer ?? c.referenceAnswer ?? "",
       keyPoints: mo?.keyPoints ?? (Array.isArray(c.keyPoints) ? c.keyPoints : []),
       referenceIsCustom: !!mo,
+      modelInstruction: mo?.instruction || "",
       myAnswer: p.myAnswer ?? c.myAnswer ?? "",
       aiCoaching: p.aiCoaching ?? c.aiCoaching ?? "",
       confidence: p.confidence ?? c.confidence ?? null,
@@ -207,6 +208,96 @@ export function parseModelAnswerText(text) {
   }
   const referenceAnswer = lines.slice(i).join("\n").trim();
   return { keyPoints, referenceAnswer };
+}
+
+/**
+ * Rewrite the gold-standard model answer. The caller still attaches full
+ * enabled context via coach({ includeContext: true }); pinned sources are
+ * inlined here so they are not buried in that dump.
+ */
+export function buildReframeTask({
+  question,
+  referenceAnswer,
+  keyPoints = [],
+  instruction,
+  pinnedSources = [],
+}) {
+  const points =
+    keyPoints.filter(Boolean).length > 0
+      ? keyPoints.filter(Boolean).map((k) => `- ${k}`).join("\n")
+      : "(none)";
+  const pins = (pinnedSources || []).filter((s) => s && (s.label || s.content));
+  const pinnedBlock =
+    pins.length > 0
+      ? pins
+          .map(
+            (s) =>
+              `===== ${s.label || "Untitled source"} =====\n${String(s.content || "").trim()}`
+          )
+          .join("\n\n")
+      : "(none — search enabled context for anything the instruction names)";
+
+  return `Rewrite the gold-standard model answer for this interview question. Do not change the question. Do not coach my practice answer.
+
+QUESTION:
+${question}
+
+CURRENT MODEL ANSWER:
+${(referenceAnswer || "").trim() || "(none yet)"}
+
+CURRENT KEY POINTS:
+${points}
+
+INSTRUCTION:
+${String(instruction || "").trim()}
+
+Sources the user pointed at:
+${pinnedBlock}
+
+RULES:
+- Follow the instruction. A framing change keeps the same anecdote. Do not swap stories unless the instruction asks for a different story.
+- A story change uses only the anecdote the instruction and any pinned sources name.
+- Use real details from context. Do not invent companies, metrics, or stories.
+- When the instruction refers to a person, call, or document (for example "the recruiter" or "the transcript"), find that source in context and apply it.
+- If pinned sources conflict with another anecdote, prefer the pinned sources.
+- Return ONLY a JSON object, no prose, no code fences, in exactly this shape:
+{ "referenceAnswer": "...", "keyPoints": ["..."] }`;
+}
+
+/**
+ * Parse a rewrite reply into { referenceAnswer, keyPoints }.
+ * Returns null when the reply is not a JSON object with a non-empty answer.
+ * keyPoints may be an empty array; every entry must be a string.
+ */
+export function parseReframedModel(text) {
+  if (!text) return null;
+  let raw = String(text).trim();
+
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) raw = fence[1].trim();
+
+  if (!raw.startsWith("{")) {
+    const start = raw.indexOf("{");
+    const end = raw.lastIndexOf("}");
+    if (start === -1 || end <= start) return null;
+    raw = raw.slice(start, end + 1);
+  }
+
+  let obj;
+  try {
+    obj = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!obj || typeof obj !== "object" || Array.isArray(obj)) return null;
+  if (typeof obj.referenceAnswer !== "string" || !obj.referenceAnswer.trim()) return null;
+  if (!Array.isArray(obj.keyPoints)) return null;
+  if (obj.keyPoints.some((k) => typeof k !== "string")) return null;
+
+  return {
+    referenceAnswer: obj.referenceAnswer.trim(),
+    keyPoints: obj.keyPoints.map((k) => k.trim()).filter(Boolean),
+  };
 }
 
 /** "Generate more" — ask for additional role-tailored questions as JSON. */
