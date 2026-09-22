@@ -16,6 +16,8 @@ import {
   getCategoryOverrides,
   deleteCard,
   getHiddenCardIds,
+  setModelOverride,
+  getModelOverrides,
   addCustomContextEntry,
   getCustomContextEntries,
   getCustomContextEntriesForJob,
@@ -181,6 +183,39 @@ describe("job-scoped store", () => {
     ensureStageProgressDefaults(ids);
     expect(getStageProgress("recruiter", ids)).toBe("complete");
     expect(getStageProgress("hm", ids)).toBe("upcoming");
+  });
+
+  it("stores a rewrite instruction on the model override", () => {
+    const a = createJob({});
+    setActiveJobId(a.id);
+    addCustomCards([
+      {
+        id: "c-reframe",
+        question: "Tell me about a migration.",
+        category: "behavioral",
+        referenceAnswer: "Old story.",
+        keyPoints: ["old"],
+      },
+    ]);
+    setModelOverride("c-reframe", {
+      referenceAnswer: "Lead with the stakeholder conflict.",
+      keyPoints: ["conflict"],
+      instruction: "  Frame it the way the recruiter transcript said.  ",
+    });
+    expect(getModelOverrides()["c-reframe"].instruction).toBe(
+      "Frame it the way the recruiter transcript said."
+    );
+    const card = getDeck().find((c) => c.id === "c-reframe");
+    expect(card.referenceAnswer).toBe("Lead with the stakeholder conflict.");
+    expect(card.keyPoints).toEqual(["conflict"]);
+    expect(card.modelInstruction).toBe("Frame it the way the recruiter transcript said.");
+
+    setModelOverride("c-reframe", {
+      referenceAnswer: "Hand edit.",
+      keyPoints: ["edit"],
+    });
+    expect(getModelOverrides()["c-reframe"].instruction).toBeUndefined();
+    expect(getDeck().find((c) => c.id === "c-reframe").modelInstruction).toBe("");
   });
 });
 

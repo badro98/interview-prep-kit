@@ -24,6 +24,7 @@ import {
   formatModelAnswerText,
 } from "./deck.js";
 import AttemptPractice from "./AttemptPractice.jsx";
+import ReframePanel from "./ReframePanel.jsx";
 
 const CONF_FILTERS = [
   { id: "all", label: "All confidence" },
@@ -79,6 +80,7 @@ export default function Flashcards() {
   const stages = useMemo(() => getActiveJob()?.stages || [], [tick]);
   const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null); // { kind, prompt, title, saveLabel, replyHint }
+  const [reframePasteReply, setReframePasteReply] = useState(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [navSplit, setNavSplit] = useState(() =>
@@ -186,7 +188,24 @@ export default function Flashcards() {
 
   function handleModalSave(text) {
     if (modal?.kind === "generate") saveGenerated(text);
+    else if (modal?.kind === "reframe") {
+      setReframePasteReply({ text, nonce: Date.now() });
+      setModal(null);
+    }
   }
+
+  function requestReframePaste(payload) {
+    setModal({ kind: "reframe", ...payload });
+  }
+
+  function cancelReframePaste() {
+    setReframePasteReply(null);
+    setModal((current) => (current?.kind === "reframe" ? null : current));
+  }
+
+  useEffect(() => {
+    cancelReframePaste();
+  }, [selectedId]);
 
   function persistNavSplit(next) {
     const value = clampNavSplit(next);
@@ -389,6 +408,10 @@ export default function Flashcards() {
             onProgressChange={bump}
             onModelUpdated={bump}
             stageTitle={selected.stageId ? stageLabel(selected.stageId, stages) : null}
+            onRequestReframePaste={requestReframePaste}
+            reframePasteReply={reframePasteReply}
+            onReframePasteConsumed={() => setReframePasteReply(null)}
+            onCancelReframePaste={cancelReframePaste}
           />
         ) : (
           <div className="flex flex-1 items-center justify-center text-sm text-ink2">
@@ -693,8 +716,13 @@ function CardDetail({
   onProgressChange,
   onModelUpdated,
   stageTitle,
+  onRequestReframePaste,
+  reframePasteReply,
+  onReframePasteConsumed,
+  onCancelReframePaste,
 }) {
   const [flipped, setFlipped] = useState(false);
+  const [reframeOpen, setReframeOpen] = useState(false);
   const [editingModel, setEditingModel] = useState(false);
   const [modelText, setModelText] = useState(() =>
     formatModelAnswerText(card.referenceAnswer, card.keyPoints)
@@ -707,8 +735,8 @@ function CardDetail({
     setFlipped(false);
   }, [card.id, card.referenceAnswer, card.keyPoints]);
 
-  function saveModel(referenceAnswer, keyPoints) {
-    setModelOverride(card.id, { referenceAnswer, keyPoints });
+  function saveModel(referenceAnswer, keyPoints, instruction) {
+    setModelOverride(card.id, { referenceAnswer, keyPoints, instruction });
     setModelText(formatModelAnswerText(referenceAnswer, keyPoints));
     setEditingModel(false);
     setModelSavedTick(true);
@@ -734,6 +762,24 @@ function CardDetail({
     const { keyPoints, referenceAnswer } = parseModelAnswerText(modelText);
     if (!referenceAnswer && keyPoints.length === 0) return;
     saveModel(referenceAnswer, keyPoints);
+  }
+
+  function showQuestion() {
+    setEditingModel(false);
+    setFlipped(false);
+    setReframeOpen(false);
+    onCancelReframePaste?.();
+  }
+
+  function toggleReframe() {
+    setEditingModel(false);
+    if (reframeOpen) onCancelReframePaste?.();
+    setReframeOpen((open) => !open);
+  }
+
+  function acceptReframe({ referenceAnswer, keyPoints, instruction }) {
+    setReframeOpen(false);
+    saveModel(referenceAnswer, keyPoints, instruction);
   }
 
   const modelDisplay = formatModelAnswerText(card.referenceAnswer, card.keyPoints);
@@ -830,7 +876,23 @@ function CardDetail({
                       )}
                       <button
                         type="button"
-                        onClick={() => setEditingModel(true)}
+                        onClick={toggleReframe}
+                        aria-expanded={reframeOpen}
+                        className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                          reframeOpen
+                            ? "bg-accent/10 text-accent"
+                            : "bg-surface2 text-ink1 hover:bg-surface2"
+                        }`}
+                      >
+                        Rewrite
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReframeOpen(false);
+                          onCancelReframePaste?.();
+                          setEditingModel(true);
+                        }}
                         className="rounded bg-surface2 px-2 py-0.5 text-[10px] font-semibold text-ink1 hover:bg-surface2"
                       >
                         Edit
@@ -879,10 +941,7 @@ function CardDetail({
 
               <button
                 type="button"
-                onClick={() => {
-                  setEditingModel(false);
-                  setFlipped(false);
-                }}
+                onClick={showQuestion}
                 className="mt-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-4 py-2.5 text-sm font-semibold text-accent transition hover:border-accent/60 hover:bg-accent/20 hover:text-ink1"
               >
                 <span aria-hidden="true">↩</span>
@@ -891,6 +950,15 @@ function CardDetail({
             </div>
           </div>
         </div>
+
+        <ReframePanel
+          card={card}
+          open={reframeOpen}
+          onAccept={acceptReframe}
+          onRequestPaste={onRequestReframePaste}
+          pasteReply={reframePasteReply}
+          onPasteReplyConsumed={onReframePasteConsumed}
+        />
 
         <AttemptPractice
           card={card}

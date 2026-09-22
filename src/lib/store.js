@@ -198,13 +198,17 @@ const MODEL_KEY = "flashcards:modelOverrides";
 
 export const getModelOverrides = () => jget(MODEL_KEY, {});
 
-export function setModelOverride(cardId, { referenceAnswer, keyPoints }) {
+export function setModelOverride(cardId, { referenceAnswer, keyPoints, instruction }) {
   const map = getModelOverrides();
-  map[cardId] = {
+  const saved = {
     referenceAnswer,
     keyPoints: Array.isArray(keyPoints) ? keyPoints : [],
     savedAt: Date.now(),
   };
+  if (typeof instruction === "string" && instruction.trim()) {
+    saved.instruction = instruction.trim();
+  }
+  map[cardId] = saved;
   jset(MODEL_KEY, map);
   return map[cardId];
 }
